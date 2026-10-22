@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import type { DesktopUpdateState } from "@t3tools/contracts";
+import type { DesktopUpdateState } from "@vekrel/contracts";
 
 import {
   MAX_REMOTE_UPDATE_DOWNLOADS,

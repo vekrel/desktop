@@ -42,7 +42,7 @@ const ALLOWED_PREVIEW_PERMISSIONS: ReadonlySet<string> = new Set([
   // and silently granting it would hand every page the user's installed-font
   // fingerprint (and font file bytes via FontData.blob()).
   // Deliberately NOT notifications: a page could post OS notifications branded
-  // as T3 Code. T3's own come from the app window on the default session.
+  // as Vekrel. T3's own come from the app window on the default session.
 ]);
 
 const NEVER_EXTERNAL_PROTOCOLS: ReadonlySet<string> = new Set([
@@ -156,7 +156,7 @@ export class BrowserSession extends Context.Service<
       partitions?: ReadonlyArray<string>,
     ) => Effect.Effect<void, BrowserSessionCacheClearError>;
   }
->()("@t3tools/desktop/preview/BrowserSession") {}
+>()("@vekrel/desktop/preview/BrowserSession") {}
 
 const selectSessions = (
   sessions: ReadonlyMap<string, Session>,
