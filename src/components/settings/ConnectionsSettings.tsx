@@ -594,7 +594,7 @@ export function ConnectionsSettings() {
     }
   };
 
-  // T3 Connect machines get their own dialog: removing one here leaves its
+  // Vekrel Connect machines get their own dialog: removing one here leaves its
   // account registration, so it points to where that can be deregistered.
   const [pendingT3ConnectRemoval, setPendingT3ConnectRemoval] =
     useState<MachinePresentation | null>(null);
@@ -1215,7 +1215,7 @@ export function ConnectionsSettings() {
                 <AlertDialogDescription>
                   {pendingDesktopServerExposureMode === "network-accessible"
                     ? "Let your other devices connect to Vekrel over the network. Pair devices to give them access. Vekrel will restart."
-                    : "Devices connected over your local network will disconnect. Existing tunnels, such as T3 Connect or Tailscale HTTPS, keep working. Vekrel will restart."}
+                    : "Devices connected over your local network will disconnect. Existing tunnels, such as Vekrel Connect or Tailscale HTTPS, keep working. Vekrel will restart."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

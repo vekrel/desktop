@@ -36,7 +36,7 @@ export function machineTransportLabel(
       ? connectionRouteLabel(routes[0]!)
       : `via ${connectionRouteLabel(active)}`;
   }
-  if (machine.relayManaged) return "T3 Connect";
+  if (machine.relayManaged) return "Vekrel Connect";
   if (isDesktopLocalConnectionTarget(entry.target)) return "WSL";
   if (
     entry.target._tag === "SshConnectionTarget" &&

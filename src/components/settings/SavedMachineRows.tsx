@@ -437,7 +437,7 @@ function CloudLinkSwitch({
   disabled,
   disabledReason,
   onCheckedChange,
-  ariaLabel = "Enable T3 Connect",
+  ariaLabel = "Enable Vekrel Connect",
 }: {
   readonly checked: boolean;
   readonly disabled: boolean;
@@ -480,9 +480,9 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
   const [isUpdatingPreference, setIsUpdatingPreference] = useState(false);
 
   const disabledReason = !isSignedIn
-    ? "Sign in to T3 Connect to manage this machine."
+    ? "Sign in to Vekrel Connect to manage this machine."
     : !canManageRelay
-      ? "Your session does not have permission to manage T3 Connect access."
+      ? "Your session does not have permission to manage Vekrel Connect access."
       : null;
   const isBusy = isUpdating || isUpdatingPreference;
   const refreshLinkState = useEffectEvent(primaryCloudLinkState.refresh);
@@ -524,15 +524,15 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
       toastManager.add({
         type: "success",
         title: enabled
-          ? "T3 Connect linked"
+          ? "Vekrel Connect linked"
           : publishAgentActivity
-            ? "T3 Connect tunnel disabled"
-            : "T3 Connect unlinked",
+            ? "Vekrel Connect tunnel disabled"
+            : "Vekrel Connect unlinked",
         description: enabled
-          ? "This machine is available through T3 Connect."
+          ? "This machine is available through Vekrel Connect."
           : publishAgentActivity
             ? "The managed tunnel was removed. Agent activity publishing stays on."
-            : "This machine is no longer available through T3 Connect.",
+            : "This machine is no longer available through Vekrel Connect.",
       });
     }
     setIsUpdating(false);
@@ -570,7 +570,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
         type: "success",
         title: enabled ? "Webhooks held while offline" : "Webhooks no longer held",
         description: enabled
-          ? "T3 Connect keeps webhook requests for up to 24 hours while this machine is offline."
+          ? "Vekrel Connect keeps webhook requests for up to 24 hours while this machine is offline."
           : "Requests to an offline machine now fail. Anything already held is still delivered.",
       });
     }
@@ -584,16 +584,16 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
           title={searchableSetting("t3-connect").title}
           description={
             linkRevoked
-              ? "This machine was removed from T3 Connect. Turn it on to link it again."
+              ? "This machine was removed from Vekrel Connect. Turn it on to link it again."
               : managedTunnelActive
                 ? reachability?.status === "unreachable"
-                  ? "T3 Connect is on, but other devices cannot reach this machine."
+                  ? "Vekrel Connect is on, but other devices cannot reach this machine."
                   : reachability?.status === "reachable"
-                    ? "This machine is available to your other devices through T3 Connect."
-                    : "T3 Connect is on. Reachability has not been checked yet."
+                    ? "This machine is available to your other devices through Vekrel Connect."
+                    : "Vekrel Connect is on. Reachability has not been checked yet."
                 : managedTunnelOutOfSync
-                  ? "T3 Connect is out of sync. This machine is linked only to publish agent activity, so other devices cannot connect. Turn T3 Connect on to repair it."
-                  : "Make this machine available to your other devices through T3 Connect."
+                  ? "Vekrel Connect is out of sync. This machine is linked only to publish agent activity, so other devices cannot connect. Turn Vekrel Connect on to repair it."
+                  : "Make this machine available to your other devices through Vekrel Connect."
           }
           status={operationError ?? primaryCloudLinkState.error ?? reachabilityStatus}
           control={
@@ -614,12 +614,12 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
       ) : linkRevoked ? (
         <SettingsRow
           title={searchableSetting("t3-connect").title}
-          description="This machine was removed from T3 Connect. Run `t3 connect link` on the host to link it again."
+          description="This machine was removed from Vekrel Connect. Run `t3 connect link` on the host to link it again."
         />
       ) : null}
       <SettingsRow
         title={searchableSetting("publish-agent-activity").title}
-        description="Send activity to mobile notifications and Live Activities without T3 Connect."
+        description="Send activity to mobile notifications and Live Activities without Vekrel Connect."
         control={
           <CloudLinkSwitch
             ariaLabel="Publish agent activity to mobile clients"
@@ -639,7 +639,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
       {managedTunnelActive ? (
         <SettingsRow
           title={searchableSetting("hold-webhooks-while-offline").title}
-          description="Keep webhook requests for up to 24 hours while this machine is offline, then deliver them. Off: T3 Connect only forwards requests and stores nothing."
+          description="Keep webhook requests for up to 24 hours while this machine is offline, then deliver them. Off: Vekrel Connect only forwards requests and stores nothing."
           control={
             <CloudLinkSwitch
               ariaLabel="Hold webhook requests while this machine is offline"
@@ -666,7 +666,7 @@ export function CloudLinkRow({
   if (!canReadRelay) {
     return (
       <SettingsRow
-        title="T3 Connect"
+        title="Vekrel Connect"
         description="To edit these settings, pair this connection with both View relay and Manage relay permissions."
       />
     );
@@ -684,7 +684,7 @@ function EmptyRemoteMachines({ cloudEnabled = true }: { readonly cloudEnabled?: 
         <EmptyTitle>No saved remote machines</EmptyTitle>
         <EmptyDescription>
           {cloudEnabled
-            ? "Click “Add machine” to pair another machine, or connect one from T3 Connect."
+            ? "Click “Add machine” to pair another machine, or connect one from Vekrel Connect."
             : "Click “Add machine” to pair another machine."}
         </EmptyDescription>
       </EmptyHeader>

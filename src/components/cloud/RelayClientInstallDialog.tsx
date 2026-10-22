@@ -69,8 +69,8 @@ export function RelayClientInstallDialog() {
           </DialogTitle>
           <DialogDescription>
             {isInstalling
-              ? "Vekrel is preparing this machine for secure access through T3 Connect."
-              : "Vekrel needs the relay client to make this machine available through T3 Connect."}
+              ? "Vekrel is preparing this machine for secure access through Vekrel Connect."
+              : "Vekrel needs the relay client to make this machine available through Vekrel Connect."}
           </DialogDescription>
         </DialogHeader>
         <DialogPanel scrollFade={false}>

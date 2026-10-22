@@ -179,9 +179,9 @@ function ConfiguredConnectOnboardingDialog() {
     if (!ok) return;
     toastManager.add({
       type: "success",
-      title: "T3 Connect enabled",
+      title: "Vekrel Connect enabled",
       description: exposeMachine
-        ? "This machine is available to your other devices through T3 Connect."
+        ? "This machine is available to your other devices through Vekrel Connect."
         : "This machine publishes agent activity to your mobile clients.",
     });
     setStep("devices");
@@ -196,7 +196,7 @@ function ConfiguredConnectOnboardingDialog() {
     >
       <WizardPopup>
         <WizardHeader
-          title="Set up T3 Connect"
+          title="Set up Vekrel Connect"
           description={
             <>
               Mesh your devices together — publish this machine and connect the rest, all in one
@@ -310,7 +310,7 @@ function PublishStep({
       <div className="rounded-lg border">
         <OnboardingToggleRow
           title="Publish this machine"
-          description="Make this machine available to your other devices through T3 Connect."
+          description="Make this machine available to your other devices through Vekrel Connect."
           checked={exposeMachine}
           disabled={disabled}
           onCheckedChange={onExposeMachineChange}

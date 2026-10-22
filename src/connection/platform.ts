@@ -330,7 +330,7 @@ const layerCapabilities = Layer.effectContext(
         if (session === null) {
           return yield* new ConnectionBlockedError({
             reason: "authentication",
-            detail: "Sign in to T3 Connect to connect this machine.",
+            detail: "Sign in to Vekrel Connect to connect this machine.",
           });
         }
         const token = yield* session.readClerkToken().pipe(
@@ -345,7 +345,7 @@ const layerCapabilities = Layer.effectContext(
         if (token === null) {
           return yield* new ConnectionBlockedError({
             reason: "authentication",
-            detail: "The T3 Connect session is unavailable.",
+            detail: "The Vekrel Connect session is unavailable.",
           });
         }
         return token;

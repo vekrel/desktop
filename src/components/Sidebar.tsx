@@ -233,7 +233,7 @@ function sameSidebarProviderEntries(
   return true;
 }
 
-// Threads on non-primary machines (T3 Connect, hosted) resolve their
+// Threads on non-primary machines (Vekrel Connect, hosted) resolve their
 // provider entry from their own machine's config: default instance ids
 // are driver slugs, so a flat map would collide across machines.
 const sidebarProviderEntriesAtom = Atom.make((get) => {
