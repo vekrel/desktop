@@ -1,5 +1,5 @@
 # Vekrel-Desktop
-The Electron app that bundles the Vekrel engine and web client; derived from T3 Code (MIT, see NOTICE).
+The Electron app that bundles the Vekrel engine and web client. Highly inspired by T3 Code (MIT, see NOTICE).
 
 `apps/web`, `apps/server` and `packages/` are git subtrees of the other Vekrel repos. Each needs a split branch first, because the prefix is not the repo root. The split branches are temporary; delete them afterwards.
 ```bash
@@ -15,7 +15,7 @@ git subtree pull --prefix=<same prefix> <same path> <same branch> --squash
 # afterwards, in each source repo
 git branch -D split-web   # split-server / split-packages
 ```
-Last pulled from: Vekrel-Web `37d0c80` (apps/web), Vekrel-Engine `a39e599` (apps/server), Vekrel-Shared `8daf832` (packages/). After a pull, `diff -rq -x node_modules -x dist <prefix> <source>/<prefix>` should be empty except the `apps/server` hunks listed under Deviations.
+Last pulled from: Vekrel-Web `c87161f` (apps/web), Vekrel-Engine `40e9fce` (apps/server), Vekrel-Shared `eb29f77` (packages/). After a pull, `diff -rq -x node_modules -x dist <prefix> <source>/<prefix>` should be empty except the `apps/server` hunks listed under Deviations.
 
 ## Deviations from upstream T3 Code 8d3b061
 - Root package is `@vekrel/desktop-root`; desktop package is `@vekrel/desktop`, product name `Vekrel`. The upstream npm scope, env prefix (`T3CODE_` to `VEKREL_`) and product name ("T3 Code", including the Beta/Dev/Nightly labels) are replaced in `apps/desktop` and `scripts/build-desktop-artifact.ts`.
