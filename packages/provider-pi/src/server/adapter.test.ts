@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
   CheckpointId,
-  EnvironmentId,
+  MachineId,
   NodeId,
   ProviderInstanceId,
   ProviderSessionId,
@@ -1411,7 +1411,7 @@ describe("PiAdapterV2", () => {
   it.effect("injects the T3 MCP extension and bearer when a session exists", () =>
     Effect.gen(function* () {
       yield* (yield* McpProviderSessions.McpProviderSessions).set({
-        environmentId: EnvironmentId.make("environment-pi-mcp"),
+        machineId: MachineId.make("environment-pi-mcp"),
         threadId: THREAD_ID,
         providerSessionId: "mcp-session-pi",
         providerInstanceId: PI_INSTANCE_ID,
@@ -1923,11 +1923,11 @@ describe("PiAdapterV2", () => {
             expected: { content, structuredContent: structured },
           },
           {
-            toolName: "mcp__t3-code__preview_snapshot",
+            toolName: "mcp__vekrel__preview_snapshot",
             result: {
               content,
               structuredContent: scriptResult,
-              details: { server: "t3-code", tool: "preview_snapshot" },
+              details: { server: "vekrel", tool: "preview_snapshot" },
             },
             expected: { content, structuredContent: { threadId: "child-thread" } },
           },
@@ -1942,7 +1942,7 @@ describe("PiAdapterV2", () => {
             expected: { content, structuredContent: { content: ["domain content"], ready: true } },
           },
           {
-            toolName: "mcp__t3-code__preview_snapshot",
+            toolName: "mcp__vekrel__preview_snapshot",
             result: {
               content: [
                 { type: "text", text: "first" },
@@ -1954,7 +1954,7 @@ describe("PiAdapterV2", () => {
                   { type: "text", text: "second" },
                 ],
               },
-              details: { server: "t3-code", tool: "preview_snapshot" },
+              details: { server: "vekrel", tool: "preview_snapshot" },
             },
             expected: {
               content: [
@@ -2121,7 +2121,7 @@ describe("PiAdapterV2", () => {
           const bridge = yield* Effect.promise(() =>
             loadMcpBridge({ modern: true, result: { content, structuredContent: metadata } }),
           );
-          const tool = bridge.tools.find((tool) => tool.name === "mcp__t3-code__preview_snapshot")!;
+          const tool = bridge.tools.find((tool) => tool.name === "mcp__vekrel__preview_snapshot")!;
           const result = yield* Effect.promise(() => tool.execute("screenshot", {}));
           assert.deepEqual(result.structuredContent, { content, structuredContent: metadata });
           yield* fake.emit(
