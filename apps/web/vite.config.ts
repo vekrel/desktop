@@ -1,3 +1,4 @@
+import * as NodeFS from "node:fs";
 import * as NodeZlib from "node:zlib";
 
 import react from "@vitejs/plugin-react";
@@ -207,7 +208,9 @@ export default defineConfig(() => {
             configFile: new URL("../../third-party-licenses.config.json", import.meta.url),
             packageManifests: [
               { bundle: "web", path: new URL("./package.json", import.meta.url) },
-            ],
+              { bundle: "server", path: new URL("../server/package.json", import.meta.url) },
+              { bundle: "desktop", path: new URL("../desktop/package.json", import.meta.url) },
+            ].filter((manifest) => NodeFS.existsSync(manifest.path)),
           }),
       tanstackRouter({ autoCodeSplitting: true }),
       react({ compiler: true }),
