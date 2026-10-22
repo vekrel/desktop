@@ -3,7 +3,7 @@ import { type ToolActivityIcon } from "@vekrel/contracts";
 import { toolActivityFaviconUrl } from "@vekrel/shared/favicon";
 import { getProjectFaviconCacheKey } from "@vekrel/shared/projectFavicon";
 import { use, useState } from "react";
-import { T3Wordmark } from "../T3Wordmark";
+import { VekrelMark } from "../T3Wordmark";
 import {
   BotIcon,
   BrainIcon,
@@ -243,7 +243,7 @@ function WorkEntryIcon({ name, className }: { name: WorkEntryIconName; className
     case "device":
       return <SmartphoneIcon className={className} aria-hidden />;
     case "vekrel":
-      return <T3Wordmark className={className} aria-hidden />;
+      return <VekrelMark className={className} aria-hidden />;
     case "check":
       return <CheckIcon className={className} aria-hidden />;
     case "circle-alert":
