@@ -193,7 +193,7 @@ function ProviderLastChecked({ machineId }: { machineId: MachineId }) {
 
 function providerMachineDetail(machine: MachinePresentation): string {
   if (machine.entry.target._tag === "PrimaryConnectionTarget") return "Primary device";
-  if (machine.relayManaged) return "T3 Connect";
+  if (machine.relayManaged) return "Vekrel Connect";
   if (machine.entry.target._tag === "SshConnectionTarget") return "SSH";
   if (isDesktopLocalConnectionTarget(machine.entry.target)) return "Local device";
   return machine.displayUrl ?? "Remote device";

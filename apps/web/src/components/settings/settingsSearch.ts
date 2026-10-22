@@ -940,7 +940,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "t3-connect",
     localMachineOnly: true,
-    title: "T3 Connect",
+    title: "Vekrel Connect",
     to: "/settings/connections",
     targetId: "connections-machine",
     searchTerms: ["managed tunnel cloud other devices remote"],
