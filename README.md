@@ -1,3 +1,9 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/brand/logo-horizontal-on-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset=".github/brand/logo-horizontal-on-light.png">
+  <img src=".github/brand/logo-horizontal-on-light.png" alt="Vekrel" width="360">
+</picture>
+
 # Vekrel-Desktop
 The Electron app that bundles the Vekrel engine and web client. Highly inspired by T3 Code (MIT, see NOTICE).
 
@@ -22,7 +28,7 @@ Last pulled from: Vekrel-Web `c87161f` (apps/web), Vekrel-Engine `40e9fce` (apps
 - App id is `dev.vekrel.desktop` (`dev.vekrel.Desktop` replaces the upstream CamelCase `com.t3tools.T3Code` desktop-entry and D-Bus spelling, so the two spellings stay distinct). The Linux metainfo file is `dev.vekrel.desktop.metainfo.xml`.
 - URL scheme is `vekrel://` (`vekrel-dev://` in development) instead of `t3code://`. Also changed in the subtrees; see "Synced to Vekrel-Shared / Vekrel-Engine".
 - Electron user-data directories, Linux WM class, executable name and desktop-file names changed `t3code` to `vekrel`, so Vekrel does not share state with an installed T3 Code. The default home is `~/.vekrel` (upstream `~/.t3`). Renderer localStorage keys (`t3code:*`), the `t3code/*` lint rule namespace, DOM `data-t3code-*` attributes and the `--t3code-dev-root` flag are unchanged.
-- Icons: `assets/{prod,dev}/` hold generated files under the upstream file names (`scripts/lib/brand-assets.ts` still points at them, including `t3-black-windows.ico`). The 1024 px macOS icon is `brand/mark-on-dark.svg` on a `#111111` rounded square, rendered with `sharp` (the upstream export script needs the macOS Icon Composer `.icon` sources, which are not copied). The universal PNG is full-bleed; the Windows ICO holds 16-256 px PNG entries; web favicons are copied from Vekrel-Web. Dev uses the same artwork as prod. `assets/nightly` is not generated. At stage time the build script makes `icon.icns` from the macOS PNG with `sips` and `iconutil`.
+- Icons: `assets/{prod,dev}/` hold generated files under the upstream file names (`scripts/lib/brand-assets.ts` still points at them, including `t3-black-windows.ico`). The 1024 px macOS icon is Vekrel-ArchBoss `brand/mark.svg` at 824 px centered on a transparent canvas (100 px inset), rendered with `sharp` (the upstream export script needs the macOS Icon Composer `.icon` sources, which are not copied). The universal PNG is `org-avatar.svg`, full-bleed; the Windows ICO holds 16-256 px PNG entries; web favicons are rendered from `favicon.svg`. Dev uses the same artwork as prod. `assets/nightly` is not generated. At stage time the build script makes `icon.icns` from the macOS PNG with `sips` and `iconutil`.
 - `pnpm-lock.yaml` is upstream's, with the scope renamed, then reconciled by `pnpm install`. `scripts` stays a workspace member (desktop's vite config and tsconfig import `scripts/lib`); `infra/*` is not.
 - `apps/server`: the `build` task depends on `@vekrel/web#build` again and `@vekrel/web` is a devDependency again, because web lives in this repo. `apps/desktop/vite.config.ts` depends on `vekrel-engine#build` (upstream `t3#build`).
 - Files copied only so the web licence plugin and the server icon step find their inputs: `third-party-licenses.config.json`, `apps/mobile/modules/{t3-composer-editor,t3-source-text}/LICENSE`. `native/` is a full copy of upstream's (not a pnpm workspace member upstream either; Rust crates build with cargo, so put `~/.cargo/bin` on PATH).
