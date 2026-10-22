@@ -100,10 +100,10 @@ describe("DesktopSettings", () => {
           yield* settings.setWslDistro("Ubuntu");
           yield* settings.setServerExposureMode("network-accessible");
           const before = yield* settings.get;
-          assert.isTrue((yield* settings.setLocalEnvironmentEnabled(false)).changed);
-          assert.deepEqual(yield* settings.load, { ...before, localEnvironmentEnabled: false });
-          assert.isFalse((yield* settings.setLocalEnvironmentEnabled(false)).changed);
-          yield* settings.setLocalEnvironmentEnabled(true);
+          assert.isTrue((yield* settings.setLocalMachineEnabled(false)).changed);
+          assert.deepEqual(yield* settings.load, { ...before, localMachineEnabled: false });
+          assert.isFalse((yield* settings.setLocalMachineEnabled(false)).changed);
+          yield* settings.setLocalMachineEnabled(true);
           assert.deepEqual(yield* settings.load, before);
         }),
       ),
@@ -143,7 +143,7 @@ describe("DesktopSettings", () => {
 
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "auto",
-          localEnvironmentEnabled: true,
+          localMachineEnabled: true,
           mainWindowBounds: { x: 120, y: 80, width: 1280, height: 900 },
           mainWindowMaximized: false,
           serverExposureMode: "network-accessible",
@@ -238,7 +238,7 @@ describe("DesktopSettings", () => {
 
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "auto",
-          localEnvironmentEnabled: true,
+          localMachineEnabled: true,
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "local-only",
@@ -267,7 +267,7 @@ describe("DesktopSettings", () => {
 
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "auto",
-          localEnvironmentEnabled: true,
+          localMachineEnabled: true,
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "local-only",

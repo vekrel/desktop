@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
-import { EnvironmentId, type PersistedSavedEnvironmentRecord } from "@vekrel/contracts";
+import { MachineId, type PersistedSavedMachineRecord } from "@vekrel/contracts";
 import * as Effect from "effect/Effect";
 import * as Base64 from "effect/encoding/Base64";
 import * as FileSystem from "effect/FileSystem";
@@ -11,14 +11,14 @@ import * as Schema from "effect/Schema";
 import * as DesktopConfig from "../app/DesktopConfig.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as ElectronSafeStorage from "../electron/ElectronSafeStorage.ts";
-import * as DesktopSavedEnvironments from "./DesktopSavedEnvironments.ts";
+import * as DesktopSavedMachines from "./DesktopSavedMachines.ts";
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
 
-const savedRegistryRecord: PersistedSavedEnvironmentRecord = {
-  environmentId: EnvironmentId.make("environment-1"),
-  label: "Remote environment",
+const savedRegistryRecord: PersistedSavedMachineRecord = {
+  machineId: MachineId.make("machine-1"),
+  label: "Remote machine",
   httpBaseUrl: "https://remote.example.com/",
   wsBaseUrl: "wss://remote.example.com/",
   createdAt: "2026-04-09T00:00:00.000Z",
@@ -31,22 +31,22 @@ const savedRegistryRecord: PersistedSavedEnvironmentRecord = {
   },
 };
 
-const SavedEnvironmentRegistryDocumentProbe = Schema.Struct({
+const SavedMachineRegistryDocumentProbe = Schema.Struct({
   version: Schema.Number,
   records: Schema.Array(Schema.Unknown),
 });
-const SavedEnvironmentRegistryDocumentProbeJson = Schema.fromJsonString(
-  SavedEnvironmentRegistryDocumentProbe,
+const SavedMachineRegistryDocumentProbeJson = Schema.fromJsonString(
+  SavedMachineRegistryDocumentProbe,
 );
-const encodeSavedEnvironmentRegistryDocumentProbe = Schema.encodeEffect(
-  SavedEnvironmentRegistryDocumentProbeJson,
+const encodeSavedMachineRegistryDocumentProbe = Schema.encodeEffect(
+  SavedMachineRegistryDocumentProbeJson,
 );
 
-const seedSavedEnvironmentRegistry = Effect.fn(function* (encryptedBearerToken?: string) {
+const seedSavedMachineRegistry = Effect.fn(function* (encryptedBearerToken?: string) {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const fileSystem = yield* FileSystem.FileSystem;
   yield* fileSystem.makeDirectory(environment.stateDir, { recursive: true });
-  const encoded = yield* encodeSavedEnvironmentRegistryDocumentProbe({
+  const encoded = yield* encodeSavedMachineRegistryDocumentProbe({
     version: 1,
     records: [
       {
@@ -55,7 +55,7 @@ const seedSavedEnvironmentRegistry = Effect.fn(function* (encryptedBearerToken?:
       },
     ],
   });
-  yield* fileSystem.writeFileString(environment.savedEnvironmentRegistryPath, `${encoded}\n`);
+  yield* fileSystem.writeFileString(environment.savedMachineRegistryPath, `${encoded}\n`);
 });
 
 function layerSafeStorageFor(input: {
@@ -133,11 +133,11 @@ function layer(
     fileSystemLayer,
   );
 
-  return DesktopSavedEnvironments.layer.pipe(Layer.provideMerge(layerDependencies));
+  return DesktopSavedMachines.layer.pipe(Layer.provideMerge(layerDependencies));
 }
 
-const withSavedEnvironments = <A, E, R>(
-  effect: Effect.Effect<A, E, R | DesktopSavedEnvironments.DesktopSavedEnvironments>,
+const withSavedMachines = <A, E, R>(
+  effect: Effect.Effect<A, E, R | DesktopSavedMachines.DesktopSavedMachines>,
   options?: {
     readonly availableSecretStorage?: boolean;
     readonly availabilityError?: unknown;
@@ -147,28 +147,28 @@ const withSavedEnvironments = <A, E, R>(
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const baseDir = yield* fileSystem.makeTempDirectoryScoped({
-      prefix: "t3-desktop-saved-environments-test-",
+      prefix: "t3-desktop-saved-machines-test-",
     });
     return yield* effect.pipe(Effect.provide(layer(baseDir, options)));
   }).pipe(Effect.provide(NodeServices.layer), Effect.scoped);
 
-describe("DesktopSavedEnvironments", () => {
-  it.effect("loads lenient saved environment registry documents", () =>
-    withSavedEnvironments(
+describe("DesktopSavedMachines", () => {
+  it.effect("loads lenient saved machine registry documents", () =>
+    withSavedMachines(
       Effect.gen(function* () {
         const environment = yield* DesktopEnvironment.DesktopEnvironment;
         const fileSystem = yield* FileSystem.FileSystem;
-        const savedEnvironments = yield* DesktopSavedEnvironments.DesktopSavedEnvironments;
+        const savedMachines = yield* DesktopSavedMachines.DesktopSavedMachines;
         yield* fileSystem.makeDirectory(environment.stateDir, { recursive: true });
         yield* fileSystem.writeFileString(
-          environment.savedEnvironmentRegistryPath,
+          environment.savedMachineRegistryPath,
           `{
-            // Same optional envelope shape as browser saved environments.
+            // Same optional envelope shape as browser saved machines.
             "version": 1,
             "records": [
               {
-                "environmentId": "${savedRegistryRecord.environmentId}",
-                "label": "Remote environment",
+                "machineId": "${savedRegistryRecord.machineId}",
+                "label": "Remote machine",
                 "httpBaseUrl": "https://remote.example.com/",
                 "wsBaseUrl": "wss://remote.example.com/",
                 "createdAt": "2026-04-09T00:00:00.000Z",
@@ -184,19 +184,19 @@ describe("DesktopSavedEnvironments", () => {
           }\n`,
         );
 
-        assert.deepEqual(yield* savedEnvironments.getRegistry, [savedRegistryRecord]);
+        assert.deepEqual(yield* savedMachines.getRegistry, [savedRegistryRecord]);
       }),
     ),
   );
 
-  it.effect("reads encrypted saved environment secrets when encryption is available", () =>
-    withSavedEnvironments(
+  it.effect("reads encrypted saved machine secrets when encryption is available", () =>
+    withSavedMachines(
       Effect.gen(function* () {
-        const savedEnvironments = yield* DesktopSavedEnvironments.DesktopSavedEnvironments;
-        yield* seedSavedEnvironmentRegistry(Base64.encode(textEncoder.encode("enc:bearer-token")));
+        const savedMachines = yield* DesktopSavedMachines.DesktopSavedMachines;
+        yield* seedSavedMachineRegistry(Base64.encode(textEncoder.encode("enc:bearer-token")));
 
         assert.deepEqual(
-          yield* savedEnvironments.getSecret(savedRegistryRecord.environmentId),
+          yield* savedMachines.getSecret(savedRegistryRecord.machineId),
           Option.some("bearer-token"),
         );
       }),
@@ -204,13 +204,13 @@ describe("DesktopSavedEnvironments", () => {
   );
 
   it.effect("returns no secret while encryption is unavailable", () =>
-    withSavedEnvironments(
+    withSavedMachines(
       Effect.gen(function* () {
-        const savedEnvironments = yield* DesktopSavedEnvironments.DesktopSavedEnvironments;
-        yield* seedSavedEnvironmentRegistry(Base64.encode(textEncoder.encode("enc:bearer-token")));
+        const savedMachines = yield* DesktopSavedMachines.DesktopSavedMachines;
+        yield* seedSavedMachineRegistry(Base64.encode(textEncoder.encode("enc:bearer-token")));
 
         assert.deepEqual(
-          yield* savedEnvironments.getSecret(savedRegistryRecord.environmentId),
+          yield* savedMachines.getSecret(savedRegistryRecord.machineId),
           Option.none(),
         );
       }),

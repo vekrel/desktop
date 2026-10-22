@@ -58,7 +58,7 @@ if (clientPlatform === "darwin") {
   window.addEventListener("resize", syncWindowControlInset);
 }
 
-function unwrapEnsureSshEnvironmentResult(result: unknown) {
+function unwrapEnsureSshMachineResult(result: unknown) {
   if (
     typeof result === "object" &&
     result !== null &&
@@ -71,7 +71,7 @@ function unwrapEnsureSshEnvironmentResult(result: unknown) {
         : "SSH authentication cancelled.";
     throw new Error(message);
   }
-  return result as Awaited<ReturnType<DesktopBridge["ensureSshEnvironment"]>>;
+  return result as Awaited<ReturnType<DesktopBridge["ensureSshMachine"]>>;
 }
 
 contextBridge.exposeInMainWorld("desktopBridge", {
@@ -103,19 +103,19 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     const result = ipcRenderer.sendSync(IpcChannels.GET_SYSTEM_LOCALE_CHANNEL);
     return typeof result === "string" ? result : null;
   },
-  getLocalEnvironmentBootstraps: () => {
-    const result = ipcRenderer.sendSync(IpcChannels.GET_LOCAL_ENVIRONMENT_BOOTSTRAPS_CHANNEL);
+  getLocalMachineBootstraps: () => {
+    const result = ipcRenderer.sendSync(IpcChannels.GET_LOCAL_MACHINE_BOOTSTRAPS_CHANNEL);
     if (!Array.isArray(result)) {
       return [];
     }
-    return result as ReturnType<DesktopBridge["getLocalEnvironmentBootstraps"]>;
+    return result as ReturnType<DesktopBridge["getLocalMachineBootstraps"]>;
   },
-  getLocalEnvironmentBearerToken: () =>
-    ipcRenderer.invoke(IpcChannels.GET_LOCAL_ENVIRONMENT_BEARER_TOKEN_CHANNEL),
-  getLocalEnvironmentEnabled: () =>
-    ipcRenderer.sendSync(IpcChannels.GET_LOCAL_ENVIRONMENT_ENABLED_CHANNEL) !== false,
-  setLocalEnvironmentEnabled: (enabled) =>
-    ipcRenderer.invoke(IpcChannels.SET_LOCAL_ENVIRONMENT_ENABLED_CHANNEL, enabled),
+  getLocalMachineBearerToken: () =>
+    ipcRenderer.invoke(IpcChannels.GET_LOCAL_MACHINE_BEARER_TOKEN_CHANNEL),
+  getLocalMachineEnabled: () =>
+    ipcRenderer.sendSync(IpcChannels.GET_LOCAL_MACHINE_ENABLED_CHANNEL) !== false,
+  setLocalMachineEnabled: (enabled) =>
+    ipcRenderer.invoke(IpcChannels.SET_LOCAL_MACHINE_ENABLED_CHANNEL, enabled),
   getClientSettings: () => ipcRenderer.invoke(IpcChannels.GET_CLIENT_SETTINGS_CHANNEL),
   setClientSettings: (settings) =>
     ipcRenderer.invoke(IpcChannels.SET_CLIENT_SETTINGS_CHANNEL, settings),
@@ -143,17 +143,17 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   clearConnectionCatalog: () => ipcRenderer.invoke(IpcChannels.CLEAR_CONNECTION_CATALOG_CHANNEL),
   discoverSshHosts: () => ipcRenderer.invoke(IpcChannels.DISCOVER_SSH_HOSTS_CHANNEL),
   resolveSshHost: (alias) => ipcRenderer.invoke(IpcChannels.RESOLVE_SSH_HOST_CHANNEL, alias),
-  ensureSshEnvironment: async (target, options) =>
-    unwrapEnsureSshEnvironmentResult(
-      await ipcRenderer.invoke(IpcChannels.ENSURE_SSH_ENVIRONMENT_CHANNEL, {
+  ensureSshMachine: async (target, options) =>
+    unwrapEnsureSshMachineResult(
+      await ipcRenderer.invoke(IpcChannels.ENSURE_SSH_MACHINE_CHANNEL, {
         target,
         ...(options === undefined ? {} : { options }),
       }),
     ),
-  disconnectSshEnvironment: (target) =>
-    ipcRenderer.invoke(IpcChannels.DISCONNECT_SSH_ENVIRONMENT_CHANNEL, target),
-  fetchSshEnvironmentDescriptor: (httpBaseUrl) =>
-    ipcRenderer.invoke(IpcChannels.FETCH_SSH_ENVIRONMENT_DESCRIPTOR_CHANNEL, { httpBaseUrl }),
+  disconnectSshMachine: (target) =>
+    ipcRenderer.invoke(IpcChannels.DISCONNECT_SSH_MACHINE_CHANNEL, target),
+  fetchSshMachineDescriptor: (httpBaseUrl) =>
+    ipcRenderer.invoke(IpcChannels.FETCH_SSH_MACHINE_DESCRIPTOR_CHANNEL, { httpBaseUrl }),
   bootstrapSshBearerSession: (httpBaseUrl, credential) =>
     ipcRenderer.invoke(IpcChannels.BOOTSTRAP_SSH_BEARER_SESSION_CHANNEL, {
       httpBaseUrl,
@@ -351,12 +351,12 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     listBrowserImportSources: () => ipcRenderer.invoke(IpcChannels.PREVIEW_IMPORT_SOURCES_CHANNEL),
     importBrowserCookies: (input) =>
       ipcRenderer.invoke(IpcChannels.PREVIEW_IMPORT_COOKIES_CHANNEL, input),
-    clearCookies: (environmentId, profileId) =>
-      ipcRenderer.invoke(IpcChannels.PREVIEW_CLEAR_COOKIES_CHANNEL, { environmentId, profileId }),
-    clearCache: (environmentId, profileId) =>
-      ipcRenderer.invoke(IpcChannels.PREVIEW_CLEAR_CACHE_CHANNEL, { environmentId, profileId }),
-    getPreviewConfig: (environmentId, profileId) =>
-      ipcRenderer.invoke(IpcChannels.PREVIEW_GET_CONFIG_CHANNEL, { environmentId, profileId }),
+    clearCookies: (machineId, profileId) =>
+      ipcRenderer.invoke(IpcChannels.PREVIEW_CLEAR_COOKIES_CHANNEL, { machineId, profileId }),
+    clearCache: (machineId, profileId) =>
+      ipcRenderer.invoke(IpcChannels.PREVIEW_CLEAR_CACHE_CHANNEL, { machineId, profileId }),
+    getPreviewConfig: (machineId, profileId) =>
+      ipcRenderer.invoke(IpcChannels.PREVIEW_GET_CONFIG_CHANNEL, { machineId, profileId }),
     setAnnotationTheme: (theme) =>
       ipcRenderer.invoke(IpcChannels.PREVIEW_SET_ANNOTATION_THEME_CHANNEL, { theme }),
     setAnnotationSendEnabled: (tabId, enabled) =>

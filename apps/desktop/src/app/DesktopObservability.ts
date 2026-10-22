@@ -1,4 +1,4 @@
-import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@vekrel/contracts";
+import { PRIMARY_LOCAL_MACHINE_ID } from "@vekrel/contracts";
 import {
   makeLocalFileTracer,
   makeTraceSink,
@@ -418,7 +418,7 @@ const writeBackendChildLogRecord = Effect.fn("desktop.observability.writeBackend
   },
 );
 
-const PRIMARY_BACKEND_LOG_INSTANCE_ID = PRIMARY_LOCAL_ENVIRONMENT_ID;
+const PRIMARY_BACKEND_LOG_INSTANCE_ID = PRIMARY_LOCAL_MACHINE_ID;
 
 const sanitizeInstanceIdForFileName = (id: string): string => id.replace(/[^a-zA-Z0-9._-]+/g, "_");
 

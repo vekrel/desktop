@@ -21,7 +21,7 @@ import * as DesktopBackendConfiguration from "../../backend/DesktopBackendConfig
 import * as DesktopBackendManager from "../../backend/DesktopBackendManager.ts";
 import * as DesktopBackendPool from "../../backend/DesktopBackendPool.ts";
 import {
-  getLocalEnvironmentBootstraps,
+  getLocalMachineBootstraps,
   getRelayTelemetryEnabled,
   probeRemoteEditors,
 } from "./window.ts";
@@ -78,10 +78,10 @@ const backendConfigurationLayer = Layer.succeed(
 const bootstrapsLayer = (instances: ReadonlyArray<DesktopBackendManager.DesktopBackendInstance>) =>
   Layer.merge(DesktopBackendPool.layerTest([...instances]), backendConfigurationLayer);
 
-describe("getLocalEnvironmentBootstraps", () => {
+describe("getLocalMachineBootstraps", () => {
   it.effect("hands out the current window's token to a backend launched with the secret", () =>
     Effect.gen(function* () {
-      const result = yield* getLocalEnvironmentBootstraps.handler();
+      const result = yield* getLocalMachineBootstraps.handler();
 
       assert.deepEqual(result, [
         {
@@ -133,7 +133,7 @@ describe("getLocalEnvironmentBootstraps", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* getLocalEnvironmentBootstraps.handler();
+      const result = yield* getLocalMachineBootstraps.handler();
       assert.deepEqual(result, [
         {
           id: "wsl:default",
@@ -167,7 +167,7 @@ describe("getLocalEnvironmentBootstraps", () => {
     };
 
     return Effect.gen(function* () {
-      const result = yield* getLocalEnvironmentBootstraps.handler();
+      const result = yield* getLocalMachineBootstraps.handler();
       assert.deepEqual(result, []);
     }).pipe(Effect.provide(bootstrapsLayer([stoppedInstance])));
   });

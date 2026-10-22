@@ -7,7 +7,7 @@ import * as Ref from "effect/Ref";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
-import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@vekrel/contracts";
+import { PRIMARY_LOCAL_MACHINE_ID } from "@vekrel/contracts";
 import {
   DESKTOP_BOOTSTRAP_TOKEN_WINDOW_MS,
   currentDesktopBootstrapToken,
@@ -15,7 +15,7 @@ import {
 import * as TestClock from "effect/testing/TestClock";
 
 import * as DesktopBackendPool from "./DesktopBackendPool.ts";
-import * as DesktopLocalEnvironmentAuth from "./DesktopLocalEnvironmentAuth.ts";
+import * as DesktopLocalMachineAuth from "./DesktopLocalMachineAuth.ts";
 
 const config = {
   executablePath: "/electron",
@@ -36,7 +36,7 @@ const config = {
   captureOutput: true,
 };
 
-describe("DesktopLocalEnvironmentAuth", () => {
+describe("DesktopLocalMachineAuth", () => {
   it.effect("exchanges the desktop bootstrap credential only once", () =>
     Effect.gen(function* () {
       const requestCount = yield* Ref.make(0);
@@ -65,18 +65,18 @@ describe("DesktopLocalEnvironmentAuth", () => {
       const layerPool = Layer.succeed(DesktopBackendPool.DesktopBackendPool, {
         list: Effect.succeed([
           {
-            id: PRIMARY_LOCAL_ENVIRONMENT_ID,
+            id: PRIMARY_LOCAL_MACHINE_ID,
             label: Effect.succeed("Windows"),
             currentConfig: Effect.succeedSome(config),
           },
         ]),
       } as unknown as DesktopBackendPool.DesktopBackendPool["Service"]);
-      const layerTest = DesktopLocalEnvironmentAuth.layer.pipe(
+      const layerTest = DesktopLocalMachineAuth.layer.pipe(
         Layer.provide(Layer.mergeAll(layerPool, layerHttpClient)),
       );
 
       const [first, second] = yield* Effect.gen(function* () {
-        const auth = yield* DesktopLocalEnvironmentAuth.DesktopLocalEnvironmentAuth;
+        const auth = yield* DesktopLocalMachineAuth.DesktopLocalMachineAuth;
         return yield* Effect.all([auth.getBearerToken, auth.getBearerToken]);
       }).pipe(Effect.provide(layerTest));
 
@@ -118,7 +118,7 @@ describe("DesktopLocalEnvironmentAuth", () => {
         const poolLayer = Layer.succeed(DesktopBackendPool.DesktopBackendPool, {
           list: Effect.succeed([
             {
-              id: PRIMARY_LOCAL_ENVIRONMENT_ID,
+              id: PRIMARY_LOCAL_MACHINE_ID,
               label: Effect.succeed("Windows"),
               currentConfig: Effect.succeedSome({
                 ...config,
@@ -130,11 +130,11 @@ describe("DesktopLocalEnvironmentAuth", () => {
 
         yield* TestClock.setTime(DESKTOP_BOOTSTRAP_TOKEN_WINDOW_MS * 2 + 1);
         yield* Effect.gen(function* () {
-          const auth = yield* DesktopLocalEnvironmentAuth.DesktopLocalEnvironmentAuth;
+          const auth = yield* DesktopLocalMachineAuth.DesktopLocalMachineAuth;
           return yield* auth.getBearerToken;
         }).pipe(
           Effect.provide(
-            DesktopLocalEnvironmentAuth.layer.pipe(
+            DesktopLocalMachineAuth.layer.pipe(
               Layer.provide(Layer.mergeAll(poolLayer, httpClientLayer)),
             ),
           ),
@@ -164,7 +164,7 @@ describe("DesktopLocalEnvironmentAuth", () => {
   const layerPool = Layer.succeed(DesktopBackendPool.DesktopBackendPool, {
     list: Effect.succeed([
       {
-        id: PRIMARY_LOCAL_ENVIRONMENT_ID,
+        id: PRIMARY_LOCAL_MACHINE_ID,
         label: Effect.succeed("Windows"),
         currentConfig: Effect.succeedSome(config),
       },
@@ -185,9 +185,9 @@ describe("DesktopLocalEnvironmentAuth", () => {
           ),
         ),
       );
-      const auth = yield* DesktopLocalEnvironmentAuth.DesktopLocalEnvironmentAuth.pipe(
+      const auth = yield* DesktopLocalMachineAuth.DesktopLocalMachineAuth.pipe(
         Effect.provide(
-          DesktopLocalEnvironmentAuth.layer.pipe(
+          DesktopLocalMachineAuth.layer.pipe(
             Layer.provide(Layer.mergeAll(layerPool, layerHttpClient)),
           ),
         ),
@@ -200,7 +200,7 @@ describe("DesktopLocalEnvironmentAuth", () => {
       const { auth, requestCount } = yield* makeExchange(1, () =>
         Response.json(
           {
-            _tag: "EnvironmentAuthInvalidError",
+            _tag: "MachineAuthInvalidError",
             code: "auth_invalid",
             reason: "invalid_credential",
             traceId: "trace-1",
@@ -213,7 +213,7 @@ describe("DesktopLocalEnvironmentAuth", () => {
       yield* TestClock.adjust(Duration.seconds(1));
       const error = yield* Fiber.join(fiber);
 
-      assert.strictEqual(error._tag, "DesktopLocalEnvironmentAuthSessionBootstrapError");
+      assert.strictEqual(error._tag, "DesktopLocalMachineAuthSessionBootstrapError");
       assert.strictEqual(yield* Ref.get(requestCount), 1);
     }).pipe(Effect.provide(TestClock.layer())),
   );

@@ -1,7 +1,7 @@
 import type {
   DesktopDiscoveredSshHost,
-  DesktopSshEnvironmentBootstrap,
-  DesktopSshEnvironmentTarget,
+  DesktopSshMachineBootstrap,
+  DesktopSshMachineTarget,
 } from "@vekrel/contracts";
 import * as NetService from "@vekrel/shared/Net";
 import * as SshAuth from "@vekrel/ssh/auth";
@@ -28,7 +28,7 @@ import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import * as DesktopSshPasswordPrompts from "./DesktopSshPasswordPrompts.ts";
 
-export type DesktopSshEnvironmentRuntimeServices =
+export type DesktopSshMachineRuntimeServices =
   | ChildProcessSpawner.ChildProcessSpawner
   | Crypto.Crypto
   | FileSystem.FileSystem
@@ -36,7 +36,7 @@ export type DesktopSshEnvironmentRuntimeServices =
   | HttpClient.HttpClient
   | NetService.NetService;
 
-export type DesktopSshEnvironmentOperationError =
+export type DesktopSshMachineOperationError =
   | SshCommandError
   | SshInvalidTargetError
   | SshLaunchError
@@ -45,28 +45,28 @@ export type DesktopSshEnvironmentOperationError =
   | SshPasswordPromptError
   | NetService.NetError;
 
-export type DesktopSshEnvironmentDiscoverError = SshHostDiscoveryError;
+export type DesktopSshMachineDiscoverError = SshHostDiscoveryError;
 
-export class DesktopSshEnvironment extends Context.Service<
-  DesktopSshEnvironment,
+export class DesktopSshMachine extends Context.Service<
+  DesktopSshMachine,
   {
     readonly discoverHosts: (input?: {
       readonly homeDir?: string;
-    }) => Effect.Effect<readonly DesktopDiscoveredSshHost[], DesktopSshEnvironmentDiscoverError>;
+    }) => Effect.Effect<readonly DesktopDiscoveredSshHost[], DesktopSshMachineDiscoverError>;
     readonly resolveHost: (
       alias: string,
-    ) => Effect.Effect<DesktopSshEnvironmentTarget, SshCommandError | SshInvalidTargetError>;
-    readonly ensureEnvironment: (
-      target: DesktopSshEnvironmentTarget,
+    ) => Effect.Effect<DesktopSshMachineTarget, SshCommandError | SshInvalidTargetError>;
+    readonly ensureMachine: (
+      target: DesktopSshMachineTarget,
       options?: { readonly issuePairingToken?: boolean },
-    ) => Effect.Effect<DesktopSshEnvironmentBootstrap, DesktopSshEnvironmentOperationError>;
-    readonly disconnectEnvironment: (
-      target: DesktopSshEnvironmentTarget,
-    ) => Effect.Effect<void, DesktopSshEnvironmentOperationError>;
+    ) => Effect.Effect<DesktopSshMachineBootstrap, DesktopSshMachineOperationError>;
+    readonly disconnectMachine: (
+      target: DesktopSshMachineTarget,
+    ) => Effect.Effect<void, DesktopSshMachineOperationError>;
   }
->()("@vekrel/desktop/ssh/DesktopSshEnvironment") {}
+>()("@vekrel/desktop/ssh/DesktopSshMachine") {}
 
-export interface DesktopSshEnvironmentLayerOptions {
+export interface DesktopSshMachineLayerOptions {
   readonly resolveCliRunner?: Effect.Effect<SshTunnel.RemoteT3RunnerOptions>;
 }
 
@@ -129,10 +129,10 @@ const makePasswordPrompt = (
 export const make = Effect.gen(function* () {
   const manager = yield* SshTunnel.SshEnvironmentManager;
   const prompts = yield* DesktopSshPasswordPrompts.DesktopSshPasswordPrompts;
-  const runtimeContext = yield* Effect.context<DesktopSshEnvironmentRuntimeServices>();
+  const runtimeContext = yield* Effect.context<DesktopSshMachineRuntimeServices>();
   const passwordPrompt = SshAuth.SshPasswordPrompt.of(makePasswordPrompt(prompts));
 
-  return DesktopSshEnvironment.of({
+  return DesktopSshMachine.of({
     discoverHosts: (input) =>
       discoverDesktopSshHostsEffect(input).pipe(
         Effect.provide(runtimeContext),
@@ -143,27 +143,27 @@ export const make = Effect.gen(function* () {
         Effect.provide(runtimeContext),
         Effect.withSpan("desktop.ssh.resolveHost"),
       ),
-    ensureEnvironment: (target, ensureOptions) =>
+    ensureMachine: (target, ensureOptions) =>
       manager
         .ensureEnvironment(target, ensureOptions)
         .pipe(
           Effect.provideService(SshAuth.SshPasswordPrompt, passwordPrompt),
           Effect.provide(runtimeContext),
-          Effect.withSpan("desktop.ssh.ensureEnvironment"),
+          Effect.withSpan("desktop.ssh.ensureMachine"),
         ),
-    disconnectEnvironment: (target) =>
+    disconnectMachine: (target) =>
       manager
         .disconnectEnvironment(target)
         .pipe(
           Effect.provideService(SshAuth.SshPasswordPrompt, passwordPrompt),
           Effect.provide(runtimeContext),
-          Effect.withSpan("desktop.ssh.disconnectEnvironment"),
+          Effect.withSpan("desktop.ssh.disconnectMachine"),
         ),
   });
 });
 
-export const layer = (options: DesktopSshEnvironmentLayerOptions = {}) =>
-  Layer.effect(DesktopSshEnvironment, make).pipe(
+export const layer = (options: DesktopSshMachineLayerOptions = {}) =>
+  Layer.effect(DesktopSshMachine, make).pipe(
     Layer.provide(
       SshTunnel.SshEnvironmentManager.layer(
         options.resolveCliRunner === undefined

@@ -1,7 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
 import { ConnectionCatalogDocument } from "@vekrel/client-runtime/platform";
-import { EnvironmentId, type PersistedSavedEnvironmentRecord } from "@vekrel/contracts";
+import { MachineId, type PersistedSavedMachineRecord } from "@vekrel/contracts";
 import * as Effect from "effect/Effect";
 import * as Base64 from "effect/encoding/Base64";
 import * as FileSystem from "effect/FileSystem";
@@ -12,7 +12,7 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 
 import * as ElectronSafeStorage from "../electron/ElectronSafeStorage.ts";
-import * as DesktopSavedEnvironments from "../settings/DesktopSavedEnvironments.ts";
+import * as DesktopSavedMachines from "../settings/DesktopSavedMachines.ts";
 import * as DesktopConfig from "./DesktopConfig.ts";
 import * as DesktopConnectionCatalogStore from "./DesktopConnectionCatalogStore.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
@@ -22,7 +22,7 @@ const textEncoder = new TextEncoder();
 const decodeConnectionCatalog = Schema.decodeEffect(
   Schema.fromJsonString(ConnectionCatalogDocument),
 );
-const encodeLegacySavedEnvironments = Schema.encodeEffect(
+const encodeLegacySavedMachines = Schema.encodeEffect(
   Schema.fromJsonString(
     Schema.Struct({ version: Schema.Literal(1), records: Schema.Array(Schema.Unknown) }),
   ),
@@ -77,12 +77,12 @@ function layerFor(
     NodeServices.layer,
     fileSystemLayer,
   );
-  const layerSavedEnvironments = DesktopSavedEnvironments.layer.pipe(
+  const layerSavedMachines = DesktopSavedMachines.layer.pipe(
     Layer.provideMerge(layerDependencies),
   );
 
   return DesktopConnectionCatalogStore.layer.pipe(
-    Layer.provideMerge(layerSavedEnvironments),
+    Layer.provideMerge(layerSavedMachines),
     Layer.provideMerge(layerDependencies),
   );
 }
@@ -132,9 +132,9 @@ describe("DesktopConnectionCatalogStore", () => {
         const store = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore;
         const environment = yield* DesktopEnvironment.DesktopEnvironment;
         const fileSystem = yield* FileSystem.FileSystem;
-        const records: readonly PersistedSavedEnvironmentRecord[] = [
+        const records: readonly PersistedSavedMachineRecord[] = [
           {
-            environmentId: EnvironmentId.make("relay-environment"),
+            machineId: MachineId.make("relay-machine"),
             label: "Relay",
             httpBaseUrl: "https://relay.example.com/",
             wsBaseUrl: "wss://relay.example.com/",
@@ -143,7 +143,7 @@ describe("DesktopConnectionCatalogStore", () => {
             relayManaged: { relayUrl: "https://relay-control.example.com/" },
           },
           {
-            environmentId: EnvironmentId.make("ssh-environment"),
+            machineId: MachineId.make("ssh-machine"),
             label: "SSH",
             httpBaseUrl: "http://127.0.0.1:41773/",
             wsBaseUrl: "ws://127.0.0.1:41773/",
@@ -157,7 +157,7 @@ describe("DesktopConnectionCatalogStore", () => {
             },
           },
           {
-            environmentId: EnvironmentId.make("bearer-environment"),
+            machineId: MachineId.make("bearer-machine"),
             label: "Bearer",
             httpBaseUrl: "https://bearer.example.com/",
             wsBaseUrl: "wss://bearer.example.com/",
@@ -167,11 +167,11 @@ describe("DesktopConnectionCatalogStore", () => {
         ];
         yield* fileSystem.makeDirectory(environment.stateDir, { recursive: true });
         yield* fileSystem.writeFileString(
-          environment.savedEnvironmentRegistryPath,
-          yield* encodeLegacySavedEnvironments({
+          environment.savedMachineRegistryPath,
+          yield* encodeLegacySavedMachines({
             version: 1,
             records: records.map((record) =>
-              record.environmentId === "bearer-environment"
+              record.machineId === "bearer-machine"
                 ? {
                     ...record,
                     encryptedBearerToken: Base64.encode(
@@ -192,25 +192,25 @@ describe("DesktopConnectionCatalogStore", () => {
 
         assert.deepInclude(catalog.targets[0], {
           _tag: "RelayConnectionTarget",
-          environmentId: EnvironmentId.make("relay-environment"),
+          machineId: MachineId.make("relay-machine"),
           label: "Relay",
         });
         assert.deepInclude(catalog.targets[1], {
           _tag: "SshConnectionTarget",
-          environmentId: EnvironmentId.make("ssh-environment"),
+          machineId: MachineId.make("ssh-machine"),
           label: "SSH",
-          connectionId: "ssh:ssh-environment",
+          connectionId: "ssh:ssh-machine",
         });
         assert.deepInclude(catalog.targets[2], {
           _tag: "BearerConnectionTarget",
-          environmentId: EnvironmentId.make("bearer-environment"),
+          machineId: MachineId.make("bearer-machine"),
           label: "Bearer",
-          connectionId: "bearer:bearer-environment",
+          connectionId: "bearer:bearer-machine",
         });
         assert.deepInclude(catalog.profiles[0], {
           _tag: "SshConnectionProfile",
-          connectionId: "ssh:ssh-environment",
-          environmentId: EnvironmentId.make("ssh-environment"),
+          connectionId: "ssh:ssh-machine",
+          machineId: MachineId.make("ssh-machine"),
           label: "SSH",
           target: {
             alias: "devbox",
@@ -221,21 +221,21 @@ describe("DesktopConnectionCatalogStore", () => {
         });
         assert.deepInclude(catalog.profiles[1], {
           _tag: "BearerConnectionProfile",
-          connectionId: "bearer:bearer-environment",
-          environmentId: EnvironmentId.make("bearer-environment"),
+          connectionId: "bearer:bearer-machine",
+          machineId: MachineId.make("bearer-machine"),
           label: "Bearer",
           httpBaseUrl: "https://bearer.example.com/",
           wsBaseUrl: "wss://bearer.example.com/",
         });
         assert.equal(catalog.credentials.length, 1);
-        assert.equal(catalog.credentials[0]?.connectionId, "bearer:bearer-environment");
+        assert.equal(catalog.credentials[0]?.connectionId, "bearer:bearer-machine");
         assert.equal(catalog.credentials[0]?.credential._tag, "BearerConnectionCredential");
         if (catalog.credentials[0]?.credential._tag === "BearerConnectionCredential") {
           assert.equal(catalog.credentials[0].credential.token, "legacy-token");
         }
 
         yield* fileSystem.writeFileString(
-          environment.savedEnvironmentRegistryPath,
+          environment.savedMachineRegistryPath,
           '{"version":1,"records":[]}',
         );
         assert.deepEqual(yield* store.get, migrated);

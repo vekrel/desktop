@@ -883,7 +883,7 @@ export const make = Effect.gen(function* () {
 
   const waitingForBackend = Effect.gen(function* () {
     if (yield* Ref.get(backendReadyRef)) return false;
-    return (yield* desktopSettings.get).localEnvironmentEnabled;
+    return (yield* desktopSettings.get).localMachineEnabled;
   });
 
   const createMainIfBackendReady = Effect.gen(function* () {

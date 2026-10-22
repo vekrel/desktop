@@ -10,9 +10,9 @@ import {
   setConnectionCatalog,
 } from "./methods/connectionCatalog.ts";
 import {
-  getLocalEnvironmentEnabled,
-  setLocalEnvironmentEnabled,
-} from "./methods/localEnvironment.ts";
+  getLocalMachineEnabled,
+  setLocalMachineEnabled,
+} from "./methods/localMachine.ts";
 import {
   getAdvertisedEndpoints,
   getServerExposureState,
@@ -21,15 +21,15 @@ import {
 } from "./methods/serverExposure.ts";
 import {
   bootstrapSshBearerSession,
-  disconnectSshEnvironment,
+  disconnectSshMachine,
   discoverSshHosts,
-  ensureSshEnvironment,
-  fetchSshEnvironmentDescriptor,
+  ensureSshMachine,
+  fetchSshMachineDescriptor,
   fetchSshSessionState,
   issueSshWebSocketTicket,
   resolveSshHost,
   resolveSshPasswordPrompt,
-} from "./methods/sshEnvironment.ts";
+} from "./methods/sshMachine.ts";
 import {
   checkForUpdate,
   downloadUpdate,
@@ -39,8 +39,8 @@ import {
 } from "./methods/updates.ts";
 import {
   getAppBranding,
-  getLocalEnvironmentBootstraps,
-  getLocalEnvironmentBearerToken,
+  getLocalMachineBootstraps,
+  getLocalMachineBearerToken,
   getRelayTelemetryEnabled,
   getSystemLocale,
   getWindowFullscreenState,
@@ -99,10 +99,10 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handleSync(getRelayTelemetryEnabled);
   yield* ipc.handleSync(getSystemLocale);
   yield* ipc.handleSync(getWindowFullscreenState);
-  yield* ipc.handleSync(getLocalEnvironmentBootstraps);
-  yield* ipc.handleSync(getLocalEnvironmentEnabled);
-  yield* ipc.handle(setLocalEnvironmentEnabled);
-  yield* ipc.handle(getLocalEnvironmentBearerToken);
+  yield* ipc.handleSync(getLocalMachineBootstraps);
+  yield* ipc.handleSync(getLocalMachineEnabled);
+  yield* ipc.handle(setLocalMachineEnabled);
+  yield* ipc.handle(getLocalMachineBearerToken);
 
   yield* ipc.handle(getClientSettings);
   yield* ipc.handle(setClientSettings);
@@ -124,9 +124,9 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
 
   yield* ipc.handle(discoverSshHosts);
   yield* ipc.handle(resolveSshHost);
-  yield* ipc.handle(ensureSshEnvironment);
-  yield* ipc.handle(disconnectSshEnvironment);
-  yield* ipc.handle(fetchSshEnvironmentDescriptor);
+  yield* ipc.handle(ensureSshMachine);
+  yield* ipc.handle(disconnectSshMachine);
+  yield* ipc.handle(fetchSshMachineDescriptor);
   yield* ipc.handle(bootstrapSshBearerSession);
   yield* ipc.handle(fetchSshSessionState);
   yield* ipc.handle(issueSshWebSocketTicket);

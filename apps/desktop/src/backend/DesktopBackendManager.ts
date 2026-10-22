@@ -20,7 +20,7 @@ import {
   SERVER_EXIT_CODE_STATE_DIR_OWNED,
   DesktopBackendBootstrap,
   type DesktopBackendBootstrap as DesktopBackendBootstrapValue,
-  PRIMARY_LOCAL_ENVIRONMENT_ID,
+  PRIMARY_LOCAL_MACHINE_ID,
   DesktopTelemetryControlMessage,
   type DesktopTelemetryControlMessage as DesktopTelemetryControlMessageValue,
 } from "@vekrel/contracts";
@@ -41,7 +41,7 @@ const DEFAULT_BACKEND_READINESS_REQUEST_TIMEOUT = Duration.seconds(1);
 // and a busy one needs a few seconds to stop every provider session.
 const DEFAULT_BACKEND_TERMINATE_GRACE = Duration.seconds(5);
 const DEFAULT_BACKEND_OUTPUT_DRAIN_TIMEOUT = Duration.seconds(5);
-const BACKEND_READINESS_PATH = "/.well-known/t3/environment";
+const BACKEND_READINESS_PATH = "/.well-known/vekrel/machine";
 const { logWarning: logBackendProcessWarning } =
   DesktopObservability.makeComponentLogger("desktop-backend-process");
 
@@ -217,7 +217,7 @@ export type BackendInstanceId = string & Brand.Brand<"BackendInstanceId">;
 export const BackendInstanceId = Brand.nominal<BackendInstanceId>();
 
 export const PRIMARY_INSTANCE_ID: BackendInstanceId = BackendInstanceId(
-  PRIMARY_LOCAL_ENVIRONMENT_ID,
+  PRIMARY_LOCAL_MACHINE_ID,
 );
 
 export interface DesktopBackendInstance {

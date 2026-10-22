@@ -8,9 +8,9 @@ import * as Option from "effect/Option";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 
 import {
-  DesktopSshEnvironmentRequestError,
-  fetchSshEnvironmentDescriptor,
-} from "./sshEnvironment.ts";
+  DesktopSshMachineRequestError,
+  fetchSshMachineDescriptor,
+} from "./sshMachine.ts";
 
 function jsonResponse(request: HttpClientRequest.HttpClientRequest, body: unknown, status = 200) {
   return HttpClientResponse.fromWeb(
@@ -33,7 +33,7 @@ function layerHttpClient(
   );
 }
 
-describe("SSH environment IPC", () => {
+describe("SSH machine IPC", () => {
   it.effect("rejects non-loopback HTTP endpoints before issuing a request", () => {
     let requestCount = 0;
     const layer = layerHttpClient((request) =>
@@ -45,7 +45,7 @@ describe("SSH environment IPC", () => {
 
     return Effect.gen(function* () {
       const exit = yield* Effect.exit(
-        fetchSshEnvironmentDescriptor.handler({
+        fetchSshMachineDescriptor.handler({
           httpBaseUrl: "http://remote.example.com:41773/",
         }),
       );
@@ -54,7 +54,7 @@ describe("SSH environment IPC", () => {
       assert(Option.isSome(failure));
       const error = failure.value;
 
-      assert.instanceOf(error, DesktopSshEnvironmentRequestError);
+      assert.instanceOf(error, DesktopSshMachineRequestError);
       assert.instanceOf(error.cause, SshHttpBridgeError);
       assert.equal(requestCount, 0);
     }).pipe(Effect.provide(layer));

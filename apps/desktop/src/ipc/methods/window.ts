@@ -1,16 +1,16 @@
 import {
   ContextMenuItemSchema,
   DesktopAppBrandingSchema,
-  DesktopEnvironmentBootstrapSchema,
+  DesktopMachineBootstrapSchema,
   DesktopThemeSchema,
   EDITORS,
   EditorId,
   PickedThemeFileSchema,
   PickFolderOptionsSchema,
-  PRIMARY_LOCAL_ENVIRONMENT_ID,
+  PRIMARY_LOCAL_MACHINE_ID,
   REMOTE_CAPABLE_EDITOR_IDS,
   SystemSettingsPaneSchema,
-  type DesktopEnvironmentBootstrap,
+  type DesktopMachineBootstrap,
   type PickedThemeFile,
 } from "@vekrel/contracts";
 import { PROJECT_FAVICON_EXTENSIONS } from "@vekrel/shared/projectFavicon";
@@ -25,7 +25,7 @@ import * as Schema from "effect/Schema";
 
 import * as DesktopBackendConfiguration from "../../backend/DesktopBackendConfiguration.ts";
 import * as DesktopBackendPool from "../../backend/DesktopBackendPool.ts";
-import * as DesktopLocalEnvironmentAuth from "../../backend/DesktopLocalEnvironmentAuth.ts";
+import * as DesktopLocalMachineAuth from "../../backend/DesktopLocalMachineAuth.ts";
 import * as DesktopEnvironment from "../../app/DesktopEnvironment.ts";
 import * as DesktopAppSettings from "../../settings/DesktopAppSettings.ts";
 import * as DesktopWslBackend from "../../wsl/DesktopWslBackend.ts";
@@ -99,16 +99,16 @@ export const getWindowFullscreenState = DesktopIpc.makeSyncIpcMethod({
   }),
 });
 
-export const getLocalEnvironmentBootstraps = DesktopIpc.makeSyncIpcMethod({
-  channel: IpcChannels.GET_LOCAL_ENVIRONMENT_BOOTSTRAPS_CHANNEL,
-  result: Schema.Array(DesktopEnvironmentBootstrapSchema),
-  handler: Effect.fn("desktop.ipc.window.getLocalEnvironmentBootstraps")(function* () {
+export const getLocalMachineBootstraps = DesktopIpc.makeSyncIpcMethod({
+  channel: IpcChannels.GET_LOCAL_MACHINE_BOOTSTRAPS_CHANNEL,
+  result: Schema.Array(DesktopMachineBootstrapSchema),
+  handler: Effect.fn("desktop.ipc.window.getLocalMachineBootstraps")(function* () {
     const pool = yield* DesktopBackendPool.DesktopBackendPool;
     const configuration = yield* DesktopBackendConfiguration.DesktopBackendConfiguration;
     const instances = yield* pool.list;
-    const bootstraps: DesktopEnvironmentBootstrap[] = [];
+    const bootstraps: DesktopMachineBootstrap[] = [];
     for (const instance of instances) {
-      const isPrimary = instance.id === PRIMARY_LOCAL_ENVIRONMENT_ID;
+      const isPrimary = instance.id === PRIMARY_LOCAL_MACHINE_ID;
       const config = yield* instance.currentConfig;
       const snapshot = yield* instance.snapshot;
       if (Option.isNone(config) || Option.isSome(config.value.preflightFailure)) {
@@ -152,7 +152,7 @@ export const getLocalEnvironmentBootstraps = DesktopIpc.makeSyncIpcMethod({
   }),
 });
 
-function extractWslDistroFromEnvironmentId(envId: string): string | null {
+function extractWslDistroFromMachineId(envId: string): string | null {
   if (!envId.startsWith(DesktopWslBackend.WSL_INSTANCE_ID_PREFIX)) {
     return null;
   }
@@ -160,12 +160,12 @@ function extractWslDistroFromEnvironmentId(envId: string): string | null {
   return suffix === "default" || suffix.length === 0 ? null : suffix;
 }
 
-export const getLocalEnvironmentBearerToken = DesktopIpc.makeIpcMethod({
-  channel: IpcChannels.GET_LOCAL_ENVIRONMENT_BEARER_TOKEN_CHANNEL,
+export const getLocalMachineBearerToken = DesktopIpc.makeIpcMethod({
+  channel: IpcChannels.GET_LOCAL_MACHINE_BEARER_TOKEN_CHANNEL,
   payload: Schema.Void,
   result: Schema.String,
-  handler: Effect.fn("desktop.ipc.window.getLocalEnvironmentBearerToken")(function* () {
-    const localAuth = yield* DesktopLocalEnvironmentAuth.DesktopLocalEnvironmentAuth;
+  handler: Effect.fn("desktop.ipc.window.getLocalMachineBearerToken")(function* () {
+    const localAuth = yield* DesktopLocalMachineAuth.DesktopLocalMachineAuth;
     return yield* localAuth.getBearerToken;
   }),
 });
@@ -182,17 +182,17 @@ export const pickFolder = DesktopIpc.makeIpcMethod({
     const wslEnvironment = yield* DesktopWslEnvironment.DesktopWslEnvironment;
     const settings = yield* appSettings.get;
     // A picked path only means something to a backend on this machine.
-    if (!settings.localEnvironmentEnabled) {
+    if (!settings.localMachineEnabled) {
       return null;
     }
-    const targetId = options?.targetEnvironmentId;
+    const targetId = options?.targetMachineId;
     const wslDistroFromTarget =
       targetId !== undefined && targetId.startsWith(DesktopWslBackend.WSL_INSTANCE_ID_PREFIX)
-        ? extractWslDistroFromEnvironmentId(targetId)
+        ? extractWslDistroFromMachineId(targetId)
         : null;
     const useWsl =
       targetId !== undefined &&
-      targetId !== PRIMARY_LOCAL_ENVIRONMENT_ID &&
+      targetId !== PRIMARY_LOCAL_MACHINE_ID &&
       targetId.startsWith(DesktopWslBackend.WSL_INSTANCE_ID_PREFIX);
     // Fall back to the persisted wslDistro when the id is the
     // "wsl:default" sentinel; the orchestrator uses the same fallback
@@ -240,7 +240,7 @@ export const pickProjectFavicon = DesktopIpc.makeIpcMethod({
     const dialog = yield* ElectronDialog.ElectronDialog;
     const electronWindow = yield* ElectronWindow.ElectronWindow;
     const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
-    if (!(yield* appSettings.get).localEnvironmentEnabled) {
+    if (!(yield* appSettings.get).localMachineEnabled) {
       return null;
     }
     const paths = yield* dialog.pickFiles({

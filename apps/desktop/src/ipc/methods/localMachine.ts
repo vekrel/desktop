@@ -6,25 +6,25 @@ import * as DesktopAppSettings from "../../settings/DesktopAppSettings.ts";
 import * as IpcChannels from "../channels.ts";
 import { makeIpcMethod, makeSyncIpcMethod } from "../DesktopIpc.ts";
 
-export const getLocalEnvironmentEnabled = makeSyncIpcMethod({
-  channel: IpcChannels.GET_LOCAL_ENVIRONMENT_ENABLED_CHANNEL,
+export const getLocalMachineEnabled = makeSyncIpcMethod({
+  channel: IpcChannels.GET_LOCAL_MACHINE_ENABLED_CHANNEL,
   result: Schema.Boolean,
-  handler: Effect.fn("desktop.ipc.localEnvironment.getEnabled")(function* () {
+  handler: Effect.fn("desktop.ipc.localMachine.getEnabled")(function* () {
     const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
-    return (yield* appSettings.get).localEnvironmentEnabled;
+    return (yield* appSettings.get).localMachineEnabled;
   }),
 });
 
-export const setLocalEnvironmentEnabled = makeIpcMethod({
-  channel: IpcChannels.SET_LOCAL_ENVIRONMENT_ENABLED_CHANNEL,
+export const setLocalMachineEnabled = makeIpcMethod({
+  channel: IpcChannels.SET_LOCAL_MACHINE_ENABLED_CHANNEL,
   payload: Schema.Boolean,
   result: Schema.Void,
-  handler: Effect.fn("desktop.ipc.localEnvironment.setEnabled")(function* (enabled) {
+  handler: Effect.fn("desktop.ipc.localMachine.setEnabled")(function* (enabled) {
     const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
     const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
-    const change = yield* appSettings.setLocalEnvironmentEnabled(enabled);
+    const change = yield* appSettings.setLocalMachineEnabled(enabled);
     if (change.changed) {
-      yield* lifecycle.relaunch(`localEnvironmentEnabled=${enabled}`);
+      yield* lifecycle.relaunch(`localMachineEnabled=${enabled}`);
     }
   }),
 });

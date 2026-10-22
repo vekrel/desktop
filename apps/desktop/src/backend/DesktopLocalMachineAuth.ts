@@ -1,6 +1,6 @@
 import { bootstrapRemoteBearerSession } from "@vekrel/client-runtime/authorization";
-import type { RemoteEnvironmentRequestError } from "@vekrel/client-runtime/rpc";
-import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@vekrel/contracts";
+import type { RemoteMachineRequestError } from "@vekrel/client-runtime/rpc";
+import { PRIMARY_LOCAL_MACHINE_ID } from "@vekrel/contracts";
 import { currentDesktopBootstrapToken } from "@vekrel/shared/desktopBootstrapToken";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -20,20 +20,20 @@ const BOOTSTRAP_TRANSIENT_RETRY_TIMEOUT = Duration.seconds(15);
 const BOOTSTRAP_TRANSIENT_RETRY_INTERVAL = Duration.millis(500);
 const TRANSIENT_BOOTSTRAP_STATUS_CODES = new Set([502, 503, 504]);
 
-const isTransientBearerBootstrapError = (error: RemoteEnvironmentRequestError): boolean => {
+const isTransientBearerBootstrapError = (error: RemoteMachineRequestError): boolean => {
   switch (error._tag) {
-    case "RemoteEnvironmentAuthFetchError":
-    case "RemoteEnvironmentAuthTimeoutError":
+    case "RemoteMachineAuthFetchError":
+    case "RemoteMachineAuthTimeoutError":
       return true;
-    case "RemoteEnvironmentAuthUndeclaredStatusError":
+    case "RemoteMachineAuthUndeclaredStatusError":
       return TRANSIENT_BOOTSTRAP_STATUS_CODES.has(error.status);
     default:
       return false;
   }
 };
 
-export class DesktopLocalEnvironmentAuthBackendNotConfiguredError extends Schema.TaggedError<DesktopLocalEnvironmentAuthBackendNotConfiguredError>()(
-  "DesktopLocalEnvironmentAuthBackendNotConfiguredError",
+export class DesktopLocalMachineAuthBackendNotConfiguredError extends Schema.TaggedError<DesktopLocalMachineAuthBackendNotConfiguredError>()(
+  "DesktopLocalMachineAuthBackendNotConfiguredError",
   {},
 ) {
   override get message(): string {
@@ -41,8 +41,8 @@ export class DesktopLocalEnvironmentAuthBackendNotConfiguredError extends Schema
   }
 }
 
-export class DesktopLocalEnvironmentAuthSessionBootstrapError extends Schema.TaggedError<DesktopLocalEnvironmentAuthSessionBootstrapError>()(
-  "DesktopLocalEnvironmentAuthSessionBootstrapError",
+export class DesktopLocalMachineAuthSessionBootstrapError extends Schema.TaggedError<DesktopLocalMachineAuthSessionBootstrapError>()(
+  "DesktopLocalMachineAuthSessionBootstrapError",
   { cause: Schema.Defect() },
 ) {
   override get message(): string {
@@ -50,18 +50,18 @@ export class DesktopLocalEnvironmentAuthSessionBootstrapError extends Schema.Tag
   }
 }
 
-export const DesktopLocalEnvironmentAuthError = Schema.Union([
-  DesktopLocalEnvironmentAuthBackendNotConfiguredError,
-  DesktopLocalEnvironmentAuthSessionBootstrapError,
+export const DesktopLocalMachineAuthError = Schema.Union([
+  DesktopLocalMachineAuthBackendNotConfiguredError,
+  DesktopLocalMachineAuthSessionBootstrapError,
 ]);
-export type DesktopLocalEnvironmentAuthError = typeof DesktopLocalEnvironmentAuthError.Type;
+export type DesktopLocalMachineAuthError = typeof DesktopLocalMachineAuthError.Type;
 
-export class DesktopLocalEnvironmentAuth extends Context.Service<
-  DesktopLocalEnvironmentAuth,
+export class DesktopLocalMachineAuth extends Context.Service<
+  DesktopLocalMachineAuth,
   {
-    readonly getBearerToken: Effect.Effect<string, DesktopLocalEnvironmentAuthError>;
+    readonly getBearerToken: Effect.Effect<string, DesktopLocalMachineAuthError>;
   }
->()("@vekrel/desktop/backend/DesktopLocalEnvironmentAuth") {}
+>()("@vekrel/desktop/backend/DesktopLocalMachineAuth") {}
 
 /** @public Service construction is part of the canonical Effect module API. */
 export const make = Effect.gen(function* () {
@@ -79,10 +79,10 @@ export const make = Effect.gen(function* () {
         }
 
         const instances = yield* pool.list;
-        const primary = instances.find((instance) => instance.id === PRIMARY_LOCAL_ENVIRONMENT_ID);
+        const primary = instances.find((instance) => instance.id === PRIMARY_LOCAL_MACHINE_ID);
         const configOption = primary === undefined ? Option.none() : yield* primary.currentConfig;
         if (Option.isNone(configOption)) {
-          return yield* new DesktopLocalEnvironmentAuthBackendNotConfiguredError();
+          return yield* new DesktopLocalMachineAuthBackendNotConfiguredError();
         }
         const config = configOption.value;
         // A backend launched with the desktop secret accepts the current
@@ -94,7 +94,7 @@ export const make = Effect.gen(function* () {
             ? config.bootstrap.desktopBootstrapToken
             : currentDesktopBootstrapToken(secret, yield* Clock.currentTimeMillis);
         if (!credential) {
-          return yield* new DesktopLocalEnvironmentAuthBackendNotConfiguredError();
+          return yield* new DesktopLocalMachineAuthBackendNotConfiguredError();
         }
         const session = yield* bootstrapRemoteBearerSession({
           httpBaseUrl: config.httpBaseUrl.href,
@@ -112,7 +112,7 @@ export const make = Effect.gen(function* () {
           Effect.timeout(BOOTSTRAP_TRANSIENT_RETRY_TIMEOUT),
           Effect.mapError(
             (cause) =>
-              new DesktopLocalEnvironmentAuthSessionBootstrapError({
+              new DesktopLocalMachineAuthSessionBootstrapError({
                 cause,
               }),
           ),
@@ -121,9 +121,9 @@ export const make = Effect.gen(function* () {
         return session.access_token;
       }),
     )
-    .pipe(Effect.withSpan("desktop.localEnvironmentAuth.getBearerToken"));
+    .pipe(Effect.withSpan("desktop.localMachineAuth.getBearerToken"));
 
-  return DesktopLocalEnvironmentAuth.of({ getBearerToken });
+  return DesktopLocalMachineAuth.of({ getBearerToken });
 });
 
-export const layer = Layer.effect(DesktopLocalEnvironmentAuth, make);
+export const layer = Layer.effect(DesktopLocalMachineAuth, make);

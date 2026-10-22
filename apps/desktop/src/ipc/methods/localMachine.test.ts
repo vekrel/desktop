@@ -10,7 +10,7 @@ import * as ElectronApp from "../../electron/ElectronApp.ts";
 import * as ElectronTheme from "../../electron/ElectronTheme.ts";
 import * as DesktopAppSettings from "../../settings/DesktopAppSettings.ts";
 import * as DesktopWindow from "../../window/DesktopWindow.ts";
-import { getLocalEnvironmentEnabled, setLocalEnvironmentEnabled } from "./localEnvironment.ts";
+import { getLocalMachineEnabled, setLocalMachineEnabled } from "./localMachine.ts";
 
 const layerUnusedLifecycleRuntime = Layer.mergeAll(
   DesktopShutdown.layer,
@@ -26,7 +26,7 @@ const layerUnusedLifecycleRuntime = Layer.mergeAll(
   Layer.mock(ElectronTheme.ElectronTheme, {}),
 );
 
-describe("local environment IPC", () => {
+describe("local machine IPC", () => {
   it.effect("relaunches only when the setting changes and keeps other settings", () => {
     const relaunchReasons: Array<string> = [];
     const layer = Layer.mergeAll(
@@ -43,18 +43,18 @@ describe("local environment IPC", () => {
       layerUnusedLifecycleRuntime,
     );
     return Effect.gen(function* () {
-      yield* setLocalEnvironmentEnabled.handler(false);
-      assert.isFalse(yield* getLocalEnvironmentEnabled.handler());
-      yield* setLocalEnvironmentEnabled.handler(false);
-      assert.deepEqual(relaunchReasons, ["localEnvironmentEnabled=false"]);
+      yield* setLocalMachineEnabled.handler(false);
+      assert.isFalse(yield* getLocalMachineEnabled.handler());
+      yield* setLocalMachineEnabled.handler(false);
+      assert.deepEqual(relaunchReasons, ["localMachineEnabled=false"]);
 
-      yield* setLocalEnvironmentEnabled.handler(true);
-      assert.isTrue(yield* getLocalEnvironmentEnabled.handler());
+      yield* setLocalMachineEnabled.handler(true);
+      assert.isTrue(yield* getLocalMachineEnabled.handler());
       const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
       assert.isTrue((yield* appSettings.get).wslBackendEnabled);
       assert.deepEqual(relaunchReasons, [
-        "localEnvironmentEnabled=false",
-        "localEnvironmentEnabled=true",
+        "localMachineEnabled=false",
+        "localMachineEnabled=true",
       ]);
     }).pipe(Effect.provide(layer));
   });

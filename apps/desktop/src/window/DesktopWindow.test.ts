@@ -260,7 +260,7 @@ function layerTest(input: {
     setWslBackendEnabled: () => Effect.die("unexpected WSL backend toggle"),
     setWslDistro: () => Effect.die("unexpected WSL distro change"),
     setWslOnly: () => Effect.die("unexpected WSL-only toggle"),
-    setLocalEnvironmentEnabled: () => Effect.die("unexpected local environment toggle"),
+    setLocalMachineEnabled: () => Effect.die("unexpected local machine toggle"),
     applyWslWindowsFallback: Effect.die("unexpected WSL Windows fallback"),
     applyWslWindowsFallbackInMemory: Effect.die("unexpected WSL Windows fallback"),
   } satisfies DesktopAppSettings.DesktopAppSettings["Service"]);
@@ -486,7 +486,7 @@ describe("DesktopWindow", () => {
           createdWindowOptions: [],
           desktopSettings: {
             ...DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,
-            localEnvironmentEnabled: false,
+            localMachineEnabled: false,
           },
         });
         yield* Effect.gen(function* () {
@@ -742,7 +742,7 @@ describe("DesktopWindow", () => {
           mainWindow,
           desktopSettings: {
             ...DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,
-            localEnvironmentEnabled: false,
+            localMachineEnabled: false,
           },
           setPreviewMainWindow: () =>
             Deferred.succeed(previewStarted, undefined).pipe(

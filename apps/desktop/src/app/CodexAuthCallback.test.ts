@@ -2,7 +2,7 @@
 import * as NodeHttp from "node:http";
 import { describe, expect, it } from "vite-plus/test";
 import { codexAuthDeliveryUrl, readCodexAuthDelivery } from "@vekrel/shared/codexAuthHandoff";
-import { EnvironmentId, ProviderInstanceId } from "@vekrel/contracts";
+import { MachineId, ProviderInstanceId } from "@vekrel/contracts";
 import { receiveCodexAuthCallback, cancelCodexAuthCallback } from "./CodexAuthCallback.ts";
 
 async function freePort() {
@@ -51,13 +51,13 @@ describe("desktop Codex callback helper", () => {
     });
     expect(received).toBe(expected);
   });
-  it("returns hosted web to the exact instance and environment without putting the code in its query", async () => {
+  it("returns hosted web to the exact instance and machine without putting the code in its query", async () => {
     const authorizationUrl = request(await freePort());
     const expected = callback(authorizationUrl);
     const input = {
       authorizationUrl,
-      returnUrl: "https://app.t3.codes/settings/providers?environmentId=remote-one&instanceId=work",
-      environmentId: EnvironmentId.make("remote-one"),
+      returnUrl: "https://app.t3.codes/settings/providers?machineId=remote-one&instanceId=work",
+      machineId: MachineId.make("remote-one"),
       instanceId: ProviderInstanceId.make("work"),
       flowId: "flow-one",
     };

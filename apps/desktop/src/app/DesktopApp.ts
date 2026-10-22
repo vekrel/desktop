@@ -186,8 +186,8 @@ const bootstrap = Effect.gen(function* () {
 
   yield* snapShot.initialize;
 
-  if (!settings.localEnvironmentEnabled) {
-    yield* logBootstrapInfo("bootstrap skipping local environment (disabled in settings)");
+  if (!settings.localMachineEnabled) {
+    yield* logBootstrapInfo("bootstrap skipping local machine (disabled in settings)");
     if (!(yield* Ref.get(state.quitting))) {
       yield* desktopWindow.createMainIfBackendReady;
     }

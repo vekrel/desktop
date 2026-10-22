@@ -10,7 +10,7 @@ import {
   ConnectionCatalogDocument as RuntimeConnectionCatalogDocument,
   type ConnectionCatalogDocument as RuntimeConnectionCatalogDocumentType,
 } from "@vekrel/client-runtime/platform";
-import type { PersistedSavedEnvironmentRecord } from "@vekrel/contracts";
+import type { PersistedSavedMachineRecord } from "@vekrel/contracts";
 import { fromLenientJson } from "@vekrel/shared/schemaJson";
 import * as Context from "effect/Context";
 import * as Crypto from "effect/Crypto";
@@ -23,7 +23,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import * as ElectronSafeStorage from "../electron/ElectronSafeStorage.ts";
-import * as DesktopSavedEnvironments from "../settings/DesktopSavedEnvironments.ts";
+import * as DesktopSavedMachines from "../settings/DesktopSavedMachines.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 
 const EncryptedConnectionCatalogDocument = Schema.Struct({
@@ -122,14 +122,14 @@ export class DesktopConnectionCatalogStoreMigrationError extends Schema.TaggedEr
   {
     operation: DesktopConnectionCatalogStoreMigrationOperation,
     catalogPath: Schema.String,
-    environmentId: Schema.optionalKey(Schema.String),
+    machineId: Schema.optionalKey(Schema.String),
     cause: Schema.Defect(),
   },
 ) {
   override get message(): string {
-    const environment =
-      this.environmentId === undefined ? "" : ` for environment ${this.environmentId}`;
-    return `Legacy desktop saved-environment migration failed during ${this.operation}${environment} into ${this.catalogPath}.`;
+    const machine =
+      this.machineId === undefined ? "" : ` for machine ${this.machineId}`;
+    return `Legacy desktop saved-machine migration failed during ${this.operation}${machine} into ${this.catalogPath}.`;
   }
 }
 
@@ -281,15 +281,15 @@ const writeDocument = Effect.fn("desktop.connectionCatalogStore.writeDocument")(
   );
 });
 
-function connectionId(prefix: "bearer" | "ssh", environmentId: string): string {
-  return `${prefix}:${environmentId}`;
+function connectionId(prefix: "bearer" | "ssh", machineId: string): string {
+  return `${prefix}:${machineId}`;
 }
 
-const migrateSavedEnvironmentRecords = Effect.fn(
-  "desktop.connectionCatalogStore.migrateSavedEnvironmentRecords",
+const migrateSavedMachineRecords = Effect.fn(
+  "desktop.connectionCatalogStore.migrateSavedMachineRecords",
 )(function* (
-  records: readonly PersistedSavedEnvironmentRecord[],
-  savedEnvironments: DesktopSavedEnvironments.DesktopSavedEnvironments["Service"],
+  records: readonly PersistedSavedMachineRecord[],
+  savedMachines: DesktopSavedMachines.DesktopSavedMachines["Service"],
   catalogPath: string,
 ): Effect.fn.Return<
   RuntimeConnectionCatalogDocumentType,
@@ -303,7 +303,7 @@ const migrateSavedEnvironmentRecords = Effect.fn(
     if (record.relayManaged !== undefined) {
       targets.push(
         new RelayConnectionTarget({
-          environmentId: record.environmentId,
+          machineId: record.machineId,
           label: record.label,
         }),
       );
@@ -311,10 +311,10 @@ const migrateSavedEnvironmentRecords = Effect.fn(
     }
 
     if (record.desktopSsh !== undefined) {
-      const id = connectionId("ssh", record.environmentId);
+      const id = connectionId("ssh", record.machineId);
       targets.push(
         new SshConnectionTarget({
-          environmentId: record.environmentId,
+          machineId: record.machineId,
           label: record.label,
           connectionId: id,
         }),
@@ -322,7 +322,7 @@ const migrateSavedEnvironmentRecords = Effect.fn(
       profiles.push(
         new SshConnectionProfile({
           connectionId: id,
-          environmentId: record.environmentId,
+          machineId: record.machineId,
           label: record.label,
           target: record.desktopSsh,
         }),
@@ -330,10 +330,10 @@ const migrateSavedEnvironmentRecords = Effect.fn(
       continue;
     }
 
-    const id = connectionId("bearer", record.environmentId);
+    const id = connectionId("bearer", record.machineId);
     targets.push(
       new BearerConnectionTarget({
-        environmentId: record.environmentId,
+        machineId: record.machineId,
         label: record.label,
         connectionId: id,
       }),
@@ -341,19 +341,19 @@ const migrateSavedEnvironmentRecords = Effect.fn(
     profiles.push(
       new BearerConnectionProfile({
         connectionId: id,
-        environmentId: record.environmentId,
+        machineId: record.machineId,
         label: record.label,
         httpBaseUrl: record.httpBaseUrl,
         wsBaseUrl: record.wsBaseUrl,
       }),
     );
-    const token = yield* savedEnvironments.getSecret(record.environmentId).pipe(
+    const token = yield* savedMachines.getSecret(record.machineId).pipe(
       Effect.mapError(
         (cause) =>
           new DesktopConnectionCatalogStoreMigrationError({
             operation: "read-legacy-secret",
             catalogPath,
-            environmentId: record.environmentId,
+            machineId: record.machineId,
             cause,
           }),
       ),
@@ -372,7 +372,7 @@ const migrateSavedEnvironmentRecords = Effect.fn(
     profiles,
     credentials,
     remoteDpopTokens: [],
-    disabledEnvironmentIds: [],
+    disabledMachineIds: [],
   };
 });
 
@@ -383,7 +383,7 @@ export const make = Effect.gen(function* () {
   const path = yield* Path.Path;
   const safeStorage = yield* ElectronSafeStorage.ElectronSafeStorage;
   const crypto = yield* Crypto.Crypto;
-  const savedEnvironments = yield* DesktopSavedEnvironments.DesktopSavedEnvironments;
+  const savedMachines = yield* DesktopSavedMachines.DesktopSavedMachines;
   const catalogPath = path.join(environment.stateDir, "connection-catalog.json");
   const encryptionAvailable = safeStorage.isEncryptionAvailable.pipe(
     Effect.mapError(
@@ -434,7 +434,7 @@ export const make = Effect.gen(function* () {
     if (!(yield* encryptionAvailable)) {
       return Option.none<string>();
     }
-    const records = yield* savedEnvironments.getRegistry.pipe(
+    const records = yield* savedMachines.getRegistry.pipe(
       Effect.mapError(
         (cause) =>
           new DesktopConnectionCatalogStoreMigrationError({
@@ -447,7 +447,7 @@ export const make = Effect.gen(function* () {
     if (records.length === 0) {
       return Option.none<string>();
     }
-    const catalog = yield* migrateSavedEnvironmentRecords(records, savedEnvironments, catalogPath);
+    const catalog = yield* migrateSavedMachineRecords(records, savedMachines, catalogPath);
     const encoded = yield* encodeRuntimeConnectionCatalogDocumentJson(catalog).pipe(
       Effect.mapError(
         (cause) =>

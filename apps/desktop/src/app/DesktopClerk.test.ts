@@ -2,7 +2,7 @@
 import * as NodeHttp from "node:http";
 import * as NodePath from "@effect/platform-node/NodePath";
 import { codexAuthHandoffUrl, readCodexAuthDelivery } from "@vekrel/shared/codexAuthHandoff";
-import { EnvironmentId, ProviderInstanceId } from "@vekrel/contracts";
+import { MachineId, ProviderInstanceId } from "@vekrel/contracts";
 import * as HostProcess from "@vekrel/shared/HostProcess";
 import { assert, describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -354,7 +354,7 @@ it.effect.each(["startup", "open-url", "early-second-instance"] as const)(
       const request = {
         authorizationUrl: authorize.toString(),
         returnUrl: "https://app.t3.codes/welcome#agents:remote-one",
-        environmentId: EnvironmentId.make("remote-one"),
+        machineId: MachineId.make("remote-one"),
         instanceId: ProviderInstanceId.make("work"),
         flowId: "flow-one",
       };
@@ -397,7 +397,7 @@ it.effect.each(["startup", "open-url", "early-second-instance"] as const)(
           assert.strictEqual(event.preventDefault.mock.calls.length, 1);
         }
         const delivery = readCodexAuthDelivery(yield* Effect.promise(() => delivered.promise));
-        assert.strictEqual(delivery?.environmentId, request.environmentId);
+        assert.strictEqual(delivery?.machineId, request.machineId);
         assert.strictEqual(delivery?.instanceId, request.instanceId);
         assert.strictEqual(delivery?.flowId, request.flowId);
         assert.strictEqual(delivery?.returnUrl, request.returnUrl);

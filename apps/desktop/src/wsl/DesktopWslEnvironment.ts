@@ -1143,7 +1143,7 @@ export const layer = Layer.effect(
       effect.pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner));
 
     // Crucially this keeps `isAvailable` synchronously resolvable: it's read
-    // inside the sync IPC handler getLocalEnvironmentBootstraps (via the
+    // inside the sync IPC handler getLocalMachineBootstraps (via the
     // primary instance's lazy label -> resolvePrimaryLabel -> describePrimary).
     // The underlying probe does a filesystem `exists` check, so leaving it as a
     // live effect would make Effect.runSync throw there and break the

@@ -121,17 +121,17 @@ describe("preview IPC methods", () => {
   });
 
   it("keeps the legacy default partition scope and incognito persistence", () => {
-    expect(PreviewIpc.resolvePartitionScope("environment::legacy", undefined)).toEqual({
-      scope: "environment::legacy",
+    expect(PreviewIpc.resolvePartitionScope("machine::legacy", undefined)).toEqual({
+      scope: "machine::legacy",
       persistent: true,
     });
     expect(
-      PreviewIpc.resolvePartitionScope("environment::legacy", DEFAULT_BROWSER_PROFILE_ID),
-    ).toEqual({ scope: "environment::legacy", persistent: true });
+      PreviewIpc.resolvePartitionScope("machine::legacy", DEFAULT_BROWSER_PROFILE_ID),
+    ).toEqual({ scope: "machine::legacy", persistent: true });
     expect(
-      PreviewIpc.resolvePartitionScope("environment::legacy", INCOGNITO_BROWSER_PROFILE_ID),
+      PreviewIpc.resolvePartitionScope("machine::legacy", INCOGNITO_BROWSER_PROFILE_ID),
     ).toEqual({
-      scope: '["environment::legacy","incognito"]',
+      scope: '["machine::legacy","incognito"]',
       persistent: false,
       namespace: "profile",
     });

@@ -29,6 +29,9 @@ git branch -D split-web   # split-server / split-packages
 - `apps/desktop` has no `typecheck` package script upstream; run `pnpm exec vp run typecheck` inside `apps/desktop`.
 - Tests: two `DesktopLinuxUrlHandler` icon tests fail on case-insensitive filesystems (macOS APFS) because they use two spellings that differ only in case; upstream has the same spellings.
 - Removed `patchedDependencies` entries (and patch files) for packages not installed here: the Expo, React Native, Clerk-native, alchemy and react-navigation patches. Kept: mdast-util-math, micromark-extension-llm-math, micromark-extension-gfm-table, @effect/vitest, @ff-labs/fff-node, @legendapp/list, @pierre/diffs, dbus-next, node-pty, app-builder-lib.
+- The "environment" concept (a host the client connects to) is called "machine" in `apps/desktop` and `packages/`: IPC channels are `desktop:*-machine*` and `fetch-machine-descriptor`, files `DesktopSavedMachines`, `DesktopLocalMachineAuth`, `DesktopSshMachine`, `ipc/methods/{localMachine,sshMachine}`. Process env keeps its names (`DesktopEnvironment`, `DesktopShellEnvironment`, `DesktopWslEnvironment`), and so does the legacy migration source file `saved-environments.json`.
+
+**Pending:** `apps/web` and `apps/server` still use the old environment names while `packages/` uses machine names, so root `pnpm typecheck` fails in those two apps (and the desktop backend readiness probe `/.well-known/vekrel/machine` will not answer) until they are pulled from Vekrel-Web and Vekrel-Engine (Plan 2 Task 4b, which removes this line).
 
 ## Synced to Vekrel-Shared / Vekrel-Engine
 URL-scheme edits made here and committed in the source repos (Shared `cba8d1d`, Engine `47d3d67`), so the next subtree pull is clean:
