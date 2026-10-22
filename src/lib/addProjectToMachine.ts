@@ -3,9 +3,9 @@ import {
   runAtomCommand,
   squashAtomCommandFailure,
 } from "@vekrel/client-runtime/state/runtime";
-import { scopedProjectKey } from "@vekrel/client-runtime/environment";
+import { scopedProjectKey } from "@vekrel/client-runtime/machine";
 import type {
-  EnvironmentId,
+  MachineId,
   ProjectCloneSnapshot,
   ProjectId,
   ScopedProjectRef,
@@ -13,9 +13,9 @@ import type {
 import { create } from "zustand";
 
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { environmentProjectClonesAtom, silenceProjectCloneToasts } from "../state/projectClones";
-import { projectEnvironment } from "../state/projects";
-import { sourceControlEnvironment } from "../state/sourceControl";
+import { machineProjectClonesAtom, silenceProjectCloneToasts } from "../state/projectClones";
+import { projectMachine } from "../state/projects";
+import { sourceControlMachine } from "../state/sourceControl";
 
 /** Matches the server's read cap: a larger file would arrive truncated. */
 export const COPYABLE_FILE_MAX_BYTES = 1024 * 1024;
@@ -29,10 +29,10 @@ export function isDefaultCopiedFile(path: string): boolean {
 }
 
 export interface AddProjectToMachineInput {
-  readonly source: { readonly environmentId: EnvironmentId; readonly cwd: string };
+  readonly source: { readonly machineId: MachineId; readonly cwd: string };
   /** Where the source project sits below its repository root, or "". */
   readonly subdirectory: string;
-  readonly target: { readonly environmentId: EnvironmentId; readonly label: string };
+  readonly target: { readonly machineId: MachineId; readonly label: string };
   readonly projectId: ProjectId;
   readonly title: string;
   readonly remoteUrl: string;
@@ -49,9 +49,9 @@ function failureMessage(result: Parameters<typeof squashAtomCommandFailure>[0]):
  * Resolves when the clone finishes, or null once it is removed. A failed or
  * cancelled clone keeps waiting, since the composer offers a retry.
  */
-function waitForClone(environmentId: EnvironmentId, projectId: ProjectId) {
+function waitForClone(machineId: MachineId, projectId: ProjectId) {
   return new Promise<ProjectCloneSnapshot | null>((resolve) => {
-    const atom = environmentProjectClonesAtom(environmentId);
+    const atom = machineProjectClonesAtom(machineId);
     let seen = false;
     let settled = false;
     let unsubscribe: (() => void) | null = null;
@@ -107,8 +107,8 @@ export async function addProjectToMachine(input: AddProjectToMachineInput): Prom
     input.files.map(async (relativePath) => {
       const result = await executeAtomQuery(
         appAtomRegistry,
-        projectEnvironment.readFile({
-          environmentId: input.source.environmentId,
+        projectMachine.readFile({
+          machineId: input.source.machineId,
           input: { cwd: input.source.cwd, relativePath },
         }),
         { label: "Read file to copy", reportFailure: false, refresh: true },
@@ -119,16 +119,16 @@ export async function addProjectToMachine(input: AddProjectToMachineInput): Prom
     }),
   );
 
-  const targetRef = { environmentId: input.target.environmentId, projectId: input.projectId };
+  const targetRef = { machineId: input.target.machineId, projectId: input.projectId };
   const copyKey = scopedProjectKey(targetRef);
   // Marked before the start request, since the clone list can arrive before its reply.
   silenceProjectCloneToasts(targetRef);
   if (reads.length > 0) setFileCopy(copyKey, { phase: "copying" });
   const started = await runAtomCommand(
     appAtomRegistry,
-    sourceControlEnvironment.startProjectClone,
+    sourceControlMachine.startProjectClone,
     {
-      environmentId: input.target.environmentId,
+      machineId: input.target.machineId,
       input: {
         projectId: input.projectId,
         title: input.title,
@@ -146,7 +146,7 @@ export async function addProjectToMachine(input: AddProjectToMachineInput): Prom
   if (reads.length === 0) return;
 
   void (async () => {
-    const clone = await waitForClone(input.target.environmentId, input.projectId);
+    const clone = await waitForClone(input.target.machineId, input.projectId);
     if (!clone) {
       setFileCopy(copyKey, null);
       return;
@@ -159,9 +159,9 @@ export async function addProjectToMachine(input: AddProjectToMachineInput): Prom
       }
       const written = await runAtomCommand(
         appAtomRegistry,
-        projectEnvironment.writeFile,
+        projectMachine.writeFile,
         {
-          environmentId: input.target.environmentId,
+          machineId: input.target.machineId,
           input: {
             cwd: started.value.cwd,
             relativePath: input.subdirectory

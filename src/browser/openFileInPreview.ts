@@ -1,7 +1,7 @@
 import type {
   AssetCreateUrlResult,
   AssetResource,
-  EnvironmentId,
+  MachineId,
   PreviewOpenInput,
   PreviewSessionSnapshot,
   ScopedThreadRef,
@@ -50,7 +50,7 @@ export class BrowserSettingsReadError extends Data.TaggedError("BrowserSettingsR
 }
 
 export type OpenPreviewMutation<E = unknown> = (input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly input: PreviewOpenInput;
 }) => Promise<AtomCommandResult<PreviewSessionSnapshot, E>>;
 
@@ -67,7 +67,7 @@ export async function openUrlInPreview<E>(input: {
   if (defaults instanceof BrowserSettingsReadError) {
     return AsyncResult.failure(Cause.fail(defaults));
   }
-  const runtime = previewRuntimeFor(input.threadRef.environmentId);
+  const runtime = previewRuntimeFor(input.threadRef.machineId);
   const previousActiveTabId = readThreadPreviewState(input.threadRef).activeTabId;
   // The server's "opened" event switches the preview tab but not the panel's
   // selection, so a changed selection means the user picked a tab themselves.
@@ -76,7 +76,7 @@ export async function openUrlInPreview<E>(input: {
       ?.id ?? null;
   const surfaceBeforeOpen = selectedSurface();
   const result = await input.openPreview({
-    environmentId: input.threadRef.environmentId,
+    machineId: input.threadRef.machineId,
     input: {
       threadId: input.threadRef.threadId,
       url: input.url,
@@ -111,7 +111,7 @@ export async function openFileInPreview<AssetError, PreviewError>(input: {
   readonly workspaceRoot: string | undefined;
   readonly httpBaseUrl: string;
   readonly createAssetUrl: (input: {
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly input: { readonly resource: AssetResource };
   }) => Promise<AtomCommandResult<AssetCreateUrlResult, AssetError>>;
   readonly openPreview: OpenPreviewMutation<PreviewError>;
@@ -121,7 +121,7 @@ export async function openFileInPreview<AssetError, PreviewError>(input: {
     AssetError | PreviewError | BrowserPreviewUnavailableError | BrowserSettingsReadError
   >
 > {
-  if (!isPreviewAvailableFor(input.threadRef.environmentId)) {
+  if (!isPreviewAvailableFor(input.threadRef.machineId)) {
     return AsyncResult.failure(
       Cause.fail(
         new BrowserPreviewUnavailableError({
@@ -133,7 +133,7 @@ export async function openFileInPreview<AssetError, PreviewError>(input: {
   const insideWorkspace =
     mediaFileReference(input.filePath, input.workspaceRoot).relativePath !== undefined;
   const assetResult = await input.createAssetUrl({
-    environmentId: input.threadRef.environmentId,
+    machineId: input.threadRef.machineId,
     input: {
       resource: {
         _tag: insideWorkspace ? "workspace-file" : "media-file",
@@ -148,7 +148,7 @@ export async function openFileInPreview<AssetError, PreviewError>(input: {
   const assetUrl = resolveAssetUrl(input.httpBaseUrl, assetResult.value.relativeUrl);
   if (assetUrl === null) {
     return AsyncResult.failure(
-      Cause.die(new Error("The environment returned an invalid asset URL.")),
+      Cause.die(new Error("The machine returned an invalid asset URL.")),
     );
   }
   return openUrlInPreview({

@@ -72,7 +72,7 @@ function readStoredThemeHalves(): ThemeHalves | null {
 }
 
 /**
- * An environment published id resolves only once its set has streamed in, so a
+ * A machine published id resolves only once its set has streamed in, so a
  * write that merged over the pruned parse would silently erase that half
  * whenever the other one changed before the set arrived.
  */

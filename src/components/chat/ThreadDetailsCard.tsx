@@ -53,7 +53,7 @@ export function ThreadDetailsCard({
     selectThreadPanelOpen(state.threadPanelVisibilityByThreadKey, threadRef, "popover"),
   );
   const [contentElement, setContentElement] = useState<HTMLDivElement | null>(null);
-  const measurementKey = `${threadRef.environmentId}:${threadRef.threadId}:${preferredPlacement?.width ?? "popup"}`;
+  const measurementKey = `${threadRef.machineId}:${threadRef.threadId}:${preferredPlacement?.width ?? "popup"}`;
   const [measurements, setMeasurements] = useState({
     key: measurementKey,
     heights: { full: 0, compact: 0 },

@@ -1,6 +1,6 @@
 import {
   type ComposerContextId,
-  EnvironmentId,
+  MachineId,
   MessageId,
   OrchestrationMessageContext,
   ThreadId,
@@ -67,7 +67,7 @@ const annotation: PreviewAnnotationPayload = {
 
 describe("composerContextRecords", () => {
   it("copies only ready or persisted server-side attachment IDs", () => {
-    const environmentId = EnvironmentId.make("env");
+    const machineId = MachineId.make("env");
     const image = {
       type: "image" as const,
       id: "local-image",
@@ -79,12 +79,12 @@ describe("composerContextRecords", () => {
     };
     expect(uploadedAttachmentContextRecord(image, undefined)).toBeNull();
     expect(
-      uploadedAttachmentContextRecord(image, { status: "uploading", environmentId, progress: 0.5 }),
+      uploadedAttachmentContextRecord(image, { status: "uploading", machineId, progress: 0.5 }),
     ).toBeNull();
     expect(
       uploadedAttachmentContextRecord(image, {
         status: "failed",
-        environmentId,
+        machineId,
         reason: "offline",
         attachmentId: "unfinished",
       }),
@@ -92,7 +92,7 @@ describe("composerContextRecords", () => {
     expect(
       uploadedAttachmentContextRecord(image, {
         status: "ready",
-        environmentId,
+        machineId,
         attachmentId: "uploaded-image",
       }),
     ).toMatchObject({ attachmentId: "uploaded-image", contextId: "image_local-image" });
@@ -107,7 +107,7 @@ describe("composerContextRecords", () => {
     expect(uploadedAttachmentContextRecord(file, undefined)).toBeNull();
     expect(
       uploadedAttachmentContextRecord(
-        { ...file, uploadedAttachmentId: "persisted-file", uploadEnvironmentId: environmentId },
+        { ...file, uploadedAttachmentId: "persisted-file", uploadMachineId: machineId },
         undefined,
       ),
     ).toMatchObject({ attachmentId: "persisted-file", contextId: "file_local-file" });
@@ -392,7 +392,7 @@ describe("selectedMessageContextFragment", () => {
   });
   const input = {
     records: [terminal, review],
-    environmentId: EnvironmentId.make("env"),
+    machineId: MachineId.make("env"),
     threadId: ThreadId.make("t"),
     messageId: MessageId.make("msg-1"),
   };

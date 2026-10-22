@@ -418,7 +418,7 @@ function useActiveThreadRefFromRoute(): ScopedThreadRef | null {
   }
   if (routeTarget?.kind === "draft" && activeDraftSession) {
     return {
-      environmentId: activeDraftSession.environmentId,
+      machineId: activeDraftSession.machineId,
       threadId: activeDraftSession.threadId,
     };
   }

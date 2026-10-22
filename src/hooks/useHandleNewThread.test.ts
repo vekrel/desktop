@@ -13,7 +13,7 @@ const testState = vi.hoisted(() => {
   };
   let storedDraft: {
     readonly draftId: string;
-    readonly environmentId: string;
+    readonly machineId: string;
     readonly promotedTo: null;
     readonly threadId: string;
   } | null = null;
@@ -82,7 +82,7 @@ const testState = vi.hoisted(() => {
 const testServerConfigs = () =>
   new Map([
     [
-      "environment-primary",
+      "machine-primary",
       {
         settings: {
           ...testState.targetSettings,
@@ -90,7 +90,7 @@ const testServerConfigs = () =>
         },
       },
     ],
-    ["environment-ssh", { settings: testState.targetSettings }],
+    ["machine-ssh", { settings: testState.targetSettings }],
   ]);
 
 vi.mock("../rpc/atomRegistry", () => ({
@@ -103,10 +103,10 @@ vi.mock("@effect/atom-react", () => ({
       ? { newWorktreesStartFromOrigin: !testState.targetSettings.newWorktreesStartFromOrigin }
       : testServerConfigs(),
 }));
-vi.mock("@vekrel/client-runtime/environment", () => ({
+vi.mock("@vekrel/client-runtime/machine", () => ({
   scopedProjectKey: () => "remote-project",
-  scopeProjectRef: (environmentId: string, projectId: string) => ({ environmentId, projectId }),
-  scopeThreadRef: (environmentId: string, threadId: string) => ({ environmentId, threadId }),
+  scopeProjectRef: (machineId: string, projectId: string) => ({ machineId, projectId }),
+  scopeThreadRef: (machineId: string, threadId: string) => ({ machineId, threadId }),
 }));
 vi.mock("@vekrel/contracts", () => ({
   DEFAULT_RUNTIME_MODE: "default",
@@ -173,7 +173,7 @@ vi.mock("../logicalProject", () => ({
 vi.mock("../state/entities", () => {
   const project = {
     id: "project-remote",
-    environmentId: "environment-ssh",
+    machineId: "machine-ssh",
     workspaceRoot: "/remote/project",
     defaultThreadEnvMode: null,
     defaultModelSelection: null,
@@ -188,7 +188,7 @@ vi.mock("../state/entities", () => {
   };
 });
 vi.mock("../state/server", () => ({
-  environmentServerConfigsAtom: {},
+  machineServerConfigsAtom: {},
   primaryServerSettingsAtom: "primary-settings",
 }));
 vi.mock("../threadRoutes", () => ({ resolveThreadRouteTarget: () => null }));
@@ -206,7 +206,7 @@ describe.each([
     "reusable",
     {
       draftId: "draft-existing",
-      environmentId: "environment-ssh",
+      machineId: "machine-ssh",
       promotedTo: null,
       threadId: "thread-existing",
     },
@@ -216,7 +216,7 @@ describe.each([
     testState.reset(draft);
     const openThread = useNewThreadHandler();
     const pendingOpen = openThread(
-      { environmentId: "environment-ssh", projectId: "project-remote" } as never,
+      { machineId: "machine-ssh", projectId: "project-remote" } as never,
       { replace: true },
     );
 
@@ -232,7 +232,7 @@ describe.each([
   it("abandons a delayed draft open when the project is removed meanwhile", async () => {
     testState.reset(draft);
     const pendingOpen = useNewThreadHandler()(
-      { environmentId: "environment-ssh", projectId: "project-remote" } as never,
+      { machineId: "machine-ssh", projectId: "project-remote" } as never,
       { replace: true },
     );
 

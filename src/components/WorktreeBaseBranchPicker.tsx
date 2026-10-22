@@ -1,10 +1,10 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { ChevronDownIcon, GitBranchIcon } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 
 import { usePaginatedBranches } from "../state/queries";
-import { useEnvironmentQuery } from "../state/query";
-import { vcsEnvironment } from "../state/vcs";
+import { useMachineQuery } from "../state/query";
+import { vcsMachine } from "../state/vcs";
 import { BranchPicker, BranchPickerRefItem } from "./BranchPicker";
 import { resolveBranchTriggerLabel, sanitizeNewRefName } from "./BranchToolbar.logic";
 import { MiddleTruncate } from "./ui/middle-truncate";
@@ -12,7 +12,7 @@ import { Button } from "./ui/button";
 import { ComboboxTrigger } from "./ui/combobox";
 
 export function WorktreeBaseBranchPicker({
-  environmentId,
+  machineId,
   cwd,
   value,
   onValueChange,
@@ -21,7 +21,7 @@ export function WorktreeBaseBranchPicker({
   disabled = false,
   id,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   cwd: string | null;
   value: string;
   onValueChange: (branch: string) => void;
@@ -34,14 +34,14 @@ export function WorktreeBaseBranchPicker({
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query.trim());
   const branches = usePaginatedBranches({
-    environmentId,
+    machineId,
     cwd,
     query: sanitizeNewRefName(deferredQuery),
   });
-  const selectedRefQuery = useEnvironmentQuery(
+  const selectedRefQuery = useMachineQuery(
     cwd && value
-      ? vcsEnvironment.listRefs({
-          environmentId,
+      ? vcsMachine.listRefs({
+          machineId,
           input: { cwd, query: value, limit: 10 },
         })
       : null,

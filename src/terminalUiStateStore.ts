@@ -1,4 +1,4 @@
-import { parseScopedThreadKey, scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { parseScopedThreadKey, scopedThreadKey } from "@vekrel/client-runtime/machine";
 import { type ScopedThreadRef } from "@vekrel/contracts";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";

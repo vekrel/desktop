@@ -1,13 +1,13 @@
 import {
-  type EnvironmentId,
+  type MachineId,
   type ModelSelection,
   type RuntimeMode,
   type ThreadId,
 } from "@vekrel/contracts";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { deriveThreadTitleSeed } from "@vekrel/client-runtime/operations";
 import { settlePromise, squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 import { useNavigate } from "@tanstack/react-router";
 import { newMessageId } from "~/lib/utils";
 import { collapseExpandedComposerCursor } from "../../composer-logic";
@@ -21,8 +21,8 @@ import type { ComposerHandleRef } from "../../composerHandleContext";
 import { releaseDraftAttachments } from "../../lib/attachmentUploadQueue";
 import type { buildMessageContext } from "../../lib/composerContextRecords";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
-import { environmentServerConfigsAtom } from "../../state/server";
-import { threadEnvironment } from "../../state/threads";
+import { machineServerConfigsAtom } from "../../state/server";
+import { threadMachine } from "../../state/threads";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import { buildThreadRouteParams } from "../../threadRoutes";
 import { stackedThreadToast, toastManager } from "../ui/toast";
@@ -43,7 +43,7 @@ import {
 import type { useLocalDispatchState } from "./useLocalDispatchState";
 
 interface MultipleModelSendInput {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly routeThreadKey: string;
   readonly currentRouteThreadKeyRef: { readonly current: string | null };
   readonly draftId: DraftId | null;
@@ -63,7 +63,7 @@ interface MultipleModelSendInput {
  */
 export function useMultipleModelSend(input: MultipleModelSendInput) {
   const {
-    environmentId,
+    machineId,
     routeThreadKey,
     currentRouteThreadKeyRef,
     draftId,
@@ -76,7 +76,7 @@ export function useMultipleModelSend(input: MultipleModelSendInput) {
     setThreadError,
   } = input;
   const navigate = useNavigate();
-  const startThreadTurn = useOrchestrationCommand(threadEnvironment.startTurn, {
+  const startThreadTurn = useOrchestrationCommand(threadMachine.startTurn, {
     reportFailure: false,
   });
   const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
@@ -99,7 +99,7 @@ export function useMultipleModelSend(input: MultipleModelSendInput) {
     isCurrentSend,
   }: {
     readonly threadId: ThreadId;
-    readonly project: EnvironmentProject;
+    readonly project: MachineProject;
     readonly branch: string;
     readonly selections: ReadonlyArray<ModelSelection>;
     readonly targets: ReadonlyArray<MultipleModelTarget>;
@@ -160,10 +160,10 @@ export function useMultipleModelSend(input: MultipleModelSendInput) {
             uncertainSubmissions: uncertainSubmissionsRef.current,
             start: (targetThreadId) => {
               const supportsInlineMessageContext =
-                appAtomRegistry.get(environmentServerConfigsAtom).get(environmentId)?.environment
+                appAtomRegistry.get(machineServerConfigsAtom).get(machineId)?.machine
                   .capabilities.inlineMessageContext === true;
               return startThreadTurn({
-                environmentId,
+                machineId,
                 input: {
                   threadId: targetThreadId,
                   message: {
@@ -205,8 +205,8 @@ export function useMultipleModelSend(input: MultipleModelSendInput) {
             },
             openThread: (threadId) =>
               void navigate({
-                to: "/$environmentId/$threadId",
-                params: buildThreadRouteParams(scopeThreadRef(environmentId, threadId)),
+                to: "/$machineId/$threadId",
+                params: buildThreadRouteParams(scopeThreadRef(machineId, threadId)),
               }),
           });
           if (started) startedCount += 1;

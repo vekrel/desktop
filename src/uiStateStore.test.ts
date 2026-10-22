@@ -54,7 +54,7 @@ describe("uiStateStore pure functions", () => {
   });
 
   it("resolves project expansion from logical, physical, and legacy preference keys", () => {
-    const physicalKey = "environment:/repo/project";
+    const physicalKey = "machine:/repo/project";
     const legacyKey = legacyProjectCwdPreferenceKey("/repo/project");
 
     expect(resolveProjectExpanded({ logical: false, [physicalKey]: true }, ["logical"])).toBe(
@@ -69,14 +69,14 @@ describe("uiStateStore pure functions", () => {
 
   it("sets expansion for every stable key belonging to a logical project", () => {
     const initialState = makeUiState();
-    const keys = ["logical", "environment-a:/repo", "environment-b:/repo"];
+    const keys = ["logical", "machine-a:/repo", "machine-b:/repo"];
 
     const next = setProjectExpanded(initialState, keys, false);
 
     expect(next.projectExpandedById).toEqual({
       logical: false,
-      "environment-a:/repo": false,
-      "environment-b:/repo": false,
+      "machine-a:/repo": false,
+      "machine-b:/repo": false,
     });
     expect(setProjectExpanded(next, keys, false)).toBe(next);
   });
@@ -103,13 +103,13 @@ describe("parsePersistedState", () => {
       },
       projectOrder: ["physical-b", "", "physical-a", "physical-b"],
       threadLastVisitedAtById: {
-        "environment:thread-1": "2026-02-25T12:35:00.000Z",
+        "machine:thread-1": "2026-02-25T12:35:00.000Z",
         invalid: "not-a-date",
       },
       defaultAdvertisedEndpointKey: "desktop-core:lan:http",
       threadChangedFilesExpansionVersion: 2,
       threadChangedFilesExpandedById: {
-        "environment:thread-1": {
+        "machine:thread-1": {
           "turn-1": false,
           "turn-2": true,
         },
@@ -122,13 +122,13 @@ describe("parsePersistedState", () => {
       },
       projectOrder: ["physical-b", "physical-a"],
       threadLastVisitedAtById: {
-        "environment:thread-1": "2026-02-25T12:35:00.000Z",
+        "machine:thread-1": "2026-02-25T12:35:00.000Z",
       },
       defaultAdvertisedEndpointKey: "desktop-core:lan:http",
       sidebarProjectScopeKey: null,
       pullRequestMergeMethod: "merge",
       threadChangedFilesExpandedById: {
-        "environment:thread-1": {
+        "machine:thread-1": {
           "turn-1": false,
           "turn-2": true,
         },
@@ -140,7 +140,7 @@ describe("parsePersistedState", () => {
     const parsed = parsePersistedState({
       ...(version === undefined ? {} : { threadChangedFilesExpansionVersion: version }),
       threadChangedFilesExpandedById: {
-        "environment:thread-1": {
+        "machine:thread-1": {
           "turn-1": false,
         },
       },
@@ -205,10 +205,10 @@ describe("uiStateStore persistence", () => {
       },
       projectOrder: ["physical-b", "physical-a"],
       threadLastVisitedAtById: {
-        "environment:thread-1": "2026-02-25T12:35:00.000Z",
+        "machine:thread-1": "2026-02-25T12:35:00.000Z",
       },
       threadChangedFilesExpandedById: {
-        "environment:thread-1": {
+        "machine:thread-1": {
           "turn-1": false,
           "turn-2": true,
         },
@@ -227,13 +227,13 @@ describe("uiStateStore persistence", () => {
       },
       projectOrder: ["physical-b", "physical-a"],
       threadLastVisitedAtById: {
-        "environment:thread-1": "2026-02-25T12:35:00.000Z",
+        "machine:thread-1": "2026-02-25T12:35:00.000Z",
       },
       defaultAdvertisedEndpointKey: "desktop-core:lan:http",
       sidebarProjectScopeKey: null,
       threadChangedFilesExpansionVersion: 2,
       threadChangedFilesExpandedById: {
-        "environment:thread-1": {
+        "machine:thread-1": {
           "turn-1": false,
           "turn-2": true,
         },

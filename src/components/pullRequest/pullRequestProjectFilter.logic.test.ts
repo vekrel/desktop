@@ -1,11 +1,11 @@
-import { EnvironmentId, ProjectId } from "@vekrel/contracts";
+import { MachineId, ProjectId } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { findScopedProject } from "./pullRequestList.logic";
 import { pullRequestFilterProjects } from "./pullRequestProjectFilter.logic";
 
-const cups = EnvironmentId.make("env-cups");
-const nucbox = EnvironmentId.make("env-nucbox");
+const cups = MachineId.make("env-cups");
+const nucbox = MachineId.make("env-nucbox");
 const labels = new Map([
   [cups, "cups"],
   [nucbox, "nucbox-1"],
@@ -13,12 +13,12 @@ const labels = new Map([
 
 function project(
   id: string,
-  environmentId = nucbox,
+  machineId = nucbox,
   canonicalKey: string | null = "github.com/pingdotgg/t3code",
 ) {
   return {
     id: ProjectId.make(id),
-    environmentId,
+    machineId,
     title: "t3code",
     workspaceRoot: `/work/${id}`,
     repositoryIdentity: canonicalKey === null ? null : { canonicalKey },
@@ -37,9 +37,9 @@ describe("pull request project filter choices", () => {
 
     const choices = pullRequestFilterProjects(projects, labels);
 
-    expect(choices.map(({ id, environmentId, title }) => ({ id, environmentId, title }))).toEqual([
-      { id: "main", environmentId: cups, title: "t3code · cups" },
-      { id: "main", environmentId: nucbox, title: "t3code · nucbox-1" },
+    expect(choices.map(({ id, machineId, title }) => ({ id, machineId, title }))).toEqual([
+      { id: "main", machineId: cups, title: "t3code · cups" },
+      { id: "main", machineId: nucbox, title: "t3code · nucbox-1" },
     ]);
     expect(choices[1]?.workspaceRoot).toBe("/work/main");
     expect(choices[1]?.faviconPath).toBe("main/favicon.png");
@@ -51,7 +51,7 @@ describe("pull request project filter choices", () => {
 
     const choices = pullRequestFilterProjects(projects, labels, selected);
 
-    expect(choices.filter((choice) => choice.environmentId === nucbox)).toEqual([
+    expect(choices.filter((choice) => choice.machineId === nucbox)).toEqual([
       { ...projects[1], title: "t3code · nucbox-1" },
     ]);
     expect(findScopedProject(choices, nucbox, "worktree")).toBeDefined();

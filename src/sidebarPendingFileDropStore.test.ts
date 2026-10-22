@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import { type EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import { type MachineId, ThreadId } from "@vekrel/contracts";
 
 import {
   useSidebarPendingFileDropStore,
@@ -13,12 +13,12 @@ function makeFiles(...names: string[]): File[] {
 }
 
 function makeEntry(
-  environmentId: string,
+  machineId: string,
   threadId: string,
   files: File[],
 ): Omit<SidebarPendingFileDrop, "id"> {
   return {
-    threadRef: scopeThreadRef(environmentId as EnvironmentId, ThreadId.make(threadId)),
+    threadRef: scopeThreadRef(machineId as MachineId, ThreadId.make(threadId)),
     files,
   };
 }
@@ -27,8 +27,8 @@ function fileNames(files: File[]): string[] {
   return files.map((file) => file.name);
 }
 
-function refOf(environmentId: string, threadId: string) {
-  return makeEntry(environmentId, threadId, []).threadRef;
+function refOf(machineId: string, threadId: string) {
+  return makeEntry(machineId, threadId, []).threadRef;
 }
 
 beforeEach(() => {

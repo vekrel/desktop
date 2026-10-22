@@ -1,4 +1,4 @@
-import { EnvironmentId, ThreadId, TurnItemId } from "@vekrel/contracts";
+import { MachineId, ThreadId, TurnItemId } from "@vekrel/contracts";
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -38,7 +38,7 @@ describe("threadContextAttachment", () => {
       sourceItemId: item.id,
       item,
     };
-    const file = threadContextAttachment(EnvironmentId.make("source"), {
+    const file = threadContextAttachment(MachineId.make("source"), {
       threadId: projection.thread.id,
       title: projection.thread.title,
       updatedAt: projection.updatedAt,
@@ -50,7 +50,7 @@ describe("threadContextAttachment", () => {
       .map((line) => JSON.parse(line));
 
     expect(header).toMatchObject({
-      environmentId: "source",
+      machineId: "source",
       threadId: projection.thread.id,
       title: projection.thread.title,
     });
@@ -62,17 +62,17 @@ describe("threadContextAttachment", () => {
     expect(file.type).toBe("application/x-ndjson");
   });
 
-  it("keeps filenames stable per snapshot and distinct across environments and updates", () => {
+  it("keeps filenames stable per snapshot and distinct across machines and updates", () => {
     const transcript = {
       threadId: ThreadId.make("same-thread"),
       title: "Same / title: notes",
       updatedAt: DateTime.makeUnsafe("2026-09-29T00:00:00.000Z"),
       items: [],
     };
-    const source = EnvironmentId.make("source/with:unsafe characters");
+    const source = MachineId.make("source/with:unsafe characters");
     const first = threadContextAttachment(source, transcript);
     expect(threadContextAttachment(source, transcript).name).toBe(first.name);
-    expect(threadContextAttachment(EnvironmentId.make("other"), transcript).name).not.toBe(
+    expect(threadContextAttachment(MachineId.make("other"), transcript).name).not.toBe(
       first.name,
     );
     expect(

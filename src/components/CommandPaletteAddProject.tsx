@@ -125,7 +125,7 @@ export function NewProjectSummary(props: {
   readonly name: string;
   readonly pathPreview: string;
   readonly projectsRoot: string | null;
-  readonly environmentLabel: string | null;
+  readonly machineLabel: string | null;
 }) {
   return (
     <div className="p-2 pb-0">
@@ -141,7 +141,7 @@ export function NewProjectSummary(props: {
             {props.name.length > 0
               ? `Creates ${props.pathPreview}`
               : `Goes in ${props.projectsRoot}`}
-            {props.environmentLabel === null ? null : ` on ${props.environmentLabel}`}
+            {props.machineLabel === null ? null : ` on ${props.machineLabel}`}
           </span>
         </span>
       </div>

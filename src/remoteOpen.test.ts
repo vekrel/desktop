@@ -3,16 +3,16 @@ import {
   RelayConnectionTarget,
   SshConnectionTarget,
 } from "@vekrel/client-runtime/connection";
-import { buildRemoteOpenUrl, EnvironmentId } from "@vekrel/contracts";
+import { buildRemoteOpenUrl, MachineId } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { resolveRemoteOpenState } from "./remoteOpen";
 
-const environmentId = EnvironmentId.make("environment-1");
+const machineId = MachineId.make("machine-1");
 
 const primaryTarget = (httpBaseUrl: string) =>
   new PrimaryConnectionTarget({
-    environmentId,
+    machineId,
     label: "sol",
     httpBaseUrl,
     wsBaseUrl: httpBaseUrl.replace("http", "ws"),
@@ -64,7 +64,7 @@ describe("resolveRemoteOpenState", () => {
 
   it("leaves a bare desktop SSH alias for the editor to resolve through SSH config", () => {
     const state = resolveRemoteOpenState({
-      target: new SshConnectionTarget({ environmentId, label: "sol", connectionId: "ssh-1" }),
+      target: new SshConnectionTarget({ machineId, label: "sol", connectionId: "ssh-1" }),
       sshTarget: { alias: "sol", username: null },
       isDesktopRenderer: true,
       remoteOpenTargets: [
@@ -94,7 +94,7 @@ describe("resolveRemoteOpenState", () => {
     { alias: "admin-user@server", username: "  " },
   ])("keeps one login username in editor links for $alias (username: '$username')", (sshTarget) => {
     const state = resolveRemoteOpenState({
-      target: new SshConnectionTarget({ environmentId, label: "server", connectionId: "ssh-1" }),
+      target: new SshConnectionTarget({ machineId, label: "server", connectionId: "ssh-1" }),
       sshTarget,
       isDesktopRenderer: true,
       remoteOpenTargets: TAILSCALE_TARGETS,
@@ -116,7 +116,7 @@ describe("resolveRemoteOpenState", () => {
 
   it("uses the advertised login username in editor links over a relay", () => {
     const state = resolveRemoteOpenState({
-      target: new RelayConnectionTarget({ environmentId, label: "server" }),
+      target: new RelayConnectionTarget({ machineId, label: "server" }),
       sshTarget: null,
       isDesktopRenderer: false,
       remoteOpenTargets: [
@@ -130,11 +130,11 @@ describe("resolveRemoteOpenState", () => {
     ).toBe("cursor://vscode-remote/ssh-remote+admin-user%40server.tail1234.ts.net/work/project");
   });
 
-  it("reports unavailable when a remote environment advertises no hosts", () => {
+  it("reports unavailable when a remote machine advertises no hosts", () => {
     for (const remoteOpenTargets of [[], undefined] as const) {
       expect(
         resolveRemoteOpenState({
-          target: new RelayConnectionTarget({ environmentId, label: "sol" }),
+          target: new RelayConnectionTarget({ machineId, label: "sol" }),
           sshTarget: null,
           isDesktopRenderer: false,
           remoteOpenTargets,

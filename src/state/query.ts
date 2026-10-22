@@ -5,10 +5,10 @@ import { AsyncResult, Atom } from "effect/reactivity";
 import { useContext } from "react";
 
 const EMPTY_ASYNC_RESULT_ATOM = Atom.make(AsyncResult.initial<never, never>(false)).pipe(
-  Atom.withLabel("web-environment-query:empty"),
+  Atom.withLabel("web-machine-query:empty"),
 );
 
-export interface EnvironmentQueryView<A, E = unknown> {
+export interface MachineQueryView<A, E = unknown> {
   readonly data: A | null;
   readonly dataUpdatedAt: number;
   readonly error: string | null;
@@ -18,11 +18,11 @@ export interface EnvironmentQueryView<A, E = unknown> {
   readonly refresh: () => void;
 }
 
-export function formatEnvironmentQueryError(cause: Cause.Cause<unknown>): string {
+export function formatMachineQueryError(cause: Cause.Cause<unknown>): string {
   const error = Cause.squash(cause);
   return error instanceof Error && error.message.trim().length > 0
     ? error.message
-    : "The environment request failed.";
+    : "The machine request failed.";
 }
 
 function queryUpdatedAt(result: AsyncResult.AsyncResult<unknown, unknown>): number {
@@ -33,16 +33,16 @@ function queryUpdatedAt(result: AsyncResult.AsyncResult<unknown, unknown>): numb
       : 0;
 }
 
-export function useEnvironmentQuery<A, E>(
+export function useMachineQuery<A, E>(
   atom: Atom.Atom<AsyncResult.AsyncResult<A, E>> | null,
-): EnvironmentQueryView<A, E> {
+): MachineQueryView<A, E> {
   const selectedAtom = atom ?? EMPTY_ASYNC_RESULT_ATOM;
   const result = useAtomValue(selectedAtom);
   const refresh = useAtomRefresh(selectedAtom);
   return {
     data: Option.getOrNull(AsyncResult.value(result)),
     dataUpdatedAt: queryUpdatedAt(result),
-    error: result._tag === "Failure" ? formatEnvironmentQueryError(result.cause) : null,
+    error: result._tag === "Failure" ? formatMachineQueryError(result.cause) : null,
     failure:
       result._tag === "Failure" ? Option.getOrNull(Cause.findErrorOption(result.cause)) : null,
     isPending: atom !== null && result.waiting,
@@ -57,7 +57,7 @@ export function useEnvironmentQuery<A, E>(
  * selected part changes. `select` must be defined outside the component: a new
  * function per render would rebuild the derived atom every render.
  */
-export function useEnvironmentQuerySelector<A, E, B>(
+export function useMachineQuerySelector<A, E, B>(
   atom: Atom.Atom<AsyncResult.AsyncResult<A, E>> | null,
   select: (result: AsyncResult.AsyncResult<A, E>) => B,
 ): B {
@@ -85,7 +85,7 @@ function queryIsNewerAtom(query: QueryResultAtom, than: QueryResultAtom): Atom.A
 }
 
 /** Whether `query` last succeeded no earlier than `than`, without re-rendering on every refetch. */
-export function useEnvironmentQueryIsNewer(
+export function useMachineQueryIsNewer(
   query: QueryResultAtom | null,
   than: QueryResultAtom | null,
 ): boolean {
@@ -98,7 +98,7 @@ export function useEnvironmentQueryIsNewer(
  * The query's refresh, plus its pending state read when called rather than
  * subscribed to, for callers that only gate a refresh on it.
  */
-export function useEnvironmentQueryRefresh<A, E>(
+export function useMachineQueryRefresh<A, E>(
   atom: Atom.Atom<AsyncResult.AsyncResult<A, E>> | null,
 ): { readonly refresh: () => void; readonly isPending: () => boolean } {
   const registry = useContext(RegistryContext);

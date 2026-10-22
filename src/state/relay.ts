@@ -1,6 +1,6 @@
-import { createRelayEnvironmentDiscoveryAtoms } from "@vekrel/client-runtime/state/relay";
+import { createRelayMachineDiscoveryAtoms } from "@vekrel/client-runtime/state/relay";
 
 import { connectionAtomRuntime } from "../connection/runtime";
 
-export const relayEnvironmentDiscovery: ReturnType<typeof createRelayEnvironmentDiscoveryAtoms> =
-  createRelayEnvironmentDiscoveryAtoms(connectionAtomRuntime);
+export const relayMachineDiscovery: ReturnType<typeof createRelayMachineDiscoveryAtoms> =
+  createRelayMachineDiscoveryAtoms(connectionAtomRuntime);

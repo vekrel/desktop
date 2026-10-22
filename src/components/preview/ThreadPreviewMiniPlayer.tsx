@@ -1,6 +1,6 @@
 import { FILL_PREVIEW_VIEWPORT, type ScopedThreadRef } from "@vekrel/contracts";
 import { previewPdfAssetUrl } from "@vekrel/shared/preview";
-import { useEnvironmentHttpBaseUrl } from "~/state/environments";
+import { useMachineHttpBaseUrl } from "~/state/machines";
 import { PanelRightIcon, PictureInPicture2, XIcon } from "lucide-react";
 import {
   type PointerEvent as ReactPointerEvent,
@@ -115,7 +115,7 @@ export function ThreadPreviewMiniPlayer({ threadRef, miniPlayer }: Props) {
 }
 
 function BrowserMiniPlayer({ threadRef, tabId, miniPlayer }: Props & { readonly tabId: string }) {
-  const httpBaseUrl = useEnvironmentHttpBaseUrl(threadRef.environmentId);
+  const httpBaseUrl = useMachineHttpBaseUrl(threadRef.machineId);
   const previewState = useThreadPreviewState(threadRef);
   const snapshot = previewState.sessions[tabId] ?? null;
   const runtimeTabId = previewRuntimeTabId(threadRef, previewState.serverEpoch, tabId);
@@ -128,7 +128,7 @@ function BrowserMiniPlayer({ threadRef, tabId, miniPlayer }: Props & { readonly 
   const fittedSourceContent = useBrowserSurfaceStore(
     (state) => state.byTabId[runtimeTabId]?.fittedSourceContent ?? null,
   );
-  const nativeServerTab = useRendersServerTabNatively(threadRef.environmentId, snapshot);
+  const nativeServerTab = useRendersServerTabNatively(threadRef.machineId, snapshot);
   const serverTab = snapshot?.runtime === "server" && !nativeServerTab;
   const [streamViewport, setStreamViewport] = useState<PreviewStreamViewport | null>(null);
   const serverSurfaceRef = useRef<ServerBrowserHandle | null>(null);
@@ -225,7 +225,7 @@ function BrowserMiniPlayer({ threadRef, tabId, miniPlayer }: Props & { readonly 
           >
             <ServerBrowserSurface
               ref={serverSurfaceRef}
-              environmentId={threadRef.environmentId}
+              machineId={threadRef.machineId}
               threadId={threadRef.threadId}
               tabId={tabId}
               pdfUrl={pdfUrl}
@@ -265,7 +265,7 @@ function DeviceMiniPlayer({
   source,
   miniPlayer,
 }: Props & { readonly source: Extract<PreviewMiniPlayerSource, { kind: "device" }> }) {
-  const { state: deviceState } = useDeviceState(threadRef.environmentId);
+  const { state: deviceState } = useDeviceState(threadRef.machineId);
   const [screen, setScreen] = useState<DeviceScreenSize | null>(null);
   const sourceSize = resolveDeviceMiniPlayerSourceSize(source.platform, screen);
   const device = deviceState.devices.find(
@@ -301,7 +301,7 @@ function DeviceMiniPlayer({
           style={{ zIndex: PREVIEW_MINI_PLAYER_WEBVIEW_Z_INDEX }}
         >
           <DeviceStreamView
-            environmentId={threadRef.environmentId}
+            machineId={threadRef.machineId}
             platform={source.platform}
             deviceId={source.deviceId}
             hostId={source.hostId}

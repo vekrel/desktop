@@ -1,8 +1,8 @@
 import type { ConnectionTarget } from "@vekrel/client-runtime/connection";
 import {
-  PRIMARY_LOCAL_ENVIRONMENT_ID,
+  PRIMARY_LOCAL_MACHINE_ID,
   type DesktopBridge,
-  type DesktopEnvironmentBootstrap,
+  type DesktopMachineBootstrap,
 } from "@vekrel/contracts";
 
 /**
@@ -38,7 +38,7 @@ export function isWslConnectionTarget(target: ConnectionTarget): boolean {
 export type DesktopSecondaryBootstrapsRead =
   | {
       readonly _tag: "Success";
-      readonly bootstraps: ReadonlyArray<DesktopEnvironmentBootstrap>;
+      readonly bootstraps: ReadonlyArray<DesktopMachineBootstrap>;
     }
   | {
       readonly _tag: "Failure";
@@ -47,7 +47,7 @@ export type DesktopSecondaryBootstrapsRead =
 
 export interface DesktopSecondaryBootstrapsReader {
   readonly readResult: () => DesktopSecondaryBootstrapsRead;
-  readonly readSnapshot: () => ReadonlyArray<DesktopEnvironmentBootstrap>;
+  readonly readSnapshot: () => ReadonlyArray<DesktopMachineBootstrap>;
 }
 
 /**
@@ -55,9 +55,9 @@ export interface DesktopSecondaryBootstrapsReader {
  * consumers cannot temporarily disagree with the platform's retained registrations.
  */
 export function createDesktopSecondaryBootstrapsReader(
-  resolveBridge: () => Pick<DesktopBridge, "getLocalEnvironmentBootstraps"> | undefined,
+  resolveBridge: () => Pick<DesktopBridge, "getLocalMachineBootstraps"> | undefined,
 ): DesktopSecondaryBootstrapsReader {
-  let snapshot: ReadonlyArray<DesktopEnvironmentBootstrap> = [];
+  let snapshot: ReadonlyArray<DesktopMachineBootstrap> = [];
 
   const readResult = (): DesktopSecondaryBootstrapsRead => {
     const bridge = resolveBridge();
@@ -67,8 +67,8 @@ export function createDesktopSecondaryBootstrapsReader(
     }
     try {
       const next = bridge
-        .getLocalEnvironmentBootstraps()
-        .filter((entry) => entry.id !== PRIMARY_LOCAL_ENVIRONMENT_ID);
+        .getLocalMachineBootstraps()
+        .filter((entry) => entry.id !== PRIMARY_LOCAL_MACHINE_ID);
       if (
         next.length !== snapshot.length ||
         next.some((entry, index) => {
@@ -109,6 +109,6 @@ export function readDesktopSecondaryBootstrapsResult(): DesktopSecondaryBootstra
   return desktopSecondaryBootstrapsReader.readResult();
 }
 
-export function readDesktopSecondaryBootstraps(): ReadonlyArray<DesktopEnvironmentBootstrap> {
+export function readDesktopSecondaryBootstraps(): ReadonlyArray<DesktopMachineBootstrap> {
   return desktopSecondaryBootstrapsReader.readSnapshot();
 }

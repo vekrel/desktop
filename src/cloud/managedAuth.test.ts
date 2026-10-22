@@ -19,8 +19,8 @@ vi.mock("../lib/runtime", () => ({
 }));
 
 vi.mock("../connection/catalog", () => ({
-  environmentCatalog: {
-    removeRelayEnvironments: {},
+  machineCatalog: {
+    removeRelayMachines: {},
   },
 }));
 

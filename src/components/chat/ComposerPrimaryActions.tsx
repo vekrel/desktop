@@ -2,7 +2,7 @@ import { memo, type MouseEventHandler, type PointerEventHandler } from "react";
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, Minimize2Icon, PlayIcon } from "lucide-react";
 import { CornerUpRight, ListPlus } from "lucide";
 import { MorphIcon } from "~/components/MorphIcon";
-import { useEnvironmentIdentificationMode } from "~/hooks/useSettings";
+import { useMachineIdentificationMode } from "~/hooks/useSettings";
 import { formatContextWindowTokens } from "~/lib/contextWindow";
 import { cn } from "~/lib/utils";
 import { useShortcutModifierState } from "../../shortcutModifierState";
@@ -39,7 +39,7 @@ interface ComposerPrimaryActionsProps {
   isSendBusy: boolean;
   sendDisabledReason: string | null;
   isConnecting: boolean;
-  isEnvironmentUnavailable: boolean;
+  isMachineUnavailable: boolean;
   isPreparingWorktree: boolean;
   hasSendableContent: boolean;
   canResume?: boolean;
@@ -94,7 +94,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   isSendBusy,
   sendDisabledReason,
   isConnecting,
-  isEnvironmentUnavailable,
+  isMachineUnavailable,
   isPreparingWorktree,
   hasSendableContent,
   canResume = false,
@@ -112,7 +112,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   const pointerFocusProps = preserveComposerFocusOnPointerDown
     ? { onPointerDown: preventPointerFocus }
     : undefined;
-  const environmentIdentificationMode = useEnvironmentIdentificationMode();
+  const machineIdentificationMode = useMachineIdentificationMode();
   const shortcutModifiers = useShortcutModifierState();
   const isQueuing =
     !isEditingQueuedMessage &&
@@ -125,7 +125,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   const alternateAction = alternateComposerDispatchAction(followUpBehavior);
   const isSendDisabled = !canOperateThread || sendDisabledReason !== null;
   const stageBackdropVariant = useSidebarStageBackdropVariant(
-    environmentIdentificationMode === "artwork",
+    machineIdentificationMode === "artwork",
   );
 
   const renderStopGenerationButton = (insidePendingAction: boolean) => (
@@ -189,7 +189,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
           {...pointerFocusProps}
           disabled={
             !canOperateThread ||
-            isEnvironmentUnavailable ||
+            isMachineUnavailable ||
             pendingAction.isResponding ||
             (pendingAction.isLastQuestion ? !pendingAction.isComplete : !pendingAction.canAdvance)
           }
@@ -212,7 +212,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
           type="submit"
           className={cn(messageActionPillClassName, "h-9 sm:h-8", compact ? "px-3" : "px-4")}
           {...pointerFocusProps}
-          disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
+          disabled={isSendBusy || isSendDisabled || isConnecting || isMachineUnavailable}
         >
           {isConnecting || isSendBusy ? "Sending..." : "Refine"}
         </button>
@@ -225,7 +225,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
           type="submit"
           className={cn(messageActionPillClassName, "h-9 rounded-r-none px-4 sm:h-8")}
           {...pointerFocusProps}
-          disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
+          disabled={isSendBusy || isSendDisabled || isConnecting || isMachineUnavailable}
         >
           {isConnecting || isSendBusy ? "Sending..." : "Implement"}
         </button>
@@ -242,7 +242,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
                 onMouseDown={
                   preserveComposerFocusOnPointerDown ? (event) => event.preventDefault() : undefined
                 }
-                disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
+                disabled={isSendBusy || isSendDisabled || isConnecting || isMachineUnavailable}
               />
             }
           >
@@ -250,7 +250,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
           </MenuTrigger>
           <MenuPopup align="end" side="top" {...composerFloatingLayerProps}>
             <MenuItem
-              disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
+              disabled={isSendBusy || isSendDisabled || isConnecting || isMachineUnavailable}
               onClick={() => {
                 if (canOperateThread) onImplementPlanInNewThread();
               }}
@@ -286,8 +286,8 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
           : isRunning
             ? "Steer message"
             : "Submit message";
-  const submitStatus = isEnvironmentUnavailable
-    ? "Environment disconnected"
+  const submitStatus = isMachineUnavailable
+    ? "Machine disconnected"
     : (sendDisabledReason ??
       (isConnecting
         ? "Connecting"
@@ -321,7 +321,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
         isSendBusy ||
         isSendDisabled ||
         isConnecting ||
-        isEnvironmentUnavailable ||
+        isMachineUnavailable ||
         (!hasSendableContent && !showResume)
       }
       aria-label={submitStatus ?? submitLabel}

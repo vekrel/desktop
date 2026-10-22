@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react";
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import { Atom, AtomRegistry } from "effect/reactivity";
@@ -15,7 +15,7 @@ const state = vi.hoisted(() => ({
   navigate: vi.fn(),
   sound: vi.fn(),
   badge: vi.fn(),
-  environmentIds: ["one", "two"],
+  machineIds: ["one", "two"],
 }));
 vi.mock(import("@tanstack/react-router"), async (original) => ({
   ...(await original()),
@@ -30,15 +30,15 @@ vi.mock(import("../state/shell"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    environmentShell: {
-      ...actual.environmentShell,
+    machineShell: {
+      ...actual.machineShell,
       stateValueAtom: ((id: string) => shellAtom(id)) as never,
     },
   };
 });
-vi.mock(import("../state/environments"), async (original) => ({
+vi.mock(import("../state/machines"), async (original) => ({
   ...(await original()),
-  useEnvironmentIds: (() => state.environmentIds) as never,
+  useMachineIds: (() => state.machineIds) as never,
 }));
 vi.mock(import("../hooks/useSettings"), async (original) => ({
   ...(await original()),
@@ -164,7 +164,7 @@ function setup() {
   stack.defer(() => testRegistry.dispose());
   state.mode = "notifications";
   state.inApp = false;
-  state.environmentIds = ["one", "two"];
+  state.machineIds = ["one", "two"];
   state.shells.set("one", shell());
   state.shells.set("two", shell());
   focused = false;
@@ -206,8 +206,8 @@ it.each(["hasPendingApprovals", "hasPendingUserInput"] as const)(
     const notification = TestNotification.sent[0]!;
     notification.dispatchEvent(new Event("click"));
     expect(state.navigate).toHaveBeenCalledWith({
-      to: "/$environmentId/$threadId",
-      params: { environmentId: EnvironmentId.make("one"), threadId: "thread" },
+      to: "/$machineId/$threadId",
+      params: { machineId: MachineId.make("one"), threadId: "thread" },
     });
     state.mode = "sound";
     await app.render();

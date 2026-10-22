@@ -1,7 +1,7 @@
 import {
   ClientSettingsSchema,
   type ClientSettingsPatch,
-  type EnvironmentId,
+  type MachineId,
   globalIdleCompaction,
   idleCompactionPatch,
   isNullableProjectSettingsOverride,
@@ -14,7 +14,7 @@ import {
   type T3ProjectFile,
   type ServerSettingsPatch,
 } from "@vekrel/contracts";
-import type { EnvironmentConnectionPhase } from "@vekrel/client-runtime/connection";
+import type { MachineConnectionPhase } from "@vekrel/client-runtime/connection";
 import {
   clearProjectSettingsOverrides,
   resolveProjectSettings,
@@ -28,13 +28,13 @@ import type { ResolvedSettingsScope } from "./settingsScope";
 
 export type ScopedSettingsPatch = ServerSettingsPatch & ClientSettingsPatch;
 
-interface ScopedSettingsEnvironment {
-  readonly environmentId: EnvironmentId;
+interface ScopedSettingsMachine {
+  readonly machineId: MachineId;
   readonly label: string;
-  readonly connection: { readonly phase: EnvironmentConnectionPhase };
+  readonly connection: { readonly phase: MachineConnectionPhase };
   readonly serverConfig: {
     readonly settings: ServerSettings;
-    readonly environment?: {
+    readonly machine?: {
       readonly capabilities: { readonly projectSettingsOverrides?: boolean | undefined };
     };
   } | null;
@@ -53,31 +53,31 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 export function isConnectedWithConfig(
-  environment: Pick<ScopedSettingsEnvironment, "connection" | "serverConfig">,
+  machine: Pick<ScopedSettingsMachine, "connection" | "serverConfig">,
 ) {
-  return environment.connection.phase === "connected" && environment.serverConfig !== null;
+  return machine.connection.phase === "connected" && machine.serverConfig !== null;
 }
 
 /** The representative supplies display values, never the set of write targets. */
-export function selectScopedSettingsEnvironments<T extends ScopedSettingsEnvironment>(
+export function selectScopedSettingsMachines<T extends ScopedSettingsMachine>(
   scope: ResolvedSettingsScope,
   available: readonly T[],
-  primaryEnvironmentId: EnvironmentId | null,
+  primaryMachineId: MachineId | null,
 ) {
-  const selectedIds = new Set(scope.environmentIds);
-  const environments = available.filter((environment) =>
-    selectedIds.has(environment.environmentId),
+  const selectedIds = new Set(scope.machineIds);
+  const machines = available.filter((machine) =>
+    selectedIds.has(machine.machineId),
   );
-  const connectedEnvironments = environments.filter(isConnectedWithConfig);
-  const environment =
-    connectedEnvironments.find((candidate) => candidate.environmentId === primaryEnvironmentId) ??
-    connectedEnvironments[0] ??
+  const connectedMachines = machines.filter(isConnectedWithConfig);
+  const machine =
+    connectedMachines.find((candidate) => candidate.machineId === primaryMachineId) ??
+    connectedMachines[0] ??
     null;
-  return { environments, connectedEnvironments, environment };
+  return { machines, connectedMachines, machine };
 }
 
 export interface ScopedSettingsTarget {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly label: string;
   readonly projectId: ProjectId | null;
   readonly settings: ServerSettings;
@@ -86,26 +86,26 @@ export interface ScopedSettingsTarget {
 
 export function resolveScopedSettingsTargets(
   scope: ResolvedSettingsScope,
-  connectedEnvironments: readonly ScopedSettingsEnvironment[],
+  connectedMachines: readonly ScopedSettingsMachine[],
   // A member absent here has no file tier yet; null is a missing or invalid file.
   projectFiles?: ReadonlyMap<string, T3ProjectFile | null>,
 ): readonly ScopedSettingsTarget[] {
   const byId = new Map(
-    connectedEnvironments.map((environment) => [environment.environmentId, environment]),
+    connectedMachines.map((machine) => [machine.machineId, machine]),
   );
   if (scope.kind === "project" || scope.kind === "checkout") {
     return scope.members.flatMap((member) => {
-      const environment = byId.get(member.environmentId);
-      if (!environment?.serverConfig) return [];
+      const machine = byId.get(member.machineId);
+      if (!machine?.serverConfig) return [];
       const projectFile = projectFiles?.get(member.physicalProjectKey);
       const resolved =
         projectFile === undefined
-          ? resolveProjectSettings(environment.serverConfig.settings, member.id)
-          : resolveProjectSettings(environment.serverConfig.settings, member.id, null, projectFile);
+          ? resolveProjectSettings(machine.serverConfig.settings, member.id)
+          : resolveProjectSettings(machine.serverConfig.settings, member.id, null, projectFile);
       return [
         {
-          environmentId: member.environmentId,
-          label: environment.label,
+          machineId: member.machineId,
+          label: machine.label,
           projectId: member.id,
           settings: resolved.settings,
           sources: resolved.sources,
@@ -113,15 +113,15 @@ export function resolveScopedSettingsTargets(
       ];
     });
   }
-  return connectedEnvironments.flatMap((environment) =>
-    environment.serverConfig
+  return connectedMachines.flatMap((machine) =>
+    machine.serverConfig
       ? [
           {
-            environmentId: environment.environmentId,
-            label: environment.label,
+            machineId: machine.machineId,
+            label: machine.label,
             projectId: null,
-            settings: environment.serverConfig.settings,
-            sources: resolveProjectSettings(environment.serverConfig.settings, null).sources,
+            settings: machine.serverConfig.settings,
+            sources: resolveProjectSettings(machine.serverConfig.settings, null).sources,
           },
         ]
       : [],
@@ -143,7 +143,7 @@ export function scopedSettingsAreMixed(
 
 /**
  * Servers store the idle compaction mode differently by version, so selected
- * environments are compared by the mode each resolves to, and "Never" is offered
+ * machines are compared by the mode each resolves to, and "Never" is offered
  * only when every one of them can store it.
  */
 export function scopedIdleCompaction(targets: readonly Pick<ScopedSettingsTarget, "settings">[]) {
@@ -173,7 +173,7 @@ export function scopedSettingsSource(
 }
 
 interface ScopedServerWrite {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly label: string;
   readonly patch: ServerSettingsPatch;
   readonly previous: ServerSettings;
@@ -181,30 +181,30 @@ interface ScopedServerWrite {
 
 function projectOverrideWrites(
   scope: Extract<ResolvedSettingsScope, { kind: "project" | "checkout" }>,
-  environments: readonly ScopedSettingsEnvironment[],
+  machines: readonly ScopedSettingsMachine[],
   update: (
     current: ProjectSettingsOverrides,
     settings: ServerSettings,
     projectId: ProjectId,
   ) => ProjectSettingsOverrides | null,
 ): ScopedServerWrite[] {
-  const byId = new Map(environments.map((environment) => [environment.environmentId, environment]));
-  const writes = new Map<EnvironmentId, ScopedServerWrite>();
+  const byId = new Map(machines.map((machine) => [machine.machineId, machine]));
+  const writes = new Map<MachineId, ScopedServerWrite>();
   for (const member of scope.members) {
-    const environment = byId.get(member.environmentId);
+    const machine = byId.get(member.machineId);
     if (
-      !environment?.serverConfig ||
-      environment.connection.phase !== "connected" ||
-      environment.serverConfig.environment?.capabilities.projectSettingsOverrides !== true
+      !machine?.serverConfig ||
+      machine.connection.phase !== "connected" ||
+      machine.serverConfig.machine?.capabilities.projectSettingsOverrides !== true
     ) {
       continue;
     }
-    const settings = environment.serverConfig.settings;
+    const settings = machine.serverConfig.settings;
     const entry = update(settings.projectSettingsOverrides[member.id] ?? {}, settings, member.id);
-    const existing = writes.get(member.environmentId);
-    writes.set(member.environmentId, {
-      environmentId: member.environmentId,
-      label: environment.label,
+    const existing = writes.get(member.machineId);
+    writes.set(member.machineId, {
+      machineId: member.machineId,
+      label: machine.label,
       previous: settings,
       patch: {
         projectSettingsOverrides: {
@@ -226,7 +226,7 @@ function forDestination(previous: ServerSettings, patch: ServerSettingsPatch): S
 
 export function planScopedSettingsPatch(
   scope: ResolvedSettingsScope,
-  environments: readonly ScopedSettingsEnvironment[],
+  machines: readonly ScopedSettingsMachine[],
   patch: ScopedSettingsPatch,
 ) {
   const clientPatch = Object.fromEntries(
@@ -236,7 +236,7 @@ export function planScopedSettingsPatch(
     Object.entries(patch).filter(([key]) => SERVER_KEYS.has(key)),
   ) as ServerSettingsPatch;
   const serverKeys = Object.keys(serverPatch);
-  const { connectedEnvironments } = selectScopedSettingsEnvironments(scope, environments, null);
+  const { connectedMachines } = selectScopedSettingsMachines(scope, machines, null);
   const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
   const unscopableKeys = isProjectScope
     ? serverKeys.filter((key) => !isProjectScopedSettingKey(key))
@@ -247,7 +247,7 @@ export function planScopedSettingsPatch(
       : isProjectScope
         ? unscopableKeys.length > 0
           ? []
-          : projectOverrideWrites(scope, environments, (current, settings, projectId) => {
+          : projectOverrideWrites(scope, machines, (current, settings, projectId) => {
               // Object-valued keys arrive as partial patches (the writing style
               // rows send one field); an override entry stores the whole value,
               // so complete the patch from the target's effective value.
@@ -292,14 +292,14 @@ export function planScopedSettingsPatch(
               }
               return next as ProjectSettingsOverrides;
             })
-        : scope.kind === "all" || scope.kind === "environment"
-          ? connectedEnvironments.flatMap((environment) => {
-              const previous = environment.serverConfig?.settings;
+        : scope.kind === "all" || scope.kind === "machine"
+          ? connectedMachines.flatMap((machine) => {
+              const previous = machine.serverConfig?.settings;
               if (!previous) return [];
               return [
                 {
-                  environmentId: environment.environmentId,
-                  label: environment.label,
+                  machineId: machine.machineId,
+                  label: machine.label,
                   previous,
                   patch: forDestination(
                     previous,
@@ -336,21 +336,21 @@ export function planScopedSettingsPatch(
       : scope.kind === "unavailable"
         ? scope.message
         : unscopableKeys.length > 0
-          ? "This setting is environment-wide and cannot be overridden by a project."
+          ? "This setting is machine-wide and cannot be overridden by a project."
           : isProjectScope
-            ? "Connect the selected checkouts, or update their environments, to save a project override."
-            : `Connect ${scope.kind === "environment" ? scope.label : "an environment"} to save this setting.`;
+            ? "Connect the selected checkouts, or update their machines, to save a project override."
+            : `Connect ${scope.kind === "machine" ? scope.label : "a machine"} to save this setting.`;
   return { clientPatch, hasClientWrite, serverWrites, unavailableReason };
 }
 
 export function planScopedSettingsClear(
   scope: ResolvedSettingsScope,
-  environments: readonly ScopedSettingsEnvironment[],
+  machines: readonly ScopedSettingsMachine[],
   keys: readonly ProjectScopedServerSettingKey[],
 ) {
   const serverWrites =
     scope.kind === "project" || scope.kind === "checkout"
-      ? projectOverrideWrites(scope, environments, (_current, settings, projectId) =>
+      ? projectOverrideWrites(scope, machines, (_current, settings, projectId) =>
           clearProjectSettingsOverrides(settings, projectId, keys),
         )
       : [];
@@ -361,47 +361,47 @@ export function planScopedSettingsClear(
     unavailableReason:
       serverWrites.length > 0
         ? null
-        : "Connect the selected checkouts, or update their environments, to reset this override.",
+        : "Connect the selected checkouts, or update their machines, to reset this override.",
   };
 }
 
 export interface ProjectOverrideEntry {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly projectId: ProjectId;
 }
 
 export function listProjectOverrides(
-  environments: readonly ScopedSettingsEnvironment[],
+  machines: readonly ScopedSettingsMachine[],
   keys: readonly (keyof ServerSettings)[],
 ): readonly ProjectOverrideEntry[] {
   const scoped = keys.filter(isProjectScopedSettingKey);
   if (scoped.length === 0) return [];
-  return environments.flatMap((environment) => {
-    const overrides = environment.serverConfig?.settings.projectSettingsOverrides;
+  return machines.flatMap((machine) => {
+    const overrides = machine.serverConfig?.settings.projectSettingsOverrides;
     if (!overrides) return [];
     return Object.entries(overrides).flatMap(([projectId, entry]) =>
       scoped.some((key) => Object.hasOwn(entry, key))
-        ? [{ environmentId: environment.environmentId, projectId: projectId as ProjectId }]
+        ? [{ machineId: machine.machineId, projectId: projectId as ProjectId }]
         : [],
     );
   });
 }
 
 export function planProjectOverridesClear(
-  environments: readonly ScopedSettingsEnvironment[],
+  machines: readonly ScopedSettingsMachine[],
   entries: readonly ProjectOverrideEntry[],
   keys: readonly ProjectScopedServerSettingKey[],
 ) {
-  const byId = new Map(environments.map((environment) => [environment.environmentId, environment]));
-  const writes = new Map<EnvironmentId, ScopedServerWrite>();
-  for (const { environmentId, projectId } of entries) {
-    const environment = byId.get(environmentId);
-    if (!environment?.serverConfig || environment.connection.phase !== "connected") continue;
-    const settings = environment.serverConfig.settings;
-    const existing = writes.get(environmentId);
-    writes.set(environmentId, {
-      environmentId,
-      label: environment.label,
+  const byId = new Map(machines.map((machine) => [machine.machineId, machine]));
+  const writes = new Map<MachineId, ScopedServerWrite>();
+  for (const { machineId, projectId } of entries) {
+    const machine = byId.get(machineId);
+    if (!machine?.serverConfig || machine.connection.phase !== "connected") continue;
+    const settings = machine.serverConfig.settings;
+    const existing = writes.get(machineId);
+    writes.set(machineId, {
+      machineId,
+      label: machine.label,
       previous: settings,
       patch: {
         projectSettingsOverrides: {
@@ -417,7 +417,7 @@ export function planProjectOverridesClear(
     hasClientWrite: false,
     serverWrites,
     unavailableReason:
-      serverWrites.length > 0 ? null : "Connect the environments to reset these overrides.",
+      serverWrites.length > 0 ? null : "Connect the machines to reset these overrides.",
   };
 }
 
@@ -457,7 +457,7 @@ function droppedSettingKeys(write: ScopedServerWrite, saved: ServerSettings | un
 export async function persistScopedSettingsPatch(
   plan: ReturnType<typeof planScopedSettingsPatch>,
   persistServer: (input: {
-    environmentId: EnvironmentId;
+    machineId: MachineId;
     input: { patch: ServerSettingsPatch };
   }) => Promise<{
     readonly _tag: "Success" | "Failure";
@@ -468,8 +468,8 @@ export async function persistScopedSettingsPatch(
 ) {
   if (plan.hasClientWrite) persistClient(plan.clientPatch);
   const results = await Promise.allSettled(
-    plan.serverWrites.map(({ environmentId, patch }) =>
-      persistServer({ environmentId, input: { patch } }),
+    plan.serverWrites.map(({ machineId, patch }) =>
+      persistServer({ machineId, input: { patch } }),
     ),
   );
   const saved = (index: number) => {
@@ -480,14 +480,14 @@ export async function persistScopedSettingsPatch(
       droppedSettingKeys(plan.serverWrites[index]!, result.value.value).length === 0
     );
   };
-  const failedEnvironments = plan.serverWrites.flatMap((environment, index) => {
+  const failedMachines = plan.serverWrites.flatMap((machine, index) => {
     if (saved(index)) return [];
     const result = results[index];
     if (result?.status === "fulfilled" && result.value._tag === "Success") {
       return [
         {
-          ...environment,
-          message: "This environment does not support this setting. Update Vekrel on it.",
+          ...machine,
+          message: "This machine does not support this setting. Update Vekrel on it.",
         },
       ];
     }
@@ -499,7 +499,7 @@ export async function persistScopedSettingsPatch(
           : undefined;
     return [
       {
-        ...environment,
+        ...machine,
         message:
           error instanceof Error
             ? error.message
@@ -507,10 +507,10 @@ export async function persistScopedSettingsPatch(
       },
     ];
   });
-  const savedEnvironments = plan.serverWrites.filter((_, index) => saved(index));
+  const savedMachines = plan.serverWrites.filter((_, index) => saved(index));
   return {
-    failedEnvironments,
-    savedEnvironments,
-    savedEnvironmentCount: savedEnvironments.length,
+    failedMachines,
+    savedMachines,
+    savedMachineCount: savedMachines.length,
   };
 }

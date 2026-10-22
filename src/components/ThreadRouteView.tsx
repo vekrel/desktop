@@ -1,4 +1,4 @@
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import type { ScopedThreadRef } from "@vekrel/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -14,9 +14,9 @@ import {
   useComposerDraftStore,
 } from "../composerDraftStore";
 import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
-import { useEnvironmentThreadRefs, useThreadRefs, useQuietThreadShell } from "../state/entities";
-import { useEnvironmentShellStatus } from "../state/shell";
-import { useEnvironmentThread } from "../state/threads";
+import { useMachineThreadRefs, useThreadRefs, useQuietThreadShell } from "../state/entities";
+import { useMachineShellStatus } from "../state/shell";
+import { useMachineThread } from "../state/threads";
 import {
   buildThreadRouteParams,
   isThreadRouteSnapshotAuthoritative,
@@ -40,7 +40,7 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   const inferredThreadRef = draftSession
     ? (threadRefs.find(
         (ref) =>
-          ref.environmentId === draftSession.environmentId &&
+          ref.machineId === draftSession.machineId &&
           ref.threadId === draftSession.threadId,
       ) ?? null)
     : null;
@@ -59,9 +59,9 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
         })
       : null;
 
-  const shellStatus = useEnvironmentShellStatus(serverThreadRef?.environmentId ?? null);
+  const shellStatus = useMachineShellStatus(serverThreadRef?.machineId ?? null);
   const serverThreadShell = serverThread;
-  const environmentThreadRefs = useEnvironmentThreadRefs(serverThreadRef?.environmentId ?? null);
+  const machineThreadRefs = useMachineThreadRefs(serverThreadRef?.machineId ?? null);
   const bootstrapComplete = isThreadRouteSnapshotAuthoritative(shellStatus);
   const draftThread = useComposerDraftStore((store) =>
     serverThreadRef ? store.getDraftThreadByRef(serverThreadRef) : null,
@@ -85,8 +85,8 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   if (nextChatViewKey !== chatViewKey) {
     setChatViewKey(nextChatViewKey);
   }
-  const environmentHasDraftThreads = useComposerDraftStore((store) =>
-    serverThreadRef ? store.hasDraftThreadsInEnvironment(serverThreadRef.environmentId) : false,
+  const machineHasDraftThreads = useComposerDraftStore((store) =>
+    serverThreadRef ? store.hasDraftThreadsInMachine(serverThreadRef.machineId) : false,
   );
   // Until the shell lists the thread, its own load (HTTP, then the socket)
   // decides whether it exists. Read only then: once listed, ChatView keeps
@@ -95,8 +95,8 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     target.kind === "server" && serverThreadShell === null && draftThread === null
       ? target.threadRef
       : null;
-  const unlistedThreadDetail = useEnvironmentThread(
-    unlistedThreadRef?.environmentId ?? null,
+  const unlistedThreadDetail = useMachineThread(
+    unlistedThreadRef?.machineId ?? null,
     unlistedThreadRef?.threadId ?? null,
   );
   const renderState = resolveThreadRouteRenderState({
@@ -107,7 +107,7 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     draftThreadExists: draftThread !== null,
   });
   const serverThreadStarted = threadHasStarted(serverThreadShell);
-  const environmentHasAnyThreads = environmentThreadRefs.length > 0 || environmentHasDraftThreads;
+  const machineHasAnyThreads = machineThreadRefs.length > 0 || machineHasDraftThreads;
 
   useEffect(() => {
     if (!inferredThreadRef || draftSession?.promotedTo) {
@@ -126,7 +126,7 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
         return;
       }
       void navigate({
-        to: "/$environmentId/$threadId",
+        to: "/$machineId/$threadId",
         params: buildThreadRouteParams(canonicalThreadRef),
         replace: true,
       });
@@ -150,11 +150,11 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     if (renderState === "missing") {
       const { clearPendingFileDropsForThread } = useSidebarPendingFileDropStore.getState();
       clearPendingFileDropsForThread(target.threadRef);
-      if (environmentHasAnyThreads) {
+      if (machineHasAnyThreads) {
         void navigate({ to: "/", replace: true });
       }
     }
-  }, [bootstrapComplete, environmentHasAnyThreads, navigate, renderState, target]);
+  }, [bootstrapComplete, machineHasAnyThreads, navigate, renderState, target]);
 
   useEffect(() => {
     if (target.kind !== "server" || !serverThreadStarted || !draftThread) {
@@ -170,7 +170,7 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
         <ChatView
           key={target.draftId}
           draftId={target.draftId}
-          environmentId={draftSession.environmentId}
+          machineId={draftSession.machineId}
           threadId={draftSession.threadId}
           routeKind="draft"
           forceExpandedMobileComposer
@@ -181,7 +181,7 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     view = (
       <ChatView
         key={nextChatViewKey?.key}
-        environmentId={target.threadRef.environmentId}
+        machineId={target.threadRef.machineId}
         threadId={target.threadRef.threadId}
         routeKind="server"
       />

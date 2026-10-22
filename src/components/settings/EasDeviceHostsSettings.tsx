@@ -5,14 +5,14 @@ import {
   AuthSettingsWriteScope,
   type DeviceEasAccount,
   type EasDeviceHostConfig,
-  type EnvironmentId,
+  type MachineId,
 } from "@vekrel/contracts";
 import { CloudIcon, PlusIcon, XIcon } from "lucide-react";
 
 import { randomUUID } from "../../lib/utils";
-import { deviceEnvironment } from "../../state/device";
-import { serverEnvironment } from "../../state/server";
-import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { deviceMachine } from "../../state/device";
+import { serverMachine } from "../../state/server";
+import { readMachineScope, useMachineScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import {
@@ -51,28 +51,28 @@ const failureMessage = (cause: Cause.Cause<unknown>) => {
   return error instanceof Error ? error.message : String(error);
 };
 
-/** EAS hosts belong to one environment: its server holds the Expo credential and runs the sessions. */
-export function EasDeviceHostsSettings(props: { environmentId: EnvironmentId | null }) {
-  const { scope, connectedEnvironments } = useSettingsScope();
-  const canConfigure = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
+/** EAS hosts belong to one machine: its server holds the Expo credential and runs the sessions. */
+export function EasDeviceHostsSettings(props: { machineId: MachineId | null }) {
+  const { scope, connectedMachines } = useSettingsScope();
+  const canConfigure = useMachineScope(props.machineId, AuthSettingsWriteScope);
   const projectScope = scope.kind === "project" || scope.kind === "checkout";
-  const update = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: false });
-  const environment = connectedEnvironments.find(
-    (candidate) => candidate.environmentId === props.environmentId,
+  const update = useAtomCommand(serverMachine.updateSettings, { reportFailure: false });
+  const machine = connectedMachines.find(
+    (candidate) => candidate.machineId === props.machineId,
   );
-  const hosts = environment?.serverConfig?.settings.easDeviceHosts ?? [];
+  const hosts = machine?.serverConfig?.settings.easDeviceHosts ?? [];
   const [editing, setEditing] = useState<{ host: EasDeviceHostConfig; isNew: boolean } | null>(
     null,
   );
   const [busy, setBusy] = useState(false);
-  const disabled = !canConfigure || projectScope || busy || !props.environmentId;
+  const disabled = !canConfigure || projectScope || busy || !props.machineId;
 
   const save = async (host: EasDeviceHostConfig, remove: boolean) => {
-    if (!props.environmentId || !readEnvironmentScope(props.environmentId, AuthSettingsWriteScope))
+    if (!props.machineId || !readMachineScope(props.machineId, AuthSettingsWriteScope))
       return;
     setBusy(true);
     const result = await update({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { patch: { easDeviceHosts: updateEasDeviceHosts(hosts, host, remove) } },
     });
     setBusy(false);
@@ -91,7 +91,7 @@ export function EasDeviceHostsSettings(props: { environmentId: EnvironmentId | n
       title="EAS Simulator"
       serverScoped
       settingKeys={["easDeviceHosts"]}
-      description="Run iOS Simulators in Expo's cloud from this environment. Sessions bill the Expo account until they stop, so each host limits how many run and for how long. Editing or removing a host stops its running sessions."
+      description="Run iOS Simulators in Expo's cloud from this machine. Sessions bill the Expo account until they stop, so each host limits how many run and for how long. Editing or removing a host stops its running sessions."
       control={
         <Button
           size="sm"
@@ -138,10 +138,10 @@ export function EasDeviceHostsSettings(props: { environmentId: EnvironmentId | n
             ))}
           </ul>
         )}
-        {editing && props.environmentId ? (
+        {editing && props.machineId ? (
           <EasDeviceHostEditor
             key={editing.host.id}
-            environmentId={props.environmentId}
+            machineId={props.machineId}
             host={editing.host}
             isNew={editing.isNew}
             busy={busy}
@@ -155,14 +155,14 @@ export function EasDeviceHostsSettings(props: { environmentId: EnvironmentId | n
 }
 
 function EasDeviceHostEditor(props: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   host: EasDeviceHostConfig;
   isNew: boolean;
   busy: boolean;
   onSave: (host: EasDeviceHostConfig) => void;
   onClose: () => void;
 }) {
-  const check = useAtomCommand(deviceEnvironment.easAccount, { reportFailure: false });
+  const check = useAtomCommand(deviceMachine.easAccount, { reportFailure: false });
   const [draft, setDraft] = useState(props.host);
   const tokenId = useId();
   // A saved token arrives redacted; only a replacement or a clear changes it.
@@ -201,7 +201,7 @@ function EasDeviceHostEditor(props: {
   const requestCheck = async () => {
     const run = ++latestCheck.current;
     const result = await check({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: {
         ...(token.kind === "saved" && !props.isNew ? { hostId: props.host.id } : {}),
         // A cleared token is sent as empty, so the check does not fall back to
@@ -271,7 +271,7 @@ function EasDeviceHostEditor(props: {
           <DialogHeader>
             <DialogTitle>{props.isNew ? "Add EAS host" : "Edit EAS host"}</DialogTitle>
             <DialogDescription>
-              The environment's server signs in to Expo and starts the sessions. Without a token
+              The machine's server signs in to Expo and starts the sessions. Without a token
               here it uses EXPO_TOKEN, then its eas login.
             </DialogDescription>
           </DialogHeader>

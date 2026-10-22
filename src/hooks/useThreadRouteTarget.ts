@@ -11,15 +11,15 @@ import {
 // same-route navigations) and compares with ===. Selecting the string params keeps
 // those updates from reaching consumers; the target is then built once per id change.
 function useThreadRouteIds() {
-  const environmentId = useParams({ strict: false, select: (params) => params.environmentId });
+  const machineId = useParams({ strict: false, select: (params) => params.machineId });
   const threadId = useParams({ strict: false, select: (params) => params.threadId });
-  return { environmentId, threadId };
+  return { machineId, threadId };
 }
 
 export function useThreadRouteTarget(): ThreadRouteTarget | null {
-  const { environmentId, threadId } = useThreadRouteIds();
+  const { machineId, threadId } = useThreadRouteIds();
   const draftId = useParams({ strict: false, select: (params) => params.draftId });
-  return resolveThreadRouteTarget({ environmentId, threadId, draftId });
+  return resolveThreadRouteTarget({ machineId, threadId, draftId });
 }
 
 export function useThreadRouteRef(): ScopedThreadRef | null {

@@ -1,10 +1,10 @@
 import {
   AuthOrchestrationOperateScope,
-  type EnvironmentId,
+  type MachineId,
   type ThreadId,
 } from "@vekrel/contracts";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -23,9 +23,9 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { toastManager } from "../ui/toast";
 import { useThreadActionMenu } from "~/hooks/useThreadActionMenu";
 import { readLocalApi } from "~/localApi";
-import { threadEnvironment } from "../../state/threads";
+import { threadMachine } from "../../state/threads";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
-import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { readMachineScope, useMachineScope } from "../../state/session";
 import { ProjectFavicon } from "../ProjectFavicon";
 import {
   WorkspaceBreadcrumb,
@@ -39,11 +39,11 @@ import { textDirection } from "~/textDirection";
 import { useClientSettings } from "../../hooks/useSettings";
 
 interface ChatHeaderProps {
-  activeThreadEnvironmentId: EnvironmentId;
+  activeThreadMachineId: MachineId;
   activeThreadId: ThreadId;
   activeThreadTitle: string;
   isServerThread: boolean;
-  activeProject: EnvironmentProject | null;
+  activeProject: MachineProject | null;
   parentThreadLink: { threadId: ThreadId; title: string } | null;
   onOpenThread: (threadId: ThreadId) => void;
   rightPanelOpen: boolean;
@@ -67,7 +67,7 @@ function resolveRenameCommit(input: {
 // double-click interval.
 const TITLE_MENU_OPEN_DELAY_MS = 500;
 export const ChatHeader = memo(function ChatHeader({
-  activeThreadEnvironmentId,
+  activeThreadMachineId,
   activeThreadId,
   activeThreadTitle,
   isServerThread,
@@ -83,23 +83,23 @@ export const ChatHeader = memo(function ChatHeader({
   const interfaceFont = useClientSettings((settings) => settings.fontFamilySans);
   const breadcrumbContainerRef = useRef<HTMLDivElement>(null);
   const [collapseParentTitle, setCollapseParentTitle] = useState(false);
-  const activeThreadRef = scopeThreadRef(activeThreadEnvironmentId, activeThreadId);
-  const canOperateThread = useEnvironmentScope(
-    activeThreadEnvironmentId,
+  const activeThreadRef = scopeThreadRef(activeThreadMachineId, activeThreadId);
+  const canOperateThread = useMachineScope(
+    activeThreadMachineId,
     AuthOrchestrationOperateScope,
   );
-  const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
+  const updateThreadMetadata = useOrchestrationCommand(threadMachine.updateMetadata, {
     reportFailure: false,
   });
   const [renaming, setRenaming] = useState<{
     threadId: ThreadId;
-    environmentId: EnvironmentId;
+    machineId: MachineId;
     title: string;
   } | null>(null);
   if (
     renaming !== null &&
     (renaming.threadId !== activeThreadId ||
-      renaming.environmentId !== activeThreadEnvironmentId ||
+      renaming.machineId !== activeThreadMachineId ||
       !canOperateThread)
   ) {
     setRenaming(null);
@@ -107,7 +107,7 @@ export const ChatHeader = memo(function ChatHeader({
   const renamingTitle =
     canOperateThread &&
     renaming?.threadId === activeThreadId &&
-    renaming.environmentId === activeThreadEnvironmentId
+    renaming.machineId === activeThreadMachineId
       ? renaming.title
       : null;
   const isRenamingTitle = renamingTitle !== null;
@@ -154,19 +154,19 @@ export const ChatHeader = memo(function ChatHeader({
   const startRename = () => {
     if (
       !isServerThread ||
-      !readEnvironmentScope(activeThreadEnvironmentId, AuthOrchestrationOperateScope)
+      !readMachineScope(activeThreadMachineId, AuthOrchestrationOperateScope)
     )
       return;
     renameCommittedRef.current = false;
     setRenaming({
-      environmentId: activeThreadEnvironmentId,
+      machineId: activeThreadMachineId,
       threadId: activeThreadId,
       title: activeThreadTitle,
     });
   };
   const commitRename = (title: string) => {
     setRenaming(null);
-    if (!readEnvironmentScope(activeThreadEnvironmentId, AuthOrchestrationOperateScope)) return;
+    if (!readMachineScope(activeThreadMachineId, AuthOrchestrationOperateScope)) return;
     const resolution = resolveRenameCommit({ title, originalTitle: activeThreadTitle });
     if (resolution.action === "reject-empty") {
       toastManager.add({ type: "warning", title: "Thread title cannot be empty" });
@@ -174,7 +174,7 @@ export const ChatHeader = memo(function ChatHeader({
     }
     if (resolution.action === "noop") return;
     void updateThreadMetadata({
-      environmentId: activeThreadEnvironmentId,
+      machineId: activeThreadMachineId,
       input: { threadId: activeThreadId, title: resolution.title },
     }).then((result) => {
       if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
@@ -206,7 +206,7 @@ export const ChatHeader = memo(function ChatHeader({
       titleMenuTimerRef.current = null;
     },
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- A pending title menu belongs to the thread that was clicked, so switching threads drops it.
-    [activeThreadEnvironmentId, activeThreadId],
+    [activeThreadMachineId, activeThreadId],
   );
   const openTitleMenuNow = () => {
     cancelPendingTitleMenu();

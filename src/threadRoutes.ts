@@ -1,7 +1,7 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import type { EnvironmentShellStatus } from "@vekrel/client-runtime/state/shell";
-import type { EnvironmentThreadState } from "@vekrel/client-runtime/state/threads";
-import type { EnvironmentId, ScopedThreadRef, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import type { MachineShellStatus } from "@vekrel/client-runtime/state/shell";
+import type { MachineThreadState } from "@vekrel/client-runtime/state/threads";
+import type { MachineId, ScopedThreadRef, ThreadId } from "@vekrel/contracts";
 import * as Option from "effect/Option";
 import type { DraftId } from "./composerDraftStore";
 
@@ -16,7 +16,7 @@ export type ThreadRouteTarget =
     };
 
 type DraftThreadRouteState = {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   threadId: ThreadId;
   promotedTo?: ScopedThreadRef | null;
 };
@@ -24,7 +24,7 @@ type DraftThreadRouteState = {
 export type ThreadRouteRenderState = "loading" | "ready" | "missing";
 
 export function isThreadRouteSnapshotAuthoritative(
-  status: EnvironmentShellStatus | null | undefined,
+  status: MachineShellStatus | null | undefined,
 ): boolean {
   return status === "live";
 }
@@ -33,7 +33,7 @@ export function resolveThreadRouteRenderState(input: {
   bootstrapComplete: boolean;
   serverThreadExists: boolean;
   serverThreadDeleted: boolean;
-  unlistedThreadDetail: EnvironmentThreadState;
+  unlistedThreadDetail: MachineThreadState;
   draftThreadExists: boolean;
 }): ThreadRouteRenderState {
   if (input.draftThreadExists || (input.serverThreadExists && !input.serverThreadDeleted)) {
@@ -56,19 +56,19 @@ export function resolveThreadRouteRenderState(input: {
 }
 
 export function buildThreadRouteParams(ref: ScopedThreadRef): {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   threadId: ThreadId;
 } {
   return {
-    environmentId: ref.environmentId,
+    machineId: ref.machineId,
     threadId: ref.threadId,
   };
 }
 
-/** Whether a (decoded) location pathname is `ref`'s own thread route, `/$environmentId/$threadId`. */
+/** Whether a (decoded) location pathname is `ref`'s own thread route, `/$machineId/$threadId`. */
 export function isThreadRoutePathname(pathname: string, ref: ScopedThreadRef): boolean {
-  const { environmentId, threadId } = buildThreadRouteParams(ref);
-  return pathname.replace(/\/$/, "") === `/${environmentId}/${threadId}`;
+  const { machineId, threadId } = buildThreadRouteParams(ref);
+  return pathname.replace(/\/$/, "") === `/${machineId}/${threadId}`;
 }
 
 export function buildDraftThreadRouteParams(draftId: DraftId): {
@@ -78,22 +78,22 @@ export function buildDraftThreadRouteParams(draftId: DraftId): {
 }
 
 export function resolveThreadRouteRef(
-  params: Partial<Record<"environmentId" | "threadId", string | undefined>>,
+  params: Partial<Record<"machineId" | "threadId", string | undefined>>,
 ): ScopedThreadRef | null {
-  if (!params.environmentId || !params.threadId) {
+  if (!params.machineId || !params.threadId) {
     return null;
   }
 
-  return scopeThreadRef(params.environmentId as EnvironmentId, params.threadId as ThreadId);
+  return scopeThreadRef(params.machineId as MachineId, params.threadId as ThreadId);
 }
 
 export function resolveThreadRouteTarget(
-  params: Partial<Record<"environmentId" | "threadId" | "draftId", string | undefined>>,
+  params: Partial<Record<"machineId" | "threadId" | "draftId", string | undefined>>,
 ): ThreadRouteTarget | null {
-  if (params.environmentId && params.threadId) {
+  if (params.machineId && params.threadId) {
     return {
       kind: "server",
-      threadRef: scopeThreadRef(params.environmentId as EnvironmentId, params.threadId as ThreadId),
+      threadRef: scopeThreadRef(params.machineId as MachineId, params.threadId as ThreadId),
     };
   }
 

@@ -1,6 +1,6 @@
 import {
   ASSISTANT_CITATION_MAX_COMMENT_LENGTH,
-  EnvironmentId,
+  MachineId,
   MessageId,
   ThreadId,
 } from "@vekrel/contracts";
@@ -27,7 +27,7 @@ import { AssistantCitationChip } from "./AssistantCitationChip";
 
 const citation = {
   version: 1 as const,
-  environmentId: EnvironmentId.make("environment"),
+  machineId: MachineId.make("machine"),
   threadId: ThreadId.make("thread"),
   messageId: MessageId.make("source"),
   text: "hello",

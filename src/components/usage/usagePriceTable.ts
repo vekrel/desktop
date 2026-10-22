@@ -13,7 +13,7 @@ export interface UsagePriceDraft {
   readonly model: string;
   readonly isNew: boolean;
   readonly values: Partial<Pick<UsagePriceForm, UsagePriceField>>;
-  /** Edited "Map to" model. Absent keeps each environment's mapping; blank removes it. */
+  /** Edited "Map to" model. Absent keeps each machine's mapping; blank removes it. */
   readonly alias?: string;
   readonly removed?: boolean;
 }

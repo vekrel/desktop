@@ -1,9 +1,9 @@
 import { formatDiffCount } from "@vekrel/client-runtime/diff-count";
-import type { EnvironmentId, PullRequestChangeBreakdown, PullRequestRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestChangeBreakdown, PullRequestRef } from "@vekrel/contracts";
 import { useState } from "react";
 
-import { pullRequestEnvironment } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestMachine } from "~/state/pullRequests";
+import { useMachineQuery } from "~/state/query";
 
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { PullRequestDiffStat } from "./pullRequestPresentation";
@@ -24,14 +24,14 @@ type DiffTotals = { additions: number; deletions: number };
  * host nothing. A view of one pull request passes `eager` so the split is ready before the hover.
  */
 export function PullRequestChangeBreakdownStat({
-  environmentId,
+  machineId,
   reference,
   additions,
   deletions,
   className,
   eager = false,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   additions: number;
   deletions: number;
@@ -39,8 +39,8 @@ export function PullRequestChangeBreakdownStat({
   eager?: boolean;
 }) {
   const [requested, setRequested] = useState(eager);
-  const query = useEnvironmentQuery(
-    requested ? pullRequestEnvironment.changeBreakdown({ environmentId, input: reference }) : null,
+  const query = useMachineQuery(
+    requested ? pullRequestMachine.changeBreakdown({ machineId, input: reference }) : null,
   );
   const breakdown = query.data;
   if (additions === 0 && deletions === 0) return null;
@@ -75,16 +75,16 @@ export function PullRequestChangeBreakdownStat({
  * details card. It reads on mount, so it costs the host a request only once the card opens.
  */
 export function PullRequestChangeBreakdownRows({
-  environmentId,
+  machineId,
   reference,
   className,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   className: string;
 }) {
-  const query = useEnvironmentQuery(
-    pullRequestEnvironment.changeBreakdown({ environmentId, input: reference }),
+  const query = useMachineQuery(
+    pullRequestMachine.changeBreakdown({ machineId, input: reference }),
   );
   if (!query.data) return null;
   return (

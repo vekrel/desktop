@@ -5,7 +5,7 @@ import { CalendarClockIcon, PencilIcon, PlayIcon, Settings2Icon } from "lucide-r
 import { useState } from "react";
 import {
   AuthOrchestrationOperateScope,
-  type EnvironmentId,
+  type MachineId,
   type ScheduledTask,
   type ThreadId,
 } from "@vekrel/contracts";
@@ -17,11 +17,11 @@ import {
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { cn } from "../../lib/utils";
 import { ScheduledRelativeLabel, scheduleLabel } from "../settings/ScheduledTasksSettings";
-import { useEnvironmentQuery } from "../../state/query";
-import { serverEnvironment } from "../../state/server";
+import { useMachineQuery } from "../../state/query";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 
-import { readEnvironmentScope } from "../../state/session";
+import { readMachineScope } from "../../state/session";
 import { Switch } from "../ui/switch";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -56,19 +56,19 @@ function taskScheduleLine(task: ScheduledTask) {
 }
 
 export function ThreadAutomationsPanel(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId: ThreadId;
 }) {
   const canOperate = useAtomValue(
-    serverEnvironment.runScheduledTaskNow.permissionAtom(props.environmentId),
+    serverMachine.runScheduledTaskNow.permissionAtom(props.machineId),
   );
-  const tasksQuery = useEnvironmentQuery(
-    serverEnvironment.scheduledTasksLive({ environmentId: props.environmentId, input: {} }),
+  const tasksQuery = useMachineQuery(
+    serverMachine.scheduledTasksLive({ machineId: props.machineId, input: {} }),
   );
-  const setTaskEnabled = useAtomCommand(serverEnvironment.setScheduledTaskEnabled, {
+  const setTaskEnabled = useAtomCommand(serverMachine.setScheduledTaskEnabled, {
     label: "thread automation toggle",
   });
-  const runTaskNow = useAtomCommand(serverEnvironment.runScheduledTaskNow, {
+  const runTaskNow = useAtomCommand(serverMachine.runScheduledTaskNow, {
     label: "thread automation run now",
   });
   const navigate = useNavigate();
@@ -93,14 +93,14 @@ export function ThreadAutomationsPanel(props: {
   const toggleEnabled = async (task: ScheduledTask, enabled: boolean) => {
     if (
       busyTaskId !== null ||
-      !readEnvironmentScope(props.environmentId, AuthOrchestrationOperateScope)
+      !readMachineScope(props.machineId, AuthOrchestrationOperateScope)
     )
       return;
     setBusyTaskId(task.id);
     // Partial update: only the enabled flag changes, so a toggle can never
     // revert concurrent edits made to the task elsewhere.
     const result = await setTaskEnabled({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { id: task.id, enabled },
     });
     setBusyTaskId(null);
@@ -112,12 +112,12 @@ export function ThreadAutomationsPanel(props: {
   const runNow = async (task: ScheduledTask) => {
     if (
       busyTaskId !== null ||
-      !readEnvironmentScope(props.environmentId, AuthOrchestrationOperateScope)
+      !readMachineScope(props.machineId, AuthOrchestrationOperateScope)
     )
       return;
     setBusyTaskId(task.id);
     const result = await runTaskNow({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { id: task.id },
     });
     setBusyTaskId(null);
@@ -143,7 +143,7 @@ export function ThreadAutomationsPanel(props: {
                 onClick={() =>
                   void navigate({
                     to: "/settings/scheduled-tasks",
-                    search: { environmentId: props.environmentId },
+                    search: { machineId: props.machineId },
                   })
                 }
               >
@@ -203,7 +203,7 @@ export function ThreadAutomationsPanel(props: {
                     onClick={() =>
                       void navigate({
                         to: "/settings/scheduled-tasks",
-                        search: { environmentId: props.environmentId, taskId: task.id },
+                        search: { machineId: props.machineId, taskId: task.id },
                       })
                     }
                   >

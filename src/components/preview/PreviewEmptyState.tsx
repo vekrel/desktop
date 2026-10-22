@@ -1,4 +1,4 @@
-import type { EnvironmentId, ScopedThreadRef } from "@vekrel/contracts";
+import type { MachineId, ScopedThreadRef } from "@vekrel/contracts";
 import { Globe, History, RadioTower } from "lucide-react";
 
 import type { BrowserHistoryEntry } from "~/browserHistoryStore";
@@ -11,7 +11,7 @@ import { useDiscoveredLocalServers } from "./useDiscoveredLocalServers";
 
 interface Props {
   threadRef: ScopedThreadRef;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   configuredUrls?: ReadonlyArray<string> | undefined;
   recentEntries: ReadonlyArray<BrowserHistoryEntry>;
   onRemoveRecent: (url: string) => void;
@@ -20,14 +20,14 @@ interface Props {
 
 export function PreviewEmptyState({
   threadRef,
-  environmentId,
+  machineId,
   configuredUrls,
   recentEntries,
   onRemoveRecent,
   onOpenUrl,
 }: Props) {
   const servers = useDiscoveredLocalServers({
-    environmentId,
+    machineId,
     configuredUrls,
   });
   const recents = recentEntries.filter((entry) => URL.canParse(entry.url)).slice(0, 8);

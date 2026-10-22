@@ -1,6 +1,6 @@
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
 import type {
-  EnvironmentId,
+  MachineId,
   ModelSelection,
   ProjectId,
   ScopedProjectRef,
@@ -13,7 +13,7 @@ type ComposerModelSelectionState = Pick<
 >;
 
 interface ThreadContextLike {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   projectId: ProjectId;
 }
 
@@ -71,11 +71,11 @@ export function resolveThreadActionProjectRef(
   context: ChatThreadActionContext,
 ): ScopedProjectRef | null {
   if (context.activeThread) {
-    return scopeProjectRef(context.activeThread.environmentId, context.activeThread.projectId);
+    return scopeProjectRef(context.activeThread.machineId, context.activeThread.projectId);
   }
   if (context.activeDraftThread) {
     return scopeProjectRef(
-      context.activeDraftThread.environmentId,
+      context.activeDraftThread.machineId,
       context.activeDraftThread.projectId,
     );
   }

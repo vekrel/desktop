@@ -375,9 +375,9 @@ function BackgroundActivityAdvancedDialog({
 export function BackgroundActivitySettingsRow() {
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
-  const { scope, environment } = useSettingsScope();
-  const environmentId = environment?.environmentId ?? null;
-  const isEnvironmentScope = scope.environmentIds.length === 1 && environmentId !== null;
+  const { scope, machine } = useSettingsScope();
+  const machineId = machine?.machineId ?? null;
+  const isMachineScope = scope.machineIds.length === 1 && machineId !== null;
   const [backgroundActivityDialogOpen, setBackgroundActivityDialogOpen] = useState(false);
   const mixedBackgroundActivity = useScopedSettingsMixed(["backgroundActivity"]);
   const resolvedBackgroundActivity = resolveServerBackgroundActivitySettings(settings);
@@ -423,7 +423,7 @@ export function BackgroundActivitySettingsRow() {
             value={mixedBackgroundActivity ? null : backgroundActivityProfileOption}
             onValueChange={(value) => {
               if (value === "advanced") {
-                if (isEnvironmentScope) setBackgroundActivityDialogOpen(true);
+                if (isMachineScope) setBackgroundActivityDialogOpen(true);
                 return;
               }
               if (value === "balanced" || value === "performance" || value === "battery-saver") {
@@ -452,14 +452,14 @@ export function BackgroundActivitySettingsRow() {
               <SelectItem hideIndicator value="battery-saver">
                 {BACKGROUND_ACTIVITY_PROFILE_LABELS["battery-saver"]}
               </SelectItem>
-              <SelectItem hideIndicator value="advanced" disabled={!isEnvironmentScope}>
-                {isEnvironmentScope
+              <SelectItem hideIndicator value="advanced" disabled={!isMachineScope}>
+                {isMachineScope
                   ? BACKGROUND_ACTIVITY_PROFILE_OPTION_LABELS.advanced
-                  : `${BACKGROUND_ACTIVITY_PROFILE_OPTION_LABELS.advanced} (one environment)`}
+                  : `${BACKGROUND_ACTIVITY_PROFILE_OPTION_LABELS.advanced} (one machine)`}
               </SelectItem>
             </SelectPopup>
           </Select>
-          {backgroundActivityProfileOption === "advanced" && isEnvironmentScope ? (
+          {backgroundActivityProfileOption === "advanced" && isMachineScope ? (
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -477,7 +477,7 @@ export function BackgroundActivitySettingsRow() {
             </Tooltip>
           ) : null}
           <BackgroundActivityAdvancedDialog
-            open={backgroundActivityDialogOpen && isEnvironmentScope}
+            open={backgroundActivityDialogOpen && isMachineScope}
             onOpenChange={setBackgroundActivityDialogOpen}
           />
         </>

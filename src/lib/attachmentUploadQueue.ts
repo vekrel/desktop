@@ -2,9 +2,9 @@ import {
   AuthOrchestrationOperateScope,
   PROVIDER_SEND_TURN_SUPPORTED_IMAGE_MIME_TYPES,
   type ChatAttachment,
-  type EnvironmentId,
+  type MachineId,
 } from "@vekrel/contracts";
-import { parseScopedThreadKey } from "@vekrel/client-runtime/environment";
+import { parseScopedThreadKey } from "@vekrel/client-runtime/machine";
 import { resolveAssetUrl } from "@vekrel/client-runtime/state/assets";
 import {
   deletePendingAttachmentUpload,
@@ -24,13 +24,13 @@ import {
   type ComposerThreadTarget,
 } from "../composerDraftStore";
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { environmentCatalog } from "../connection/catalog";
-import { assetEnvironment } from "../state/assets";
-import { attachmentEnvironment } from "../state/attachments";
-import { readEnvironmentScope, readPreparedConnection } from "../state/session";
+import { machineCatalog } from "../connection/catalog";
+import { assetMachine } from "../state/assets";
+import { attachmentMachine } from "../state/attachments";
+import { readMachineScope, readPreparedConnection } from "../state/session";
 import type { AttachmentUploadState, ReadyAttachmentUpload } from "./attachmentUploadState";
 
-const MAX_UPLOADS_PER_ENVIRONMENT = 3;
+const MAX_UPLOADS_PER_MACHINE = 3;
 const UPLOAD_TIMEOUT_MS = 5 * 60_000;
 
 interface AttachmentUploadStore {
@@ -43,7 +43,7 @@ export const useAttachmentUploadStore = create<AttachmentUploadStore>(() => ({
 
 interface UploadJob {
   readonly image: ComposerImageAttachment | ComposerFileAttachment;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   /**
    * The draft that owned this file when the job started. Completion resolves
    * the current owner because the file can move while the upload is pending.
@@ -65,7 +65,7 @@ interface UploadJob {
 
 const jobsByImageId = new Map<string, UploadJob>();
 const queue: UploadJob[] = [];
-const activeUploadsByEnvironment = new Map<EnvironmentId, number>();
+const activeUploadsByMachine = new Map<MachineId, number>();
 
 function setUploadState(imageId: string, upload: AttachmentUploadState): void {
   useAttachmentUploadStore.setState((state) => ({
@@ -99,7 +99,7 @@ function resolveCurrentFileDraftTarget(job: UploadJob): ComposerThreadTarget | u
     }
     const draftSession = store.draftThreadsByThreadKey[key];
     if (draftSession !== undefined) {
-      if (draftSession.environmentId === job.environmentId) {
+      if (draftSession.machineId === job.machineId) {
         return DraftId.make(key);
       }
       continue;
@@ -108,7 +108,7 @@ function resolveCurrentFileDraftTarget(job: UploadJob): ComposerThreadTarget | u
       return DraftId.make(key);
     }
     const threadRef = parseScopedThreadKey(key);
-    if (threadRef?.environmentId === job.environmentId) {
+    if (threadRef?.machineId === job.machineId) {
       return threadRef;
     }
   }
@@ -127,15 +127,15 @@ function stampDraftFileUpload(job: UploadJob, attachmentId: string): void {
   }
   useComposerDraftStore
     .getState()
-    .setFileUpload(draftTarget, job.image.id, job.environmentId, attachmentId);
+    .setFileUpload(draftTarget, job.image.id, job.machineId, attachmentId);
 }
 
-function deletePendingUpload(environmentId: EnvironmentId, attachmentId: string): void {
-  if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return;
+function deletePendingUpload(machineId: MachineId, attachmentId: string): void {
+  if (!readMachineScope(machineId, AuthOrchestrationOperateScope)) return;
   deletePendingAttachmentUpload({
     registry: appAtomRegistry,
-    remove: attachmentEnvironment.remove,
-    environmentId,
+    remove: attachmentMachine.remove,
+    machineId,
     attachmentId,
   });
 }
@@ -173,10 +173,10 @@ function uploadBytes(input: {
 }
 
 async function runUpload(job: UploadJob): Promise<void> {
-  if (!readEnvironmentScope(job.environmentId, AuthOrchestrationOperateScope)) {
+  if (!readMachineScope(job.machineId, AuthOrchestrationOperateScope)) {
     setUploadState(job.image.id, {
       status: "failed",
-      environmentId: job.environmentId,
+      machineId: job.machineId,
       reason: "This connection cannot upload attachments.",
       ...(job.previous ? { previous: job.previous } : {}),
     });
@@ -185,8 +185,8 @@ async function runUpload(job: UploadJob): Promise<void> {
   if (job.persistedAttachmentId) {
     const verification = await verifyPersistedAttachmentUpload({
       registry: appAtomRegistry,
-      createAssetUrl: assetEnvironment.createUrl,
-      environmentId: job.environmentId,
+      createAssetUrl: assetMachine.createUrl,
+      machineId: job.machineId,
       attachmentId: job.persistedAttachmentId,
     });
     if (job.cancelled) {
@@ -195,7 +195,7 @@ async function runUpload(job: UploadJob): Promise<void> {
     if (verification.status === "verified") {
       setUploadState(job.image.id, {
         status: "ready",
-        environmentId: job.environmentId,
+        machineId: job.machineId,
         attachmentId: job.persistedAttachmentId,
       });
       stampDraftFileUpload(job, job.persistedAttachmentId);
@@ -210,7 +210,7 @@ async function runUpload(job: UploadJob): Promise<void> {
           .markFileUploadMissing(
             draftTarget,
             job.image.id,
-            job.environmentId,
+            job.machineId,
             job.persistedAttachmentId,
           )
       ) {
@@ -225,7 +225,7 @@ async function runUpload(job: UploadJob): Promise<void> {
       // verification failure must leave it in place for the next retry.
       setUploadState(job.image.id, {
         status: "failed",
-        environmentId: job.environmentId,
+        machineId: job.machineId,
         reason:
           verification.status === "missing"
             ? "Uploaded file expired. Remove it and attach it again."
@@ -245,7 +245,7 @@ async function runUpload(job: UploadJob): Promise<void> {
   if (!mimeType) {
     setUploadState(job.image.id, {
       status: "failed",
-      environmentId: job.environmentId,
+      machineId: job.machineId,
       reason: "Unsupported image type",
       ...(job.previous ? { previous: job.previous } : {}),
     });
@@ -255,7 +255,7 @@ async function runUpload(job: UploadJob): Promise<void> {
   if (!file) {
     setUploadState(job.image.id, {
       status: "failed",
-      environmentId: job.environmentId,
+      machineId: job.machineId,
       reason: "Original file is no longer available",
       ...(job.previous ? { previous: job.previous } : {}),
     });
@@ -263,10 +263,10 @@ async function runUpload(job: UploadJob): Promise<void> {
   }
 
   let lastStep = -1;
-  if (!readEnvironmentScope(job.environmentId, AuthOrchestrationOperateScope)) {
+  if (!readMachineScope(job.machineId, AuthOrchestrationOperateScope)) {
     setUploadState(job.image.id, {
       status: "failed",
-      environmentId: job.environmentId,
+      machineId: job.machineId,
       reason: "This connection cannot upload attachments.",
       ...(job.previous ? { previous: job.previous } : {}),
     });
@@ -274,9 +274,9 @@ async function runUpload(job: UploadJob): Promise<void> {
   }
   const result = await runAttachmentUploadCycle({
     registry: appAtomRegistry,
-    createUploadUrl: attachmentEnvironment.createUploadUrl,
-    remove: attachmentEnvironment.remove,
-    environmentId: job.environmentId,
+    createUploadUrl: attachmentMachine.createUploadUrl,
+    remove: attachmentMachine.remove,
+    machineId: job.machineId,
     upload: {
       ...(job.image.type === "file" ? { type: "file" as const } : {}),
       name: job.image.name,
@@ -286,11 +286,11 @@ async function runUpload(job: UploadJob): Promise<void> {
     resolveUploadUrl: (relativeUrl) => {
       if (
         job.cancelled ||
-        !readEnvironmentScope(job.environmentId, AuthOrchestrationOperateScope)
+        !readMachineScope(job.machineId, AuthOrchestrationOperateScope)
       ) {
         return null;
       }
-      const connection = readPreparedConnection(job.environmentId);
+      const connection = readPreparedConnection(job.machineId);
       return connection ? resolveAssetUrl(connection.httpBaseUrl, relativeUrl) : null;
     },
     transport: (url) =>
@@ -306,14 +306,14 @@ async function runUpload(job: UploadJob): Promise<void> {
           lastStep = step;
           setUploadState(job.image.id, {
             status: "uploading",
-            environmentId: job.environmentId,
+            machineId: job.machineId,
             progress,
             ...(job.previous ? { previous: job.previous } : {}),
           });
         },
       }),
     onMinted: (attachmentId) => {
-      if (job.cancelled && readEnvironmentScope(job.environmentId, AuthOrchestrationOperateScope)) {
+      if (job.cancelled && readMachineScope(job.machineId, AuthOrchestrationOperateScope)) {
         return "cancel";
       }
       job.attachmentId = attachmentId;
@@ -330,23 +330,23 @@ async function runUpload(job: UploadJob): Promise<void> {
   if (result.status === "uploaded") {
     setUploadState(job.image.id, {
       status: "ready",
-      environmentId: job.environmentId,
+      machineId: job.machineId,
       attachmentId: result.attachmentId,
     });
     stampDraftFileUpload(job, result.attachmentId);
     if (job.previous) {
-      deletePendingUpload(job.previous.environmentId, job.previous.attachmentId);
+      deletePendingUpload(job.previous.machineId, job.previous.attachmentId);
     }
     return;
   }
   setUploadState(job.image.id, {
     status: "failed",
-    environmentId: job.environmentId,
+    machineId: job.machineId,
     reason:
       result.step === "mint"
         ? "Upload could not start"
         : result.step === "resolve-url"
-          ? readEnvironmentScope(job.environmentId, AuthOrchestrationOperateScope)
+          ? readMachineScope(job.machineId, AuthOrchestrationOperateScope)
             ? "Not connected"
             : "This connection cannot upload attachments."
           : result.error instanceof Error
@@ -360,8 +360,8 @@ async function runUpload(job: UploadJob): Promise<void> {
 function pumpUploads(): void {
   for (let index = 0; index < queue.length;) {
     const job = queue[index]!;
-    const active = activeUploadsByEnvironment.get(job.environmentId) ?? 0;
-    if (active >= MAX_UPLOADS_PER_ENVIRONMENT) {
+    const active = activeUploadsByMachine.get(job.machineId) ?? 0;
+    if (active >= MAX_UPLOADS_PER_MACHINE) {
       index += 1;
       continue;
     }
@@ -370,13 +370,13 @@ function pumpUploads(): void {
     if (job.cancelled) {
       continue;
     }
-    activeUploadsByEnvironment.set(job.environmentId, active + 1);
+    activeUploadsByMachine.set(job.machineId, active + 1);
     void runUpload(job)
       .catch(() => {
         if (!job.cancelled) {
           setUploadState(job.image.id, {
             status: "failed",
-            environmentId: job.environmentId,
+            machineId: job.machineId,
             reason: "Upload failed",
             ...(job.previous ? { previous: job.previous } : {}),
           });
@@ -390,11 +390,11 @@ function pumpUploads(): void {
           job.stopWatchingConnection();
           jobsByImageId.delete(job.image.id);
         }
-        const remaining = (activeUploadsByEnvironment.get(job.environmentId) ?? 1) - 1;
+        const remaining = (activeUploadsByMachine.get(job.machineId) ?? 1) - 1;
         if (remaining > 0) {
-          activeUploadsByEnvironment.set(job.environmentId, remaining);
+          activeUploadsByMachine.set(job.machineId, remaining);
         } else {
-          activeUploadsByEnvironment.delete(job.environmentId);
+          activeUploadsByMachine.delete(job.machineId);
         }
         job.resolveSettled();
         pumpUploads();
@@ -403,31 +403,31 @@ function pumpUploads(): void {
 }
 
 export function startAttachmentUpload(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly image: ComposerImageAttachment | ComposerFileAttachment;
   readonly draftTarget?: ComposerThreadTarget;
 }): void {
-  if (!readEnvironmentScope(input.environmentId, AuthOrchestrationOperateScope)) return;
+  if (!readMachineScope(input.machineId, AuthOrchestrationOperateScope)) return;
   const existingJob = jobsByImageId.get(input.image.id);
-  if (existingJob?.environmentId === input.environmentId) {
+  if (existingJob?.machineId === input.machineId) {
     return;
   }
 
   const existing = readAttachmentUpload(input.image.id);
-  if (existing?.status === "ready" && existing.environmentId === input.environmentId) {
+  if (existing?.status === "ready" && existing.machineId === input.machineId) {
     return;
   }
-  if (existing?.status === "failed" && existing.environmentId === input.environmentId) {
+  if (existing?.status === "failed" && existing.machineId === input.machineId) {
     return;
   }
   if (
     existing &&
     "previous" in existing &&
-    existing.previous?.environmentId === input.environmentId
+    existing.previous?.machineId === input.machineId
   ) {
     cancelAttachmentUpload(input.image.id);
     if (existing.status === "failed" && existing.attachmentId) {
-      deletePendingUpload(existing.environmentId, existing.attachmentId);
+      deletePendingUpload(existing.machineId, existing.attachmentId);
     }
     setUploadState(input.image.id, existing.previous);
     return;
@@ -443,11 +443,11 @@ export function startAttachmentUpload(input: {
   });
   const job: UploadJob = {
     image: input.image,
-    environmentId: input.environmentId,
+    machineId: input.machineId,
     ...(input.draftTarget !== undefined ? { draftTarget: input.draftTarget } : {}),
     ...(previous ? { previous } : {}),
     ...(input.image.type === "file" &&
-    input.image.uploadEnvironmentId === input.environmentId &&
+    input.image.uploadMachineId === input.machineId &&
     input.image.uploadedAttachmentId
       ? { persistedAttachmentId: input.image.uploadedAttachmentId }
       : {}),
@@ -460,7 +460,7 @@ export function startAttachmentUpload(input: {
   };
 
   jobsByImageId.set(input.image.id, job);
-  const connectionAtom = environmentCatalog.stateAtom(job.environmentId);
+  const connectionAtom = machineCatalog.stateAtom(job.machineId);
   const isConnected = () =>
     Option.exists(
       AsyncResult.value(appAtomRegistry.get(connectionAtom)),
@@ -487,7 +487,7 @@ export function startAttachmentUpload(input: {
   queue.push(job);
   setUploadState(input.image.id, {
     status: "uploading",
-    environmentId: input.environmentId,
+    machineId: input.machineId,
     progress: 0,
     ...(previous ? { previous } : {}),
   });
@@ -508,7 +508,7 @@ function cancelAttachmentUpload(imageId: string): void {
   }
   job.abort?.();
   if (job.attachmentId) {
-    deletePendingUpload(job.environmentId, job.attachmentId);
+    deletePendingUpload(job.machineId, job.attachmentId);
   }
   job.resolveSettled();
 }
@@ -517,13 +517,13 @@ export function releaseAttachmentUpload(imageId: string): void {
   const upload = readAttachmentUpload(imageId);
   cancelAttachmentUpload(imageId);
   if (upload?.status === "ready") {
-    deletePendingUpload(upload.environmentId, upload.attachmentId);
+    deletePendingUpload(upload.machineId, upload.attachmentId);
   } else if (upload) {
     if (upload.status === "failed" && upload.attachmentId) {
-      deletePendingUpload(upload.environmentId, upload.attachmentId);
+      deletePendingUpload(upload.machineId, upload.attachmentId);
     }
     if (upload.previous) {
-      deletePendingUpload(upload.previous.environmentId, upload.previous.attachmentId);
+      deletePendingUpload(upload.previous.machineId, upload.previous.attachmentId);
     }
   }
   clearUploadState(imageId);
@@ -531,13 +531,13 @@ export function releaseAttachmentUpload(imageId: string): void {
 
 export function releasePersistedAttachmentUpload(input: {
   readonly id: string;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly attachmentId: string;
 }): void {
   const upload = readAttachmentUpload(input.id);
   if (
     upload?.status === "ready" &&
-    upload.environmentId === input.environmentId &&
+    upload.machineId === input.machineId &&
     upload.attachmentId === input.attachmentId
   ) {
     releaseAttachmentUpload(input.id);
@@ -545,24 +545,24 @@ export function releasePersistedAttachmentUpload(input: {
   }
   const job = jobsByImageId.get(input.id);
   if (
-    job?.environmentId === input.environmentId &&
+    job?.machineId === input.machineId &&
     job.persistedAttachmentId === input.attachmentId
   ) {
     releaseAttachmentUpload(input.id);
   }
-  deletePendingUpload(input.environmentId, input.attachmentId);
+  deletePendingUpload(input.machineId, input.attachmentId);
 }
 
 export function retryAttachmentUpload(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly image: ComposerImageAttachment | ComposerFileAttachment;
   readonly draftTarget?: ComposerThreadTarget;
 }): void {
-  if (!readEnvironmentScope(input.environmentId, AuthOrchestrationOperateScope)) return;
+  if (!readMachineScope(input.machineId, AuthOrchestrationOperateScope)) return;
   const previous = readAttachmentUpload(input.image.id);
   cancelAttachmentUpload(input.image.id);
   if (previous?.status === "failed" && previous.attachmentId) {
-    deletePendingUpload(previous.environmentId, previous.attachmentId);
+    deletePendingUpload(previous.machineId, previous.attachmentId);
   }
   if (previous && "previous" in previous && previous.previous) {
     setUploadState(input.image.id, previous.previous);
@@ -577,13 +577,13 @@ export function retryAttachmentUpload(input: {
  * instead of handing the composer a dead reference.
  */
 export function verifyStashedAttachmentUpload(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly attachmentId: string;
 }): Promise<PersistedAttachmentVerification> {
   return verifyPersistedAttachmentUpload({
     registry: appAtomRegistry,
-    createAssetUrl: assetEnvironment.createUrl,
-    environmentId: input.environmentId,
+    createAssetUrl: assetMachine.createUrl,
+    machineId: input.machineId,
     attachmentId: input.attachmentId,
   });
 }
@@ -593,13 +593,13 @@ export async function awaitAttachmentUploads(imageIds: ReadonlyArray<string>): P
 }
 
 export function getUploadedAttachments(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly images: ReadonlyArray<ComposerImageAttachment | ComposerFileAttachment>;
 }): ChatAttachment[] | null {
   const attachments: ChatAttachment[] = [];
   for (const image of input.images) {
     const upload = readAttachmentUpload(image.id);
-    if (upload?.status !== "ready" || upload.environmentId !== input.environmentId) {
+    if (upload?.status !== "ready" || upload.machineId !== input.machineId) {
       return null;
     }
     attachments.push({
@@ -625,11 +625,11 @@ export function releaseDraftAttachment(
   if (
     attachment.type === "file" &&
     attachment.uploadedAttachmentId !== undefined &&
-    attachment.uploadEnvironmentId !== undefined
+    attachment.uploadMachineId !== undefined
   ) {
     releasePersistedAttachmentUpload({
       id: attachment.id,
-      environmentId: attachment.uploadEnvironmentId,
+      machineId: attachment.uploadMachineId,
       attachmentId: attachment.uploadedAttachmentId,
     });
     if (jobsByImageId.has(attachment.id) || readAttachmentUpload(attachment.id)) {

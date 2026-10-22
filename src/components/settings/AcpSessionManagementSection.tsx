@@ -3,11 +3,11 @@ import {
   AuthProvidersManageScope,
   AuthOrchestrationReadScope,
 } from "@vekrel/contracts";
-import { useEnvironmentScope, readEnvironmentScope } from "~/state/session";
+import { useMachineScope, readMachineScope } from "~/state/session";
 import type {
   AcpRegistryConfigurableProvider,
   AcpRegistrySession,
-  EnvironmentId,
+  MachineId,
   ProjectId,
   ProviderInstanceId,
   ServerProvider,
@@ -20,7 +20,7 @@ import {
 import { useState } from "react";
 
 import { ensureLocalApi } from "../../localApi";
-import { serverEnvironment } from "../../state/server";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -71,14 +71,14 @@ function parseProviderHeaders(
 }
 
 export function AcpSessionManagementSection(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly instanceId: ProviderInstanceId;
   readonly provider: ServerProvider;
   readonly projects: ReadonlyArray<AcpSessionProject>;
   readonly readOnly: boolean;
 }) {
-  const canOperate = useEnvironmentScope(props.environmentId, AuthOrchestrationOperateScope);
-  const canRead = useEnvironmentScope(props.environmentId, AuthOrchestrationReadScope);
+  const canOperate = useMachineScope(props.machineId, AuthOrchestrationOperateScope);
+  const canRead = useMachineScope(props.machineId, AuthOrchestrationReadScope);
   const [projectId, setProjectId] = useState<ProjectId | null>(props.projects[0]?.id ?? null);
   const [sessions, setSessions] = useState<ReadonlyArray<AcpRegistrySession>>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -92,25 +92,25 @@ export function AcpSessionManagementSection(props: {
   const [providerDrafts, setProviderDrafts] = useState<
     Readonly<Record<string, { apiType: string; baseUrl: string; headers: string }>>
   >({});
-  const listSessions = useAtomCommand(serverEnvironment.listAcpRegistrySessions, {
+  const listSessions = useAtomCommand(serverMachine.listAcpRegistrySessions, {
     reportFailure: false,
   });
-  const importSession = useAtomCommand(serverEnvironment.importAcpRegistrySession, {
+  const importSession = useAtomCommand(serverMachine.importAcpRegistrySession, {
     reportFailure: false,
   });
-  const deleteSession = useAtomCommand(serverEnvironment.deleteAcpRegistrySession, {
+  const deleteSession = useAtomCommand(serverMachine.deleteAcpRegistrySession, {
     reportFailure: false,
   });
-  const listProviders = useAtomCommand(serverEnvironment.listAcpRegistryProviders, {
+  const listProviders = useAtomCommand(serverMachine.listAcpRegistryProviders, {
     reportFailure: false,
   });
-  const setProvider = useAtomCommand(serverEnvironment.setAcpRegistryProvider, {
+  const setProvider = useAtomCommand(serverMachine.setAcpRegistryProvider, {
     reportFailure: false,
   });
-  const disableProvider = useAtomCommand(serverEnvironment.disableAcpRegistryProvider, {
+  const disableProvider = useAtomCommand(serverMachine.disableAcpRegistryProvider, {
     reportFailure: false,
   });
-  const logout = useAtomCommand(serverEnvironment.logoutAcpRegistry, { reportFailure: false });
+  const logout = useAtomCommand(serverMachine.logoutAcpRegistry, { reportFailure: false });
   const canList = props.provider.nativeSessions?.canList === true;
   const canImport =
     props.provider.nativeSessions?.canLoad === true ||
@@ -132,7 +132,7 @@ export function AcpSessionManagementSection(props: {
     if (projectId === null || loading) return;
     setLoading(true);
     const result = await listSessions({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: {
         instanceId: props.instanceId,
         projectId,
@@ -152,14 +152,14 @@ export function AcpSessionManagementSection(props: {
 
   const importNativeSession = async (session: AcpRegistrySession) => {
     if (
-      !readEnvironmentScope(props.environmentId, AuthOrchestrationOperateScope) ||
+      !readMachineScope(props.machineId, AuthOrchestrationOperateScope) ||
       projectId === null ||
       importingSessionId !== null
     )
       return;
     setImportingSessionId(session.sessionId);
     const result = await importSession({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: {
         instanceId: props.instanceId,
         projectId,
@@ -193,11 +193,11 @@ export function AcpSessionManagementSection(props: {
       `Permanently delete native ACP session "${session.title ?? session.sessionId}"?`,
       { variant: "destructive" },
     );
-    if (!confirmed || !readEnvironmentScope(props.environmentId, AuthOrchestrationOperateScope))
+    if (!confirmed || !readMachineScope(props.machineId, AuthOrchestrationOperateScope))
       return;
     setDeletingSessionId(session.sessionId);
     const result = await deleteSession({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { instanceId: props.instanceId, projectId, sessionId: session.sessionId },
     });
     setDeletingSessionId(null);
@@ -215,7 +215,7 @@ export function AcpSessionManagementSection(props: {
     if (projectId === null || loadingProviders) return;
     setLoadingProviders(true);
     const result = await listProviders({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { instanceId: props.instanceId, projectId },
     });
     setLoadingProviders(false);
@@ -240,7 +240,7 @@ export function AcpSessionManagementSection(props: {
 
   const saveProvider = async (provider: AcpRegistryConfigurableProvider) => {
     if (
-      !readEnvironmentScope(props.environmentId, AuthProvidersManageScope) ||
+      !readMachineScope(props.machineId, AuthProvidersManageScope) ||
       projectId === null ||
       savingProviderId !== null
     )
@@ -259,7 +259,7 @@ export function AcpSessionManagementSection(props: {
     const headers = parsedHeaders.headers;
     setSavingProviderId(provider.providerId);
     const result = await setProvider({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: {
         instanceId: props.instanceId,
         projectId,
@@ -284,10 +284,10 @@ export function AcpSessionManagementSection(props: {
       `Disable ACP provider "${provider.providerId}"?`,
       { variant: "destructive" },
     );
-    if (!confirmed || !readEnvironmentScope(props.environmentId, AuthProvidersManageScope)) return;
+    if (!confirmed || !readMachineScope(props.machineId, AuthProvidersManageScope)) return;
     setSavingProviderId(provider.providerId);
     const result = await disableProvider({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { instanceId: props.instanceId, projectId, providerId: provider.providerId },
     });
     setSavingProviderId(null);
@@ -300,10 +300,10 @@ export function AcpSessionManagementSection(props: {
   };
 
   const logoutProvider = async () => {
-    if (loggingOut || !readEnvironmentScope(props.environmentId, AuthProvidersManageScope)) return;
+    if (loggingOut || !readMachineScope(props.machineId, AuthProvidersManageScope)) return;
     setLoggingOut(true);
     const result = await logout({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { instanceId: props.instanceId },
     });
     setLoggingOut(false);

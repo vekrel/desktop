@@ -3,8 +3,8 @@ import { CircleAlertIcon, CircleCheckIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { getClientSettings } from "~/hooks/useSettings";
-import { pullRequestEnvironment } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestMachine } from "~/state/pullRequests";
+import { useMachineQuery } from "~/state/query";
 import {
   hasDesktopNotifications,
   hasNotificationSound,
@@ -26,9 +26,9 @@ export function PullRequestGuideRunCoordinator() {
 }
 
 function GuideRunWatcher({ runKey, watch }: { runKey: string; watch: GuideRunWatch }) {
-  const query = useEnvironmentQuery(
-    pullRequestEnvironment.reviewGuide({
-      environmentId: watch.environmentId,
+  const query = useMachineQuery(
+    pullRequestMachine.reviewGuide({
+      machineId: watch.machineId,
       input: watch.reference,
     }),
   );
@@ -75,7 +75,7 @@ function GuideRunWatcher({ runKey, watch }: { runKey: string; watch: GuideRunWat
           repository: watch.reference.repository,
           number: watch.reference.number,
           selectedProjectId: watch.reference.projectId,
-          selectedEnvironmentId: watch.environmentId,
+          selectedMachineId: watch.machineId,
           ...(watch.reference.host === undefined ? {} : { selectedHost: watch.reference.host }),
         },
       });

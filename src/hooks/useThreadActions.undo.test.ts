@@ -1,9 +1,9 @@
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { MachineId, ThreadId } from "@vekrel/contracts";
 import * as Cause from "effect/Cause";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { useThreadActions } from "./useThreadActions";
-import { threadEnvironment } from "../state/threads";
+import { threadMachine } from "../state/threads";
 import { toastManager } from "../components/ui/toast";
 import { useThreadUndoNotice } from "./showThreadUndoNotice";
 
@@ -24,7 +24,7 @@ const router = vi.hoisted(() => ({
 vi.mock("../state/use-atom-query-runner", () => ({ useAtomQueryRunner: () => vi.fn() }));
 vi.mock("../state/session", async (original) => ({
   ...(await original<typeof import("../state/session")>()),
-  readEnvironmentScope: () => true,
+  readMachineScope: () => true,
 }));
 vi.mock("react", async (original) => ({
   ...(await original<typeof import("react")>()),
@@ -38,42 +38,42 @@ vi.mock("./useHandleNewThread", () => ({ useNewThreadHandler: () => vi.fn() }));
 vi.mock("../composerDraftStore", () => ({ useComposerDraftStore: () => vi.fn() }));
 vi.mock("../terminalUiStateStore", () => ({ useTerminalUiStateStore: () => vi.fn() }));
 vi.mock("../uiStateStore", () => ({ useUiStateStore: () => vi.fn() }));
-vi.mock("../lib/archivedThreadsState", () => ({ refreshArchivedThreadsForEnvironment: vi.fn() }));
+vi.mock("../lib/archivedThreadsState", () => ({ refreshArchivedThreadsForMachine: vi.fn() }));
 const threadShell = vi.hoisted(() => ({
   title: "Thread",
   pinOrderKey: "a0",
   pinnedAt: null as string | null,
   snoozedUntil: null as string | null,
   projectId: "project",
-  environmentId: "undo-env",
+  machineId: "undo-env",
   session: null,
 }));
 vi.mock("../state/entities", async (original) => ({
   ...(await original<typeof import("../state/entities")>()),
-  readEnvironmentSupportsPinning: () => true,
-  readEnvironmentSupportsPinReorder: () => true,
-  readEnvironmentSupportsSettlement: () => true,
-  readEnvironmentSupportsSnooze: () => true,
+  readMachineSupportsPinning: () => true,
+  readMachineSupportsPinReorder: () => true,
+  readMachineSupportsSettlement: () => true,
+  readMachineSupportsSnooze: () => true,
   readThreadShell: () => threadShell,
 }));
 vi.mock("../state/use-atom-command", () => ({
   useAtomCommand: (command: unknown) => {
     switch (command) {
-      case threadEnvironment.pin:
+      case threadMachine.pin:
         return commands.pin;
-      case threadEnvironment.unpin:
+      case threadMachine.unpin:
         return commands.unpin;
-      case threadEnvironment.archive:
+      case threadMachine.archive:
         return commands.archive;
-      case threadEnvironment.unarchive:
+      case threadMachine.unarchive:
         return commands.unarchive;
-      case threadEnvironment.settle:
+      case threadMachine.settle:
         return commands.settle;
-      case threadEnvironment.unsettle:
+      case threadMachine.unsettle:
         return commands.unsettle;
-      case threadEnvironment.snooze:
+      case threadMachine.snooze:
         return commands.snooze;
-      case threadEnvironment.unsnooze:
+      case threadMachine.unsnooze:
         return commands.unsnooze;
       default:
         return vi.fn();
@@ -82,7 +82,7 @@ vi.mock("../state/use-atom-command", () => ({
 }));
 
 const target = {
-  environmentId: EnvironmentId.make("undo-env"),
+  machineId: MachineId.make("undo-env"),
   threadId: ThreadId.make("thread"),
 };
 function currentUndo() {
@@ -137,11 +137,11 @@ describe("unpin Undo", () => {
     await useThreadActions().unpinThread(target);
     await currentUndo()();
     expect(commands.pin).toHaveBeenCalledExactlyOnceWith({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { threadId: target.threadId, orderKey: "a0" },
     });
     expect(commands.snooze).toHaveBeenCalledExactlyOnceWith({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { threadId: target.threadId, snoozedUntil: threadShell.snoozedUntil },
     });
     expect(commands.pin.mock.invocationCallOrder[0]).toBeLessThan(
@@ -171,7 +171,7 @@ describe("unpin Undo", () => {
     await latestUndo();
     expect(commands.pin).toHaveBeenCalledTimes(2);
     expect(commands.pin).toHaveBeenLastCalledWith({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { threadId: target.threadId, orderKey: "a0" },
     });
     await latestUndo();
@@ -183,7 +183,7 @@ describe("archive Undo", () => {
   it("unarchives and returns to the thread when archiving left it", async () => {
     const add = vi.spyOn(toastManager, "add").mockReturnValue("toast");
     router.state.matches[0]!.params = {
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       threadId: target.threadId,
     };
     const actions = useThreadActions();
@@ -192,13 +192,13 @@ describe("archive Undo", () => {
     expect(add).not.toHaveBeenCalled();
     await currentUndo()();
     expect(commands.unarchive).toHaveBeenCalledExactlyOnceWith({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { threadId: target.threadId },
     });
     expect(router.navigate).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: "/$environmentId/$threadId",
-        params: { environmentId: target.environmentId, threadId: target.threadId },
+        to: "/$machineId/$threadId",
+        params: { machineId: target.machineId, threadId: target.threadId },
       }),
     );
   });
@@ -226,11 +226,11 @@ describe("settle and snooze Undo", () => {
     await currentUndo()();
     expect(commands.unsettle).toHaveBeenCalledOnce();
     expect(commands.pin).toHaveBeenCalledExactlyOnceWith({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { threadId: target.threadId, orderKey: "a0" },
     });
     expect(commands.snooze).toHaveBeenCalledExactlyOnceWith({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { threadId: target.threadId, snoozedUntil },
     });
   });
@@ -265,7 +265,7 @@ describe("settle and snooze Undo", () => {
     expect(add).not.toHaveBeenCalled();
     await currentUndo()();
     expect(commands.unsnooze).toHaveBeenCalledExactlyOnceWith({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { threadId: target.threadId, reason: "user" },
     });
   });

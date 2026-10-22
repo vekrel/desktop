@@ -1,9 +1,9 @@
 import { useAtomCommand } from "~/state/use-atom-command";
-import type { EnvironmentId, PullRequestDetailView, PullRequestRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestDetailView, PullRequestRef } from "@vekrel/contracts";
 import { SendIcon } from "lucide-react";
 import { useState, type RefObject } from "react";
 
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
@@ -13,7 +13,7 @@ import { pullRequestReviewKey } from "./pullRequestReviewStore";
 import { useInlineActionConfirm } from "./useInlineActionConfirm";
 
 export function PullRequestCommentForm({
-  environmentId,
+  machineId,
   reference,
   detail,
   actionPending,
@@ -22,7 +22,7 @@ export function PullRequestCommentForm({
   onCommented,
   onClose,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   detail: PullRequestDetailView;
   actionPending: boolean;
@@ -36,7 +36,7 @@ export function PullRequestCommentForm({
 }) {
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState<"comment" | "close" | "reopen" | null>(null);
-  const postComment = useAtomCommand(pullRequestEnvironment.comment, {
+  const postComment = useAtomCommand(pullRequestMachine.comment, {
     reportFailure: false,
   });
   const inlineConfirm = useInlineActionConfirm(pullRequestReviewKey(reference));
@@ -65,7 +65,7 @@ export function PullRequestCommentForm({
       return;
     }
     const result = await postComment({
-      environmentId,
+      machineId,
       input: {
         ...reference,
         body: trimmed,

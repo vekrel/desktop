@@ -35,7 +35,7 @@ import {
   resolveSidebarDropVerb,
 } from "./Sidebar.logic";
 import { threadSearchMatchKey } from "@vekrel/client-runtime/state/thread-search";
-import { EnvironmentId, ProjectId, ProviderInstanceId, RunId, ThreadId } from "@vekrel/contracts";
+import { MachineId, ProjectId, ProviderInstanceId, RunId, ThreadId } from "@vekrel/contracts";
 
 import {
   DEFAULT_INTERACTION_MODE,
@@ -45,7 +45,7 @@ import {
 } from "../types";
 import { makeThreadFixture, type ThreadFixtureOverrides } from "../test-fixtures";
 
-const localEnvironmentId = EnvironmentId.make("environment-local");
+const localMachineId = MachineId.make("machine-local");
 
 describe("deleteSelectedThreadEntries", () => {
   const entries = [{ threadKey: "one" }, { threadKey: "two" }, { threadKey: "three" }] as const;
@@ -162,22 +162,22 @@ describe("archiveSelectedThreadEntries", () => {
 
 describe("sidebar thread lineage helpers", () => {
   it("maps an open subagent to its nearest visible ancestor's sidebar row", () => {
-    const environmentId = EnvironmentId.make("environment-row");
-    const otherEnvironmentId = EnvironmentId.make("environment-other");
-    const subagentOf = (id: string, parentId: ThreadId, environment = environmentId) =>
+    const machineId = MachineId.make("machine-row");
+    const otherMachineId = MachineId.make("machine-other");
+    const subagentOf = (id: string, parentId: ThreadId, machine = machineId) =>
       makeThreadFixture({
         id: ThreadId.make(id),
-        environmentId: environment,
+        machineId: machine,
         lineage: {
           rootThreadId: parentId,
           parentThreadId: parentId,
           relationshipToParent: "subagent",
         },
       });
-    const root = makeThreadFixture({ id: ThreadId.make("thread-root"), environmentId });
+    const root = makeThreadFixture({ id: ThreadId.make("thread-root"), machineId });
     const fork = makeThreadFixture({
       id: ThreadId.make("thread-fork"),
-      environmentId,
+      machineId,
       lineage: {
         rootThreadId: root.id,
         parentThreadId: root.id,
@@ -188,17 +188,17 @@ describe("sidebar thread lineage helpers", () => {
     const grandchild = subagentOf("thread-grandchild", child.id);
     const forkChild = subagentOf("thread-fork-child", fork.id);
     const orphan = subagentOf("thread-orphan", ThreadId.make("thread-missing"));
-    const elsewhere = subagentOf("thread-elsewhere", root.id, otherEnvironmentId);
+    const elsewhere = subagentOf("thread-elsewhere", root.id, otherMachineId);
     const threads = [root, fork, child, grandchild, forkChild, orphan, elsewhere];
 
-    expect(resolveSidebarRowThreadId(child.id, environmentId, threads)).toBe(root.id);
-    expect(resolveSidebarRowThreadId(grandchild.id, environmentId, threads)).toBe(root.id);
-    expect(resolveSidebarRowThreadId(forkChild.id, environmentId, threads)).toBe(fork.id);
-    expect(resolveSidebarRowThreadId(elsewhere.id, otherEnvironmentId, threads)).toBe(elsewhere.id);
-    expect(resolveSidebarRowThreadId(orphan.id, environmentId, threads)).toBe(orphan.id);
+    expect(resolveSidebarRowThreadId(child.id, machineId, threads)).toBe(root.id);
+    expect(resolveSidebarRowThreadId(grandchild.id, machineId, threads)).toBe(root.id);
+    expect(resolveSidebarRowThreadId(forkChild.id, machineId, threads)).toBe(fork.id);
+    expect(resolveSidebarRowThreadId(elsewhere.id, otherMachineId, threads)).toBe(elsewhere.id);
+    expect(resolveSidebarRowThreadId(orphan.id, machineId, threads)).toBe(orphan.id);
     const loopA = subagentOf("thread-loop-a", ThreadId.make("thread-loop-b"));
     const loopB = subagentOf("thread-loop-b", loopA.id);
-    expect(resolveSidebarRowThreadId(loopA.id, environmentId, [loopA, loopB])).toBe(loopA.id);
+    expect(resolveSidebarRowThreadId(loopA.id, machineId, [loopA, loopB])).toBe(loopA.id);
   });
 });
 
@@ -323,7 +323,7 @@ describe("resolveSidebarThreadStatus", () => {
 
 describe("searchSidebarThreads", () => {
   const searchThread = (id: string, title: string, project: string) => ({
-    environmentId: localEnvironmentId,
+    machineId: localMachineId,
     id: ThreadId.make(id),
     title,
     project,
@@ -336,7 +336,7 @@ describe("searchSidebarThreads", () => {
   const contentKeys = (...ids: ReadonlyArray<string>) =>
     new Set(
       ids.map((id) =>
-        threadSearchMatchKey({ environmentId: localEnvironmentId, threadId: ThreadId.make(id) }),
+        threadSearchMatchKey({ machineId: localMachineId, threadId: ThreadId.make(id) }),
       ),
     );
 
@@ -590,7 +590,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
   const { defaultModelSelection, ...rest } = overrides;
   return {
     id: ProjectId.make("project-1"),
-    environmentId: localEnvironmentId,
+    machineId: localMachineId,
     title: "Project",
     workspaceRoot: "/tmp/project",
     repositoryIdentity: null,
@@ -609,7 +609,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
 function makeThread(overrides: ThreadFixtureOverrides = {}): Thread {
   return makeThreadFixture({
     id: ThreadId.make("thread-1"),
-    environmentId: localEnvironmentId,
+    machineId: localMachineId,
     projectId: ProjectId.make("project-1"),
     title: "Thread",
     modelSelection: {
@@ -716,29 +716,29 @@ describe("sortProjectsForSidebar", () => {
 });
 
 describe("sortScopedProjectsForSidebar", () => {
-  it("keeps identical project ids in different environments separate", () => {
-    const remoteEnvironmentId = EnvironmentId.make("environment-remote");
+  it("keeps identical project ids in different machines separate", () => {
+    const remoteMachineId = MachineId.make("machine-remote");
     const sharedProjectId = ProjectId.make("shared-project");
     const projects = [
       makeProject({
-        environmentId: localEnvironmentId,
+        machineId: localMachineId,
         id: sharedProjectId,
         title: "Local project",
       }),
       makeProject({
-        environmentId: remoteEnvironmentId,
+        machineId: remoteMachineId,
         id: sharedProjectId,
         title: "Remote project",
       }),
     ];
     const threads = [
       makeThread({
-        environmentId: localEnvironmentId,
+        machineId: localMachineId,
         projectId: sharedProjectId,
         updatedAt: "2026-03-09T10:02:00.000Z",
       }),
       makeThread({
-        environmentId: remoteEnvironmentId,
+        machineId: remoteMachineId,
         projectId: sharedProjectId,
         updatedAt: "2026-03-09T10:10:00.000Z",
       }),
@@ -794,12 +794,12 @@ describe("sortSidebarV2ProjectGroups", () => {
       {
         ...makeProject({ id: olderProjectId, title: "A older project" }),
         projectKey: "logical-older",
-        memberProjectRefs: [{ environmentId: localEnvironmentId, projectId: olderProjectId }],
+        memberProjectRefs: [{ machineId: localMachineId, projectId: olderProjectId }],
       },
       {
         ...makeProject({ id: newerProjectId, title: "Z newer project" }),
         projectKey: "logical-newer",
-        memberProjectRefs: [{ environmentId: localEnvironmentId, projectId: newerProjectId }],
+        memberProjectRefs: [{ machineId: localMachineId, projectId: newerProjectId }],
       },
     ];
     const threads = [
@@ -955,7 +955,7 @@ describe("unseen completion with background work", () => {
     { kind: "command", status: "ready", topStatus: "done", receded: false, pill: "Completed" },
     { kind: "monitor", status: "waiting", topStatus: "waiting", receded: true, pill: "Waiting" },
   ] as const)("presents a completed thread with a $kind roster", (expected) => {
-    const thread = presentThreadShell(localEnvironmentId, {
+    const thread = presentThreadShell(localMachineId, {
       ...makeThreadFixture().source,
       latestRunId: RunId.make("run-background-completion"),
       status: "completed",
@@ -1037,7 +1037,7 @@ describe("Working shelf (beta)", () => {
       input: { createdAt: string; completedAt?: string | null; unsettledAt?: string },
     ) => ({
       id: ThreadId.make(id),
-      environmentId: localEnvironmentId,
+      machineId: localMachineId,
       createdAt: input.createdAt,
       unsettledAt: input.unsettledAt ?? null,
       latestRun:

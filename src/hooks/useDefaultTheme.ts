@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { useEffect, useSyncExternalStore } from "react";
 
-import { primaryEnvironmentIdAtom } from "../state/primaryEnvironment";
+import { primaryMachineIdAtom } from "../state/primaryMachine";
 import { primaryServerSettingsAtom } from "../state/server";
 import { getThemeDefinition, singleAppearanceOf, subscribeToCustomThemes } from "../themePalette";
 import { useTheme } from "./useTheme";
@@ -17,13 +17,13 @@ export function defaultThemeGeneration(theme: string, setAt: string): string {
 }
 
 export function defaultThemeToApply(input: {
-  readonly environmentId: string | null;
+  readonly machineId: string | null;
   readonly defaultTheme: string;
   readonly defaultThemeSetAt: string;
   readonly appliedGeneration: string | null;
   readonly resolves: boolean;
 }): string | null {
-  if (input.environmentId === null || input.defaultTheme.length === 0) return null;
+  if (input.machineId === null || input.defaultTheme.length === 0) return null;
   const generation = defaultThemeGeneration(input.defaultTheme, input.defaultThemeSetAt);
   if (input.appliedGeneration === generation) return null;
   // The setting and the palette it names arrive independently, so an id that
@@ -49,7 +49,7 @@ function writeAppliedGeneration(storageKey: string, generation: string): void {
 }
 
 export function useDefaultThemeAdoption(): void {
-  const environmentId = useAtomValue(primaryEnvironmentIdAtom);
+  const machineId = useAtomValue(primaryMachineIdAtom);
   const settings = useAtomValue(primaryServerSettingsAtom);
   const { defaultTheme, defaultThemeSetAt } = settings;
   const { setTheme, setAppearanceMode } = useTheme();
@@ -61,10 +61,10 @@ export function useDefaultThemeAdoption(): void {
   );
 
   useEffect(() => {
-    if (typeof window === "undefined" || environmentId === null) return;
-    const storageKey = `${APPLIED_DEFAULT_THEME_STORAGE_PREFIX}${environmentId}`;
+    if (typeof window === "undefined" || machineId === null) return;
+    const storageKey = `${APPLIED_DEFAULT_THEME_STORAGE_PREFIX}${machineId}`;
     const generation = defaultThemeToApply({
-      environmentId,
+      machineId,
       defaultTheme,
       defaultThemeSetAt,
       appliedGeneration: readAppliedGeneration(storageKey),
@@ -73,7 +73,7 @@ export function useDefaultThemeAdoption(): void {
     if (generation === null || definition === null) return;
 
     // Clicking a card is a user choosing one half of their own mix; a set theme
-    // is the environment saying what this client opens on, so it takes the base
+    // is the machine saying what this client opens on, so it takes the base
     // preference and, for a single-appearance theme, the matching mode --
     // otherwise a dark-only theme on a light client is recorded as applied
     // while nothing changes.
@@ -84,5 +84,5 @@ export function useDefaultThemeAdoption(): void {
     // light half with no retry.
     if (half !== null && !setAppearanceMode(half)) return;
     writeAppliedGeneration(storageKey, generation);
-  }, [environmentId, defaultTheme, defaultThemeSetAt, definition, setTheme, setAppearanceMode]);
+  }, [machineId, defaultTheme, defaultThemeSetAt, definition, setTheme, setAppearanceMode]);
 }

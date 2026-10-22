@@ -2,7 +2,7 @@ import {
   DEFAULT_SERVER_SETTINGS,
   PROJECT_FILE_BACKED_SETTINGS,
   type ProjectFileBackedSettingKey,
-  resolveEnvironmentMachineKind,
+  resolveMachineKind,
   type ServerSettings,
   type WorktreeSubmodules,
 } from "@vekrel/contracts";
@@ -10,8 +10,8 @@ import { CheckIcon, ChevronRightIcon, LayersIcon } from "lucide-react";
 import * as Equal from "effect/Equal";
 
 import { cn } from "../../lib/utils";
-import type { EnvironmentPresentation } from "../../state/environments";
-import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import type { MachinePresentation } from "../../state/machines";
+import { MachineIcon } from "../MachineIcon";
 import { resolveEnvModeLabel, WORKTREE_SUBMODULES_LABELS } from "../BranchToolbar.logic";
 import { PULL_REQUEST_MERGE_METHOD_LABELS } from "../pullRequest/pullRequestDetail.logic";
 import { Button, InlineButton } from "../ui/button";
@@ -21,7 +21,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { useOptionalSettingsScope } from "./SettingsScopeContext";
 import type { ProjectOverrideEntry, ScopedSettingsTarget } from "./scopedSettings";
 import { isProjectScopedSettingKey } from "./scopedSettings";
-import { settingsScopeEnvironmentLabels } from "./settingsScopeAxis";
+import { settingsScopeMachineLabels } from "./settingsScopeAxis";
 
 interface InheritanceLayer {
   readonly key: "project" | "environment" | "t3.json" | "built-in";
@@ -88,12 +88,12 @@ function formatValue(key: keyof ServerSettings, value: unknown): string {
  */
 export function settingInheritanceLayers(
   target: ScopedSettingsTarget,
-  environmentSettings: ServerSettings,
+  machineSettings: ServerSettings,
   key: keyof ServerSettings,
 ): readonly InheritanceLayer[] {
-  const environmentValue = environmentSettings[key];
+  const machineValue = machineSettings[key];
   const source = isProjectScopedSettingKey(key) ? target.sources[key] : "environment";
-  const environmentSet = !Equal.equals(environmentValue, DEFAULT_SERVER_SETTINGS[key]);
+  const machineSet = !Equal.equals(machineValue, DEFAULT_SERVER_SETTINGS[key]);
   const fileBacked = isProjectFileBackedSettingKey(key);
   const layers: InheritanceLayer[] = [];
   if (target.projectId !== null && isProjectScopedSettingKey(key)) {
@@ -108,9 +108,9 @@ export function settingInheritanceLayers(
   layers.push({
     key: "environment",
     label: target.label,
-    value: environmentSet ? formatValue(key, environmentValue) : "Inherits",
-    effective: source === "environment" && environmentSet,
-    set: environmentSet,
+    value: machineSet ? formatValue(key, machineValue) : "Inherits",
+    effective: source === "environment" && machineSet,
+    set: machineSet,
   });
   if (fileBacked && target.projectId !== null) {
     layers.push({
@@ -130,7 +130,7 @@ export function settingInheritanceLayers(
     key: "built-in",
     label: "Default",
     value: formatValue(key, builtIn),
-    effective: source === "environment" && !environmentSet,
+    effective: source === "environment" && !machineSet,
     set: true,
   });
   return layers;
@@ -158,7 +158,7 @@ export function SettingInheritance({
   state,
   summary,
   targets,
-  environments,
+  machines,
   keys,
   overridingProjects = [],
   onClearOverrides,
@@ -166,9 +166,9 @@ export function SettingInheritance({
   state: SettingInheritanceState;
   summary: string;
   targets: readonly ScopedSettingsTarget[];
-  environments: readonly Pick<
-    EnvironmentPresentation,
-    "environmentId" | "label" | "displayUrl" | "serverConfig"
+  machines: readonly Pick<
+    MachinePresentation,
+    "machineId" | "label" | "displayUrl" | "serverConfig"
   >[];
   keys: readonly (keyof ServerSettings)[];
   overridingProjects?: readonly SettingOverridingProject[];
@@ -177,33 +177,33 @@ export function SettingInheritance({
   const scopeContext = useOptionalSettingsScope();
   const key = keys[0];
   if (!key || targets.length === 0) return null;
-  const hasMultipleEnvironments = new Set(targets.map((target) => target.environmentId)).size > 1;
+  const hasMultipleMachines = new Set(targets.map((target) => target.machineId)).size > 1;
   const overrideSummary =
     overridingProjects.length > 0
       ? `${summary} · ${overridingProjects.length} project ${overridingProjects.length === 1 ? "override" : "overrides"}`
       : summary;
   const chains = targets.flatMap((target) => {
-    const environment = environments.find(
-      (candidate) => candidate.environmentId === target.environmentId,
+    const machine = machines.find(
+      (candidate) => candidate.machineId === target.machineId,
     );
-    if (!environment?.serverConfig) return [];
-    const labels = settingsScopeEnvironmentLabels(environment, environments);
+    if (!machine?.serverConfig) return [];
+    const labels = settingsScopeMachineLabels(machine, machines);
     const path = scopeContext?.scope.members.find(
-      (member) => member.environmentId === target.environmentId && member.id === target.projectId,
+      (member) => member.machineId === target.machineId && member.id === target.projectId,
     )?.workspaceRoot;
     const secondary = [labels.secondary, path?.split(/[\\/]/).filter(Boolean).slice(-2).join("/")]
       .filter(Boolean)
       .join(" · ");
-    const layers = settingInheritanceLayers(target, environment.serverConfig.settings, key);
+    const layers = settingInheritanceLayers(target, machine.serverConfig.settings, key);
     const winningLayer = layers.find((layer) => layer.effective);
     return [
       {
-        id: `${target.environmentId}:${target.projectId ?? ""}`,
+        id: `${target.machineId}:${target.projectId ?? ""}`,
         target,
         label: [labels.primary, secondary].filter(Boolean).join(" · "),
         machineLabel: [labels.primary, labels.secondary].filter(Boolean).join(" · "),
-        overrides: environment.serverConfig.settings.projectSettingsOverrides,
-        machine: resolveEnvironmentMachineKind(environment.serverConfig),
+        overrides: machine.serverConfig.settings.projectSettingsOverrides,
+        machine: resolveMachineKind(machine.serverConfig),
         layers,
         winningLayer,
         resolution: {
@@ -217,17 +217,17 @@ export function SettingInheritance({
   const primary =
     chains.find(
       ({ target }) =>
-        target.environmentId === scopeContext?.target?.environmentId &&
+        target.machineId === scopeContext?.target?.machineId &&
         target.projectId === scopeContext?.target?.projectId,
     ) ?? chains[0];
-  const machineLabelFor = (environmentId: string) =>
-    chains.find((entry) => entry.target.environmentId === environmentId)?.machineLabel ?? "";
+  const machineLabelFor = (machineId: string) =>
+    chains.find((entry) => entry.target.machineId === machineId)?.machineLabel ?? "";
   const groups: (typeof chains)[] = [];
-  for (const chain of hasMultipleEnvironments && primary
+  for (const chain of hasMultipleMachines && primary
     ? [primary, ...chains.filter((entry) => entry !== primary)]
     : chains) {
     const group =
-      hasMultipleEnvironments &&
+      hasMultipleMachines &&
       groups.find(([first]) => first && Equal.equals(first.resolution, chain.resolution));
     if (group) group.push(chain);
     else groups.push([chain]);
@@ -305,9 +305,9 @@ export function SettingInheritance({
             );
             return (
               <section key={id} className="px-3 py-2.5">
-                {!hasMultipleEnvironments ? (
+                {!hasMultipleMachines ? (
                   <h4 className="flex items-center gap-1.5 pb-1.5 text-xs font-medium text-muted-foreground">
-                    <EnvironmentMachineIcon
+                    <MachineIcon
                       aria-hidden
                       kind={machine}
                       className="size-3.5 shrink-0"
@@ -315,7 +315,7 @@ export function SettingInheritance({
                     <span className="min-w-0 truncate">{target.label}</span>
                   </h4>
                 ) : null}
-                {hasMultipleEnvironments && groups.length > 1 ? (
+                {hasMultipleMachines && groups.length > 1 ? (
                   <Collapsible>
                     <CollapsibleTrigger
                       render={
@@ -347,7 +347,7 @@ export function SettingInheritance({
                               key={member.id}
                               className="flex min-w-0 max-w-full items-center gap-1"
                             >
-                              <EnvironmentMachineIcon
+                              <MachineIcon
                                 aria-hidden
                                 kind={member.machine}
                                 className="size-3 shrink-0"
@@ -365,7 +365,7 @@ export function SettingInheritance({
                 ) : (
                   <>
                     {chain}
-                    {hasMultipleEnvironments ? (
+                    {hasMultipleMachines ? (
                       <p className="px-2 pt-1.5 text-xs text-muted-foreground">
                         Same on all machines
                       </p>
@@ -374,10 +374,10 @@ export function SettingInheritance({
                 )}
                 {(() => {
                   const overriding = overridingProjects.filter((project) =>
-                    members.some((member) => member.target.environmentId === project.environmentId),
+                    members.some((member) => member.target.machineId === project.machineId),
                   );
                   if (overriding.length === 0) return null;
-                  const foldOverrides = hasMultipleEnvironments && overriding.length > 3;
+                  const foldOverrides = hasMultipleMachines && overriding.length > 3;
                   const header = (
                     <div className="flex items-center justify-between gap-3 px-2 text-xs text-muted-foreground">
                       {foldOverrides ? (
@@ -405,7 +405,7 @@ export function SettingInheritance({
                     >
                       {overriding.map((project) => (
                         <li
-                          key={`${project.environmentId}:${project.projectId}`}
+                          key={`${project.machineId}:${project.projectId}`}
                           className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-2 py-1"
                         >
                           <span className="flex min-w-0 flex-col items-start">
@@ -415,9 +415,9 @@ export function SettingInheritance({
                             >
                               <span className="truncate">{project.label}</span>
                             </InlineButton>
-                            {hasMultipleEnvironments ? (
+                            {hasMultipleMachines ? (
                               <span className="max-w-full truncate text-xs text-muted-foreground">
-                                {machineLabelFor(project.environmentId)}
+                                {machineLabelFor(project.machineId)}
                               </span>
                             ) : null}
                           </span>
@@ -427,7 +427,7 @@ export function SettingInheritance({
                                   key,
                                   members.find(
                                     (member) =>
-                                      member.target.environmentId === project.environmentId,
+                                      member.target.machineId === project.machineId,
                                   )?.overrides[project.projectId]?.[key],
                                 )
                               : null}

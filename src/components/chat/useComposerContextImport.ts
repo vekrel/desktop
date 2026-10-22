@@ -3,7 +3,7 @@ import type { ChatComposerProps } from "./ChatComposer";
 import {
   type ComposerContextClipboardFragment,
   type ComposerContextRecord,
-  type EnvironmentId,
+  type MachineId,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
 } from "@vekrel/contracts";
 import {
@@ -29,11 +29,11 @@ import {
   terminalContextRecord,
   terminalContextReference,
 } from "~/lib/composerContextRecords";
-import { assetEnvironment } from "~/state/assets";
+import { assetMachine } from "~/state/assets";
 import { copiedComposerAttachmentFile } from "~/lib/copiedComposerAttachments";
 import { countQuestionAttachments, questionAttachmentDraftId } from "../../questionAttachments";
 import { elementContextToPreviewAnnotation } from "../../lib/elementContext";
-import { orchestrationEnvironment } from "~/state/orchestration";
+import { orchestrationMachine } from "~/state/orchestration";
 import { pendingDraftWork } from "./pendingDraftWork";
 import { randomUUID } from "~/lib/utils";
 import { readPreparedConnection } from "~/state/session";
@@ -62,7 +62,7 @@ async function downloadAttachmentBlob(url: string): Promise<Blob | null> {
  * images and files) into the open draft, and counts the attachment slots already spoken for.
  */
 export function useComposerContextImport(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly activeThread: ChatComposerProps["activeThread"];
   readonly activeThreadId: ChatComposerProps["activeThreadId"];
   readonly composerDraftTarget: ChatComposerProps["composerDraftTarget"];
@@ -79,7 +79,7 @@ export function useComposerContextImport(input: {
   readonly addComposerFilesToDraft: (files: ComposerFileAttachment[]) => string[];
 }) {
   const {
-    environmentId,
+    machineId,
     activeThread,
     activeThreadId,
     composerDraftTarget,
@@ -105,8 +105,8 @@ export function useComposerContextImport(input: {
     (store) => store.addPreviewAnnotation,
   );
   const addComposerDraftThreadContexts = useComposerDraftStore((store) => store.addThreadContexts);
-  const createAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, { reportFailure: false });
-  const loadThreadTranscript = useAtomCommand(orchestrationEnvironment.threadTranscript, {
+  const createAssetUrl = useAtomQueryRunner(assetMachine.createUrl, { reportFailure: false });
+  const loadThreadTranscript = useAtomCommand(orchestrationMachine.threadTranscript, {
     reportFailure: false,
   });
   const countReservedAttachments = () => {
@@ -116,7 +116,7 @@ export function useComposerContextImport(input: {
         ? questionRequest.questions
             .map((question) =>
               questionAttachmentDraftId(
-                environmentId,
+                machineId,
                 activeThreadId,
                 questionRequest.requestId,
                 question.id,
@@ -137,7 +137,7 @@ export function useComposerContextImport(input: {
   const runAttachmentImport = async (
     record: Extract<ComposerContextRecord, { kind: "image" | "file" }>,
     localId: string,
-    sourceEnvironmentId: EnvironmentId,
+    sourceMachineId: MachineId,
     importTargetKey: string,
   ) => {
     const fail = (reason: string) => {
@@ -147,15 +147,15 @@ export function useComposerContextImport(input: {
         description: `${reason} Remove the chip or attach the file again.`,
       });
     };
-    let file = copiedComposerAttachmentFile(sourceEnvironmentId, record.attachmentId);
+    let file = copiedComposerAttachmentFile(sourceMachineId, record.attachmentId);
     if (!file) {
-      const sourceConnection = readPreparedConnection(sourceEnvironmentId);
+      const sourceConnection = readPreparedConnection(sourceMachineId);
       if (!sourceConnection) {
-        fail("The environment it came from is not connected.");
+        fail("The machine it came from is not connected.");
         return;
       }
       const result = await createAssetUrl({
-        environmentId: sourceEnvironmentId,
+        machineId: sourceMachineId,
         input: { resource: { _tag: "attachment", attachmentId: record.attachmentId } },
       });
       const url =
@@ -236,20 +236,20 @@ export function useComposerContextImport(input: {
   const importAttachmentRecord = async (
     record: Extract<ComposerContextRecord, { kind: "image" | "file" }>,
     localId: string,
-    sourceEnvironmentId: EnvironmentId,
+    sourceMachineId: MachineId,
   ) => {
     // The chip lands in the draft immediately while these bytes are still downloading. Count
     // the transfer against its own draft so a send cannot snapshot a message whose chip has no
     // attachment behind it, and so bytes for an abandoned draft never enter the next one.
     const importTargetKey = attachmentTargetKey;
     pendingDraftWork.begin(importTargetKey);
-    await runAttachmentImport(record, localId, sourceEnvironmentId, importTargetKey).finally(() =>
+    await runAttachmentImport(record, localId, sourceMachineId, importTargetKey).finally(() =>
       pendingDraftWork.end(importTargetKey),
     );
   };
   const importContextRecords = (
     records: ReadonlyArray<ComposerContextRecord>,
-    sourceEnvironmentId: EnvironmentId | null,
+    sourceMachineId: MachineId | null,
     threadDraftTarget = attachmentDraftTarget,
   ): ReadonlyMap<string, string> => {
     const rewritten = new Map<string, string>();
@@ -279,12 +279,12 @@ export function useComposerContextImport(input: {
           })[0];
       // Upload completion can change the server id since copy; the local bytes still match.
       if (
-        sourceEnvironmentId !== null &&
+        sourceMachineId !== null &&
         (record.kind === "image" || record.kind === "file") &&
         (existing?.kind === "image" || existing?.kind === "file") &&
         existing.record.file !== null &&
         existing.record.file ===
-          copiedComposerAttachmentFile(sourceEnvironmentId, record.attachmentId)
+          copiedComposerAttachmentFile(sourceMachineId, record.attachmentId)
       )
         continue;
       const existingRecord =
@@ -355,7 +355,7 @@ export function useComposerContextImport(input: {
         }
         case "thread": {
           // The agent can only read threads on its own server; a pasted foreign one is dropped.
-          if (record.environmentId !== environmentId) break;
+          if (record.machineId !== machineId) break;
           addComposerDraftThreadContexts(threadDraftTarget, [record], {
             appendReference: false,
           });
@@ -365,14 +365,14 @@ export function useComposerContextImport(input: {
         case "image":
         case "file": {
           if (skippedDependentAttachmentIds.has(record.contextId)) break;
-          if (sourceEnvironmentId === null && !conflicts) {
+          if (sourceMachineId === null && !conflicts) {
             rewritten.set(record.contextId, record.contextId);
             break;
           }
-          if (sourceEnvironmentId === null) break;
+          if (sourceMachineId === null) break;
           const localId = dependentAttachmentLocalIds.get(record.contextId) ?? randomUUID();
           rewritten.set(record.contextId, toKindScopedComposerContextId(record.kind, localId));
-          void importAttachmentRecord(record, localId, sourceEnvironmentId);
+          void importAttachmentRecord(record, localId, sourceMachineId);
           break;
         }
         default:
@@ -384,7 +384,7 @@ export function useComposerContextImport(input: {
   const importContextFragment = (
     fragment: ComposerContextClipboardFragment,
   ): ReadonlyMap<string, string> =>
-    importContextRecords(fragment.records, fragment.source.environmentId);
+    importContextRecords(fragment.records, fragment.source.machineId);
   const importContextFragmentStable = useStableCallback(importContextFragment);
 
   return {

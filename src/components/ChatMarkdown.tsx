@@ -39,7 +39,7 @@ import {
   AssetWorkspaceAssetNotFoundError,
   AuthPreviewOperateScope,
   type EditorId,
-  type EnvironmentId,
+  type MachineId,
   type ServerConfig,
   type ScopedThreadRef,
   type ServerProviderSkill,
@@ -118,7 +118,7 @@ import { Button } from "./ui/button";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 import { recordVisitForThread } from "../browserHistoryStore";
 import {
-  PreferredEditorEnvironmentRequiredError,
+  PreferredEditorMachineRequiredError,
   useOpenInPreferredEditor,
   usePreferredEditor,
 } from "../editorPreferences";
@@ -146,19 +146,19 @@ import { cn } from "../lib/utils";
 import { resolveRemoteOpenState, useRemoteOpenResolution } from "../remoteOpen";
 import { useRightPanelStore } from "../rightPanelStore";
 import { readThreadShell, useProjects } from "../state/entities";
-import { serverEnvironment } from "../state/server";
-import { shellEnvironment } from "../state/shell";
-import { assetEnvironment } from "../state/assets";
+import { serverMachine } from "../state/server";
+import { shellMachine } from "../state/shell";
+import { assetMachine } from "../state/assets";
 import {
-  readEnvironmentScope,
+  readMachineScope,
   readPreparedConnection,
-  useEnvironmentScope,
+  useMachineScope,
 } from "../state/session";
-import { previewEnvironment } from "../state/preview";
+import { previewMachine } from "../state/preview";
 import { useAtomCommand } from "../state/use-atom-command";
 import { useAtomQueryRunner } from "../state/use-atom-query-runner";
-import { projectEnvironment } from "../state/projects";
-import { filesystemEnvironment } from "../state/filesystem";
+import { projectMachine } from "../state/projects";
+import { filesystemMachine } from "../state/filesystem";
 import {
   claimWorkspaceBasenameLookup,
   needsWorkspaceBasenameLookup,
@@ -223,7 +223,7 @@ interface ChatMarkdownProps {
   cwd: string | undefined;
   threadRef?: ScopedThreadRef | undefined;
   pullRequestPanelRef?: ScopedThreadRef | undefined;
-  environmentId?: EnvironmentId | undefined;
+  machineId?: MachineId | undefined;
   onTaskListChange?: ((input: { markerOffset: number; checked: boolean }) => void) | undefined;
   isStreaming?: boolean;
   skills?: ReadonlyArray<Pick<ServerProviderSkill, "name" | "displayName">>;
@@ -400,12 +400,12 @@ type MarkdownServerConfigFields = ReturnType<typeof markdownServerConfigFields>;
 /** The server config fields markdown reads. */
 function markdownServerConfigFields(config: ServerConfig | null) {
   return {
-    pullRequestsEnabled: config?.environment.capabilities.pullRequests === true,
+    pullRequestsEnabled: config?.machine.capabilities.pullRequests === true,
     availableEditors: config?.availableEditors ?? NO_MARKDOWN_EDITORS,
     revealInFileManagerLabel:
       config?.shellRevealInFileManager === true && config.availableEditors.includes("file-manager")
         ? config.shellRevealInFileManagerKind === undefined
-          ? revealInFileExplorerLabelForOs(config.environment.platform.os)
+          ? revealInFileExplorerLabelForOs(config.machine.platform.os)
           : revealInFileExplorerLabelForKind(config.shellRevealInFileManagerKind)
         : undefined,
   };
@@ -426,9 +426,9 @@ function markdownServerConfigFieldsEqual(
 // The config object changes with every provider status push and snapshot. The
 // atom keeps its previous value while the fields markdown reads are equal, so
 // those pushes don't re-render every visible reply.
-const markdownServerConfigFieldsAtom = Atom.family((environmentId: EnvironmentId | null) =>
+const markdownServerConfigFieldsAtom = Atom.family((machineId: MachineId | null) =>
   Atom.make((get) => {
-    const next = markdownServerConfigFields(get(serverEnvironment.configValueAtom(environmentId)));
+    const next = markdownServerConfigFields(get(serverMachine.configValueAtom(machineId)));
     const previous = Option.getOrNull(get.self<MarkdownServerConfigFields>());
     return previous !== null && markdownServerConfigFieldsEqual(previous, next) ? previous : next;
   }).pipe(Atom.withLabel("markdown-server-config-fields")),
@@ -440,7 +440,7 @@ function useChatMarkdownState({
   cwd,
   threadRef,
   pullRequestPanelRef,
-  environmentId: explicitEnvironmentId,
+  machineId: explicitMachineId,
   onTaskListChange,
   isStreaming = false,
   skills = EMPTY_MARKDOWN_SKILLS,
@@ -458,9 +458,9 @@ function useChatMarkdownState({
   const mediaRequestId = useRef(0);
   // A preview opened from another thread or workspace never carries over.
   const mediaScopeKey = [
-    threadRef?.environmentId,
+    threadRef?.machineId,
     threadRef?.threadId,
-    explicitEnvironmentId,
+    explicitMachineId,
     cwd,
     imageBaseDir,
   ].join("\u0000");
@@ -489,28 +489,28 @@ function useChatMarkdownState({
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Leaving the scope invalidates media requests still loading for it.
     [mediaScopeKey],
   );
-  const createAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, {
+  const createAssetUrl = useAtomQueryRunner(assetMachine.createUrl, {
     reportFailure: false,
     refresh: true,
   });
-  const searchProjectEntries = useAtomQueryRunner(projectEnvironment.searchEntries, {
+  const searchProjectEntries = useAtomQueryRunner(projectMachine.searchEntries, {
     reportFailure: false,
   });
-  const getFilesystemMetadata = useAtomQueryRunner(filesystemEnvironment.getMetadata, {
+  const getFilesystemMetadata = useAtomQueryRunner(filesystemMachine.getMetadata, {
     reportFailure: false,
     refresh: true,
   });
-  const openPreview = useAtomCommand(previewEnvironment.open, {
+  const openPreview = useAtomCommand(previewMachine.open, {
     reportFailure: false,
   });
-  const pullRequestLinking = usePullRequestLinking(threadRef?.environmentId);
-  const environmentId = threadRef?.environmentId ?? explicitEnvironmentId ?? null;
-  const canOperateHost = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
-  const canOperatePreview = useEnvironmentScope(environmentId, AuthPreviewOperateScope);
-  const remoteOpen = useRemoteOpenResolution(environmentId);
+  const pullRequestLinking = usePullRequestLinking(threadRef?.machineId);
+  const machineId = threadRef?.machineId ?? explicitMachineId ?? null;
+  const canOperateHost = useMachineScope(machineId, AuthOrchestrationOperateScope);
+  const canOperatePreview = useMachineScope(machineId, AuthPreviewOperateScope);
+  const remoteOpen = useRemoteOpenResolution(machineId);
   const canUseShellActions =
     canOperateHost &&
-    canUseMarkdownFileShellActions(environmentId, remoteOpen.state.mode, remoteOpen.isResolved);
+    canUseMarkdownFileShellActions(machineId, remoteOpen.state.mode, remoteOpen.isResolved);
   const openMarkdownMedia = (
     source: string,
     resolvedFilePath?: string,
@@ -525,7 +525,7 @@ function useChatMarkdownState({
       // Read at click time: a reconnect replaces the prepared connection, and
       // subscribing would hand every rendered markdown element a new context.
       httpBaseUrl:
-        environmentId === null ? undefined : readPreparedConnection(environmentId)?.httpBaseUrl,
+        machineId === null ? undefined : readPreparedConnection(machineId)?.httpBaseUrl,
       createAssetUrl,
       onOpenFile: threadRef
         ? (path) => useRightPanelStore.getState().openFile(threadRef, path)
@@ -550,10 +550,10 @@ function useChatMarkdownState({
         if (
           isAssetNotFoundError(error) &&
           error.resource._tag === "media-file" &&
-          environmentId !== null
+          machineId !== null
         ) {
           // The connection may resolve while the media lookup is pending.
-          const target = readPreparedConnection(environmentId)?.target ?? null;
+          const target = readPreparedConnection(machineId)?.target ?? null;
           if (
             target !== null &&
             resolveRemoteOpenState({
@@ -577,32 +577,32 @@ function useChatMarkdownState({
     );
   };
   const { pullRequestsEnabled, availableEditors, revealInFileManagerLabel } = useAtomValue(
-    markdownServerConfigFieldsAtom(environmentId),
+    markdownServerConfigFieldsAtom(machineId),
   );
   const projects = useProjects();
   const [preferredEditor] = usePreferredEditor(availableEditors);
   const preferredEditorMenuLabel = openInEditorMenuLabel(preferredEditor);
-  const openInPreferredEditor = useOpenInPreferredEditor(environmentId, availableEditors);
-  const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
+  const openInPreferredEditor = useOpenInPreferredEditor(machineId, availableEditors);
+  const openInEditor = useAtomCommand(shellMachine.openInEditor, {
     reportFailure: false,
   });
   const revealFileInFileManager = (filePath: string) => {
-    if (environmentId === null) {
+    if (machineId === null) {
       return Promise.resolve(
-        AsyncResult.failure<void, PreferredEditorEnvironmentRequiredError>(
-          Cause.fail(new PreferredEditorEnvironmentRequiredError({ targetPath: filePath })),
+        AsyncResult.failure<void, PreferredEditorMachineRequiredError>(
+          Cause.fail(new PreferredEditorMachineRequiredError({ targetPath: filePath })),
         ),
       );
     }
-    if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
+    if (!readMachineScope(machineId, AuthOrchestrationOperateScope)) {
       return Promise.resolve(
         AsyncResult.failure<void, Error>(
-          Cause.fail(new Error("This connection cannot reveal files on this environment.")),
+          Cause.fail(new Error("This connection cannot reveal files on this machine.")),
         ),
       );
     }
     return openInEditor({
-      environmentId,
+      machineId,
       input: { cwd: filePath, editor: "file-manager", reveal: true },
     });
   };
@@ -690,7 +690,7 @@ function useChatMarkdownState({
   };
   const updateThreadPullRequestLink = async (href: string, linked: boolean) => {
     if (threadRef === undefined || (!linked && linkedThreadPullRequestFor(href) === null)) return;
-    if (!readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope)) return;
+    if (!readMachineScope(threadRef.machineId, AuthOrchestrationOperateScope)) return;
     await pullRequestLinking.changeLink(threadRef, href, linked);
   };
   const openExternalLinkInPreview = (url: string) => {
@@ -723,13 +723,13 @@ function useChatMarkdownState({
     });
   };
   const openMarkdownFileInPreview = (path: string) => {
-    const preparedConnection = threadRef ? readPreparedConnection(threadRef.environmentId) : null;
+    const preparedConnection = threadRef ? readPreparedConnection(threadRef.machineId) : null;
     if (!threadRef || !canOperatePreview || preparedConnection === null) {
       return Promise.resolve(
         AsyncResult.failure<void, BrowserPreviewUnavailableError>(
           Cause.fail(
             new BrowserPreviewUnavailableError({
-              message: "Environment is not connected.",
+              message: "Machine is not connected.",
             }),
           ),
         ),
@@ -749,8 +749,8 @@ function useChatMarkdownState({
     if (
       !workspaceRelativePath ||
       !cwd ||
-      environmentId === null ||
-      !readEnvironmentScope(environmentId, AuthFilesystemReadScope)
+      machineId === null ||
+      !readMachineScope(machineId, AuthFilesystemReadScope)
     ) {
       return null;
     }
@@ -760,7 +760,7 @@ function useChatMarkdownState({
       : stripRepeatedWorkspacePrefix(workspaceRelativePath, cwd);
     if (!isBasename && strippedPath === null) return null;
     const result = await searchProjectEntries({
-      environmentId,
+      machineId,
       input: {
         cwd,
         query: strippedPath ?? workspaceRelativePath,
@@ -777,7 +777,7 @@ function useChatMarkdownState({
     // Search can be truncated or still scanning, so it cannot rule out the
     // literal path. Check the host before redirecting to the stripped match.
     const metadata = await getFilesystemMetadata({
-      environmentId,
+      machineId,
       input: { paths: [resolveWorkspaceFilePath(workspaceRelativePath, cwd)] },
     });
     return metadata._tag === "Success" && metadata.value.entries[0] === null ? match : null;
@@ -826,7 +826,7 @@ function useChatMarkdownState({
 
     return (
       <MarkdownFileLink
-        environmentId={environmentId}
+        machineId={machineId}
         href={fileLinkMeta.targetPath}
         targetPath={fileLinkMeta.targetPath}
         iconPath={fileLinkMeta.filePath}
@@ -871,7 +871,7 @@ function useChatMarkdownState({
         onOpenInBrowser={
           threadRef &&
           canOperatePreview &&
-          isPreviewAvailableFor(threadRef.environmentId) &&
+          isPreviewAvailableFor(threadRef.machineId) &&
           isBrowserPreviewFile(fileLinkMeta.filePath)
             ? () => openMarkdownFileInPreview(fileLinkMeta.filePath)
             : undefined
@@ -885,7 +885,7 @@ function useChatMarkdownState({
     canOperatePreview,
     cwd,
     diffThemeName,
-    environmentId,
+    machineId,
     expandMedia,
     fileLinkChip,
     githubMedia,
@@ -1051,7 +1051,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
       canOperateHost,
       canOperatePreview,
       cwd,
-      environmentId,
+      machineId,
       imageBaseDir,
       markdownFileLinkMetaByHref,
       threadRef,
@@ -1074,8 +1074,8 @@ const CHAT_MARKDOWN_COMPONENTS = {
     const linkedThreadId = href ? parseThreadLinkHref(href) : null;
     if (linkedThreadId) {
       const label = hastPlainTextDeep(node) || linkedThreadId;
-      return environmentId ? (
-        <MarkdownThreadLink environmentId={environmentId} threadId={linkedThreadId} label={label} />
+      return machineId ? (
+        <MarkdownThreadLink machineId={machineId} threadId={linkedThreadId} label={label} />
       ) : (
         <span>{label}</span>
       );
@@ -1112,7 +1112,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
         confirmBeforeOpen && href ? pullRequestCandidateUrlFromReferenceAutolink(href) : href;
       const pullRequestPreviewTarget = pullRequestCandidateUrl
         ? resolvePullRequestPreviewTarget({
-            environmentId,
+            machineId,
             projects,
             pullRequestsEnabled,
             url: pullRequestCandidateUrl,
@@ -1121,7 +1121,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
       const isSameDocumentLink = href?.startsWith("#") ?? false;
       const onClick = props.onClick;
       const canOpenInPreview =
-        canOperatePreview && Boolean(threadRef && isPreviewAvailableFor(threadRef.environmentId));
+        canOperatePreview && Boolean(threadRef && isPreviewAvailableFor(threadRef.machineId));
       const linkChildren = <MarkdownLinkContext value>{children}</MarkdownLinkContext>;
       const link = (
         <a
@@ -1161,7 +1161,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
             }
             if (
               !href ||
-              openChangeRequestLink(event, href, undefined, environmentId ?? undefined)
+              openChangeRequestLink(event, href, undefined, machineId ?? undefined)
             ) {
               return;
             }
@@ -1284,7 +1284,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
                 },
                 targetUrl,
                 undefined,
-                environmentId ?? undefined,
+                machineId ?? undefined,
               )
             }
             onOpenFallback={openDeferredMarkdownLink}
@@ -1352,7 +1352,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
     const {
       expandMedia,
       cwd,
-      environmentId,
+      machineId,
       githubMedia,
       imageBaseDir,
       threadRef,
@@ -1390,13 +1390,13 @@ const CHAT_MARKDOWN_COMPONENTS = {
     if (
       githubMedia &&
       cwd !== undefined &&
-      environmentId !== null &&
+      machineId !== null &&
       directUri !== null &&
       githubMediaUrl !== null
     ) {
       return (
         <ChatMarkdownAssetImage
-          environmentId={environmentId}
+          machineId={machineId}
           resource={{ _tag: "github-media", cwd, url: githubMediaUrl }}
           alt={altText}
           kind={kind}
@@ -1455,7 +1455,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
     if (imageSource._tag === "WorkspaceFile" && threadRef) {
       return (
         <ChatMarkdownAssetImage
-          environmentId={threadRef.environmentId}
+          machineId={threadRef.machineId}
           resource={{
             _tag: "media-file",
             threadId: threadRef.threadId,

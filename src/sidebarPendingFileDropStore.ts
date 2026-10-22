@@ -7,7 +7,7 @@ import type { ScopedThreadRef } from "@vekrel/contracts";
  * itself contains one; drops must never cross threads on that account.
  */
 export function isSameSidebarThreadRef(a: ScopedThreadRef, b: ScopedThreadRef): boolean {
-  return a.environmentId === b.environmentId && a.threadId === b.threadId;
+  return a.machineId === b.machineId && a.threadId === b.threadId;
 }
 
 export interface SidebarPendingFileDrop {

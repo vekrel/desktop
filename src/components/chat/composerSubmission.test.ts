@@ -1,6 +1,6 @@
 import {
   ASSISTANT_CITATION_MAX_TEXT_LENGTH,
-  EnvironmentId,
+  MachineId,
   MessageId,
   PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
   ThreadId,
@@ -15,7 +15,7 @@ import { submitComposerDraft } from "./composerSubmission";
 
 const assistantCitation = {
   version: 1 as const,
-  environmentId: EnvironmentId.make("source-environment"),
+  machineId: MachineId.make("source-machine"),
   threadId: ThreadId.make("source-thread"),
   messageId: MessageId.make("source-message"),
   text: "Keep the parser shared.",

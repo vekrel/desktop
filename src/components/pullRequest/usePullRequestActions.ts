@@ -1,11 +1,11 @@
 import { useAtomCommand } from "~/state/use-atom-command";
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@vekrel/client-runtime/state/runtime";
 import type {
-  EnvironmentId,
+  MachineId,
   ProjectId,
   PullRequestAction,
   PullRequestDetail,
@@ -14,7 +14,7 @@ import type {
 } from "@vekrel/contracts";
 import { useRef, useState } from "react";
 import { resolveProjectSettings } from "@vekrel/shared/projectSettings";
-import { useClientSettings, useEnvironmentSettings } from "~/hooks/useSettings";
+import { useClientSettings, useMachineSettings } from "~/hooks/useSettings";
 import {
   deriveLogicalProjectKeyFromSettings,
   derivePhysicalProjectKey,
@@ -22,13 +22,13 @@ import {
 } from "~/logicalProject";
 import { buildPhysicalToLogicalProjectKeyMap } from "~/sidebarProjectGrouping";
 import { useProjects } from "~/state/entities";
-import { usePrimaryEnvironmentId } from "~/state/environments";
+import { usePrimaryMachineId } from "~/state/machines";
 
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { useNewThreadHandler } from "~/hooks/useHandleNewThread";
 import { usePreparePullRequestThreadAction } from "~/lib/sourceControlActions";
 import type { ReviewCommentContext } from "~/reviewCommentContext";
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 
 import { toastManager } from "../ui/toast";
 import { OFF_HEAD_PULL_REQUEST_CHECKOUT_TOAST } from "./pullRequestCheckoutToast";
@@ -38,32 +38,32 @@ import {
   handoffReviewComments,
   readableFailure,
 } from "./pullRequestDetail.logic";
-import { pullRequestEntryKey, type EnvironmentPullRequestEntry } from "./pullRequestList.logic";
+import { pullRequestEntryKey, type MachinePullRequestEntry } from "./pullRequestList.logic";
 
 export function usePullRequestDefaultMergeMethodResolver(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   projectId: ProjectId | null,
 ) {
-  const projectDefault = useEnvironmentSettings(
-    environmentId,
+  const projectDefault = useMachineSettings(
+    machineId,
     (settings) => resolveProjectSettings(settings, projectId).settings.pullRequestMergeMethod,
   );
   const legacyOverrides = useClientSettings((settings) => settings.pullRequestMergeMethodOverrides);
   const grouping = useClientSettings(selectProjectGroupingSettings);
   const projects = useProjects();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const primaryMachineId = usePrimaryMachineId();
   return () => {
     if (projectDefault != null) return projectDefault;
     if (Object.keys(legacyOverrides).length === 0) return undefined;
     const project = projects.find(
-      (candidate) => candidate.environmentId === environmentId && candidate.id === projectId,
+      (candidate) => candidate.machineId === machineId && candidate.id === projectId,
     );
     if (!project) return undefined;
     const key =
       buildPhysicalToLogicalProjectKeyMap({
         projects,
         settings: grouping,
-        primaryEnvironmentId,
+        primaryMachineId,
       }).get(derivePhysicalProjectKey(project)) ??
       deriveLogicalProjectKeyFromSettings(project, grouping);
     return legacyOverrides[key];
@@ -120,18 +120,18 @@ const ACTION_FAILURE_HINTS: Record<PullRequestAction, string> = {
 };
 
 export function usePullRequestActionRunner({
-  environmentId,
+  machineId,
   reference,
   onSuccess,
   resolveMergeMethod,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef | null;
   onSuccess?: (action: PullRequestAction) => void;
   /** Small surfaces resolve repository settings on the click, not for every visible row. */
   resolveMergeMethod?: (detail: PullRequestDetail) => PullRequestMergeMethod;
 }) {
-  const runAction = useAtomCommand(pullRequestEnvironment.runAction, {
+  const runAction = useAtomCommand(pullRequestMachine.runAction, {
     reportFailure: false,
   });
   const [actionPending, setActionPending] = useState(false);
@@ -142,7 +142,7 @@ export function usePullRequestActionRunner({
     pendingRef.current = true;
     setActionPending(true);
     const result = await runAction({
-      environmentId,
+      machineId,
       input: {
         ...reference,
         action,
@@ -169,11 +169,11 @@ export function usePullRequestActionRunner({
   return { actionPending, perform };
 }
 
-export function usePullRequestCloseBatch(onClosed: (entry: EnvironmentPullRequestEntry) => void) {
-  const runAction = useAtomCommand(pullRequestEnvironment.runAction, { reportFailure: false });
+export function usePullRequestCloseBatch(onClosed: (entry: MachinePullRequestEntry) => void) {
+  const runAction = useAtomCommand(pullRequestMachine.runAction, { reportFailure: false });
   const pending = useRef(new Set<string>());
   const [closingKeys, setClosingKeys] = useState<ReadonlySet<string>>(() => new Set());
-  const close = async (entries: readonly EnvironmentPullRequestEntry[]) => {
+  const close = async (entries: readonly MachinePullRequestEntry[]) => {
     const batch = entries.filter((entry) => {
       const key = pullRequestEntryKey(entry);
       if (entry.state !== "open" || pending.current.has(key)) return false;
@@ -186,7 +186,7 @@ export function usePullRequestCloseBatch(onClosed: (entry: EnvironmentPullReques
     const outcomes = await Promise.all(
       batch.map(async (entry) => {
         const result = await runAction({
-          environmentId: entry.environmentId,
+          machineId: entry.machineId,
           input: {
             projectId: entry.projectId,
             host: entry.host,
@@ -233,15 +233,15 @@ export type PullRequestHandoffDetail = Pick<
 const lastHandoffPromptByDraft = new Map<DraftId, string>();
 
 export function usePullRequestHandoffs({
-  environmentId,
+  machineId,
   detail,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   detail: PullRequestHandoffDetail | null;
 }) {
   const newThread = useNewThreadHandler();
   const prepareThread = usePreparePullRequestThreadAction({
-    environmentId,
+    machineId,
     cwd: detail?.workspaceRoot ?? null,
   });
   // One at a time whatever the key: they all check the same pull request out.
@@ -288,7 +288,7 @@ export function usePullRequestHandoffs({
   const startAsk = async (kind: string, task: PullRequestThreadTask) => {
     if (!detail || handoff !== null) return;
     setHandoff(kind);
-    const projectRef = scopeProjectRef(environmentId, detail.projectId);
+    const projectRef = scopeProjectRef(machineId, detail.projectId);
     const opened = await openThreadWithTask(projectRef, task);
     setHandoff(null);
     if (opened === null) {
@@ -322,7 +322,7 @@ export function usePullRequestHandoffs({
       type: "loading",
       title: "Preparing the pull request checkout...",
     });
-    const projectRef = scopeProjectRef(environmentId, detail.projectId);
+    const projectRef = scopeProjectRef(machineId, detail.projectId);
     // The thread is opened before the checkout rather than after it, because the project's setup
     // script only runs for a checkout that knows which thread it is for — and a worktree with no
     // dependencies installed is not something anyone can test.

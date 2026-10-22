@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Atom } from "effect/reactivity";
@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import { APP_VERSION } from "~/branding";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import { useDesktopUpdateState } from "~/state/desktopUpdate";
-import { serverEnvironment } from "~/state/server";
+import { serverMachine } from "~/state/server";
 import { resolveVersionMismatch } from "~/versionSkew";
 import type { ServerUpdateOutcome, ServerUpdateTarget } from "../ServerUpdateAction";
 import { stackedThreadToast, toastManager } from "../ui/toast";
@@ -43,7 +43,7 @@ function updateRunMachines(update: (machine: UpdateRunMachine) => UpdateRunMachi
 }
 
 export function settleUpdateRunMachine(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   failure: string | null,
   {
     serverUpdated = false,
@@ -51,7 +51,7 @@ export function settleUpdateRunMachine(
   }: { readonly serverUpdated?: boolean; readonly providerFailure?: string | null } = {},
 ): void {
   updateRunMachines((machine) =>
-    machine.environmentId === environmentId
+    machine.machineId === machineId
       ? {
           ...machine,
           result: failure === null ? "done" : "failed",
@@ -76,17 +76,17 @@ export function retryFailedUpdateRunServers(
         : [],
   );
   const targets = failed.map(({ target }) => target);
-  const retried = new Set(targets.map((target) => target.environmentId));
+  const retried = new Set(targets.map((target) => target.machineId));
   const startedAt = Date.now();
   updateRunMachines((machine) =>
-    retried.has(machine.environmentId)
+    retried.has(machine.machineId)
       ? { ...machine, result: null, failure: null, startedAt }
       : machine,
   );
   for (const { target, providerFailure } of failed) {
     void update(target, { quiet: true }).then((outcome) =>
       settleUpdateRunMachine(
-        target.environmentId,
+        target.machineId,
         outcome.status === "updated"
           ? providerFailure
           : outcome.status === "failed"
@@ -110,7 +110,7 @@ export function dismissSettledUpdateRunMachines(): void {
 }
 
 export function waitForServerUpdateHandoff(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   finished: Promise<unknown>,
 ): Promise<void> {
   return new Promise((resolve) => {
@@ -122,7 +122,7 @@ export function waitForServerUpdateHandoff(
       resolve();
     };
     const unsubscribe = appAtomRegistry.subscribe(
-      serverEnvironment.updateStateAtom(environmentId),
+      serverMachine.updateStateAtom(machineId),
       (state) => {
         if (isServerUpdateHandedOff(state)) finish();
       },
@@ -159,7 +159,7 @@ const SAVED_RESULT_MAX_AGE_MS = 10 * 60 * 1000;
 const HANDOFF_TIMEOUT_MS = 32 * 60 * 1000;
 
 const HandedOffServer = Schema.Struct({
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   label: Schema.String,
   targetVersion: Schema.String,
   startedAt: Schema.Number,
@@ -180,7 +180,7 @@ export function saveUpdateEverythingResult(result: UpdateEverythingResult): void
   const run = appAtomRegistry.get(updateEverythingRunAtom);
   const handedOff = (run?.machines ?? []).flatMap((machine): HandedOffServer[] => {
     if (machine.result !== null) return [];
-    const state = appAtomRegistry.get(serverEnvironment.updateStateAtom(machine.environmentId));
+    const state = appAtomRegistry.get(serverMachine.updateStateAtom(machine.machineId));
     // A desktop-managed server installs its own feed's version, which only its
     // update state knows.
     const targetVersion =
@@ -189,7 +189,7 @@ export function saveUpdateEverythingResult(result: UpdateEverythingResult): void
     if (targetVersion === undefined) return [];
     return [
       {
-        environmentId: machine.environmentId,
+        machineId: machine.machineId,
         label: machine.label,
         targetVersion,
         startedAt: machine.startedAt,
@@ -254,7 +254,7 @@ function followHandedOffServers(servers: ReadonlyArray<HandedOffServer>): void {
     phase: "servers",
     restartAt: null,
     machines: servers.map((server) => ({
-      environmentId: server.environmentId,
+      machineId: server.machineId,
       label: server.label,
       updatesProviders: false,
       server: null,
@@ -275,7 +275,7 @@ function followHandedOffServers(servers: ReadonlyArray<HandedOffServer>): void {
       settled = true;
       clearTimeout(timer);
       queueMicrotask(() => unsubscribe());
-      settleUpdateRunMachine(server.environmentId, failure);
+      settleUpdateRunMachine(server.machineId, failure);
       if (failure === null) updatedServers += 1;
       else failures.push(`${server.label}: ${failure}`);
       remaining -= 1;
@@ -294,11 +294,11 @@ function followHandedOffServers(servers: ReadonlyArray<HandedOffServer>): void {
       server.startedAt + HANDOFF_TIMEOUT_MS - Date.now(),
     );
     const unsubscribe = appAtomRegistry.subscribe(
-      serverEnvironment.configValueAtom(server.environmentId),
+      serverMachine.configValueAtom(server.machineId),
       (config) => {
         if (
           config !== null &&
-          resolveVersionMismatch(config.environment.serverVersion, server.targetVersion) === null
+          resolveVersionMismatch(config.machine.serverVersion, server.targetVersion) === null
         ) {
           settle(null);
         }

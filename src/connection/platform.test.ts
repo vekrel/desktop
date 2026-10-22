@@ -1,10 +1,10 @@
 import {
   AuthStandardClientScopes,
-  EnvironmentId,
-  PRIMARY_LOCAL_ENVIRONMENT_ID,
+  MachineId,
+  PRIMARY_LOCAL_MACHINE_ID,
   type DesktopBridge,
-  type DesktopSshEnvironmentBootstrap,
-  type DesktopSshEnvironmentTarget,
+  type DesktopSshMachineBootstrap,
+  type DesktopSshMachineTarget,
 } from "@vekrel/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -24,12 +24,12 @@ import {
   isRejectedSecondaryBootstrap,
   nextRejectedSecondaryBootstrap,
   primaryRegistrationToRetainAfterTopologyRead,
-  prepareDesktopSshEnvironment,
-  provisionDesktopSshEnvironment,
+  prepareDesktopSshMachine,
+  provisionDesktopSshMachine,
   secondaryRegistrationsToRetainAfterTopologyRead,
 } from "./platform.ts";
 
-const TARGET: DesktopSshEnvironmentTarget = {
+const TARGET: DesktopSshMachineTarget = {
   alias: "devbox",
   hostname: "devbox.example.test",
   username: "developer",
@@ -44,9 +44,9 @@ const SSH_BOOTSTRAP = {
 };
 
 function pendingSetup() {
-  let resolve!: (bootstrap: DesktopSshEnvironmentBootstrap) => void;
+  let resolve!: (bootstrap: DesktopSshMachineBootstrap) => void;
   let reject!: (cause: unknown) => void;
-  const promise = new Promise<DesktopSshEnvironmentBootstrap>((onResolve, onReject) => {
+  const promise = new Promise<DesktopSshMachineBootstrap>((onResolve, onReject) => {
     resolve = onResolve;
     reject = onReject;
   });
@@ -67,8 +67,8 @@ function makeBridge(
   },
 ): DesktopBridge {
   return {
-    ensureSshEnvironment: async (
-      target: DesktopSshEnvironmentTarget,
+    ensureSshMachine: async (
+      target: DesktopSshMachineTarget,
       ensureOptions?: { issuePairingToken?: boolean },
     ) => {
       calls.push("ensure");
@@ -79,7 +79,7 @@ function makeBridge(
         pairingToken: ensureOptions?.issuePairingToken === true ? "pairing-token" : null,
       };
     },
-    disconnectSshEnvironment: async () => {
+    disconnectSshMachine: async () => {
       calls.push("disconnect");
     },
     fetchSshSessionState: async () => {
@@ -89,14 +89,14 @@ function makeBridge(
         permissions: options?.savedTokenPermissions ?? AuthStandardClientScopes,
       };
     },
-    fetchSshEnvironmentDescriptor: async () => {
+    fetchSshMachineDescriptor: async () => {
       calls.push("descriptor");
       if (options?.failDescriptor === true) {
         throw new Error("descriptor unavailable");
       }
       return {
-        environmentId: EnvironmentId.make("environment-ssh"),
-        label: "SSH environment",
+        machineId: MachineId.make("machine-ssh"),
+        label: "SSH machine",
         platform: {
           os: "linux",
           arch: "x64",
@@ -125,10 +125,10 @@ describe("desktop SSH pairing", () => {
     Effect.gen(function* () {
       const calls: string[] = [];
 
-      const error = yield* provisionDesktopSshEnvironment(
+      const error = yield* provisionDesktopSshMachine(
         makeBridge(calls),
         TARGET,
-        EnvironmentId.make("some-other-machine"),
+        MachineId.make("some-other-machine"),
       ).pipe(Effect.flip);
 
       expect(error).toMatchObject({ reason: "configuration" });
@@ -140,17 +140,17 @@ describe("desktop SSH pairing", () => {
     Effect.gen(function* () {
       const bridge = makeBridge([]);
       const setup = pendingSetup();
-      const ensure = vi.spyOn(bridge, "ensureSshEnvironment").mockReturnValue(setup.promise);
+      const ensure = vi.spyOn(bridge, "ensureSshMachine").mockReturnValue(setup.promise);
       const exchange = vi.spyOn(bridge, "bootstrapSshBearerSession");
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const interrupted = yield* Effect.forkChild(
-          provisionDesktopSshEnvironment(bridge, TARGET),
+          provisionDesktopSshMachine(bridge, TARGET),
           { startImmediately: true },
         );
         yield* Fiber.interrupt(interrupted);
       }
 
-      const retry = yield* Effect.forkChild(provisionDesktopSshEnvironment(bridge, TARGET), {
+      const retry = yield* Effect.forkChild(provisionDesktopSshMachine(bridge, TARGET), {
         startImmediately: true,
       });
       setup.resolve(SSH_BOOTSTRAP);
@@ -170,10 +170,10 @@ describe("desktop SSH pairing", () => {
       for (const outcome of ["success", "failure"]) {
         const bridge = makeBridge([]);
         const setup = pendingSetup();
-        const ensure = vi.spyOn(bridge, "ensureSshEnvironment").mockReturnValueOnce(setup.promise);
+        const ensure = vi.spyOn(bridge, "ensureSshMachine").mockReturnValueOnce(setup.promise);
         const exchange = vi.spyOn(bridge, "bootstrapSshBearerSession");
         const interrupted = yield* Effect.forkChild(
-          provisionDesktopSshEnvironment(bridge, TARGET),
+          provisionDesktopSshMachine(bridge, TARGET),
           { startImmediately: true },
         );
         yield* Fiber.interrupt(interrupted);
@@ -186,7 +186,7 @@ describe("desktop SSH pairing", () => {
           ),
         );
 
-        const provisioned = yield* provisionDesktopSshEnvironment(bridge, TARGET);
+        const provisioned = yield* provisionDesktopSshMachine(bridge, TARGET);
 
         expect(provisioned.bearerToken).toBe("bearer-token");
         expect(ensure).toHaveBeenCalledTimes(2);
@@ -203,10 +203,10 @@ describe("desktop SSH pairing", () => {
       const calls: string[] = [];
       const bridge = makeBridge(calls);
       const setup = pendingSetup();
-      const ensure = vi.spyOn(bridge, "ensureSshEnvironment").mockReturnValueOnce(setup.promise);
+      const ensure = vi.spyOn(bridge, "ensureSshMachine").mockReturnValueOnce(setup.promise);
       const exchange = vi.spyOn(bridge, "bootstrapSshBearerSession");
       vi.stubGlobal("window", { desktopBridge: bridge });
-      const ssh = yield* ClientCapabilities.SshEnvironmentGateway.pipe(Effect.provide(layer));
+      const ssh = yield* ClientCapabilities.SshMachineGateway.pipe(Effect.provide(layer));
       const interrupted = yield* Effect.forkChild(ssh.provision(TARGET), {
         startImmediately: true,
       });
@@ -229,10 +229,10 @@ describe("desktop SSH pairing", () => {
       const calls: string[] = [];
 
       const bridge = makeBridge(calls);
-      const ensure = vi.spyOn(bridge, "ensureSshEnvironment");
-      const prepared = yield* prepareDesktopSshEnvironment(bridge, {
+      const ensure = vi.spyOn(bridge, "ensureSshMachine");
+      const prepared = yield* prepareDesktopSshMachine(bridge, {
         target: TARGET,
-        expectedEnvironmentId: EnvironmentId.make("environment-ssh"),
+        expectedMachineId: MachineId.make("machine-ssh"),
         bearerToken: "saved-token",
       });
 
@@ -246,11 +246,11 @@ describe("desktop SSH pairing", () => {
     Effect.gen(function* () {
       const calls: string[] = [];
 
-      const prepared = yield* prepareDesktopSshEnvironment(
+      const prepared = yield* prepareDesktopSshMachine(
         makeBridge(calls, { savedTokenRejected: true }),
         {
           target: TARGET,
-          expectedEnvironmentId: EnvironmentId.make("environment-ssh"),
+          expectedMachineId: MachineId.make("machine-ssh"),
           bearerToken: "saved-token",
         },
       );
@@ -264,13 +264,13 @@ describe("desktop SSH pairing", () => {
     Effect.gen(function* () {
       const calls: string[] = [];
 
-      const prepared = yield* prepareDesktopSshEnvironment(
+      const prepared = yield* prepareDesktopSshMachine(
         makeBridge(calls, {
           savedTokenPermissions: ["orchestration:read", "orchestration:operate"],
         }),
         {
           target: TARGET,
-          expectedEnvironmentId: EnvironmentId.make("environment-ssh"),
+          expectedMachineId: MachineId.make("machine-ssh"),
           bearerToken: "saved-token",
         },
       );
@@ -284,9 +284,9 @@ describe("desktop SSH pairing", () => {
     Effect.gen(function* () {
       const calls: string[] = [];
 
-      const error = yield* prepareDesktopSshEnvironment(makeBridge(calls), {
+      const error = yield* prepareDesktopSshMachine(makeBridge(calls), {
         target: TARGET,
-        expectedEnvironmentId: EnvironmentId.make("some-other-machine"),
+        expectedMachineId: MachineId.make("some-other-machine"),
         bearerToken: "saved-token",
       }).pipe(Effect.flip);
 
@@ -401,7 +401,7 @@ describe("primary topology cache", () => {
     signature: "primary|http://127.0.0.1:3773/|ws://127.0.0.1:3773/",
     registration,
   };
-  const previous = new Map([[PRIMARY_LOCAL_ENVIRONMENT_ID, cached]]);
+  const previous = new Map([[PRIMARY_LOCAL_MACHINE_ID, cached]]);
 
   it("retains the cached primary after a transient topology read failure", () => {
     expect(

@@ -1,7 +1,7 @@
 import {
   AuthOrchestrationOperateScope,
   AuthSettingsWriteScope,
-  type EnvironmentId,
+  type MachineId,
   type ProjectScript,
   type ProjectScriptIcon,
   type ResolvedKeybindingsConfig,
@@ -33,7 +33,7 @@ import {
 } from "~/lib/projectScriptKeybindings";
 import { keybindingFromKeyboardEvent } from "~/components/settings/KeybindingsSettings.logic";
 import { commandForProjectScript, nextProjectScriptId } from "~/projectScripts";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import { readMachineScope, useMachineScope } from "~/state/session";
 import { useComposerMenuState } from "./chat/useComposerMenuState";
 import {
   AlertDialog,
@@ -138,7 +138,7 @@ export function editorRequestForScript(
 }
 
 export function ProjectScriptEditorDialog({
-  environmentId,
+  machineId,
   editScope = AuthOrchestrationOperateScope,
   request,
   scripts,
@@ -146,7 +146,7 @@ export function ProjectScriptEditorDialog({
   onDelete,
   onClose,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   editScope?: typeof AuthOrchestrationOperateScope | typeof AuthSettingsWriteScope;
   request: ProjectScriptEditorRequest | null;
   scripts: ReadonlyArray<ProjectScript>;
@@ -157,7 +157,7 @@ export function ProjectScriptEditorDialog({
   onDelete: (scriptId: string) => void;
   onClose: () => void;
 }) {
-  const canEditActions = useEnvironmentScope(environmentId, editScope);
+  const canEditActions = useMachineScope(machineId, editScope);
   // Keyed by the request it belongs to: a new request starts from its own error,
   // and a late save from the previous request can't overwrite it.
   const [errorState, setErrorState] = useState<{
@@ -187,7 +187,7 @@ export function ProjectScriptEditorDialog({
         {/* The form owns its fields so a keystroke re-renders it, not the dialog chrome. */}
         <DialogPopup>
           <ProjectScriptEditorForm
-            environmentId={environmentId}
+            machineId={machineId}
             editScope={editScope}
             request={request}
             scripts={scripts}
@@ -216,7 +216,7 @@ export function ProjectScriptEditorDialog({
               disabled={!canEditActions}
               onClick={() => {
                 if (!request?.scriptId) return;
-                if (!readEnvironmentScope(environmentId, editScope)) {
+                if (!readMachineScope(machineId, editScope)) {
                   setValidationError("This connection cannot change project actions.");
                   return;
                 }
@@ -235,7 +235,7 @@ export function ProjectScriptEditorDialog({
 }
 
 function ProjectScriptEditorForm({
-  environmentId,
+  machineId,
   editScope,
   request,
   scripts,
@@ -245,7 +245,7 @@ function ProjectScriptEditorForm({
   onRequestDelete,
   onClose,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   editScope: typeof AuthOrchestrationOperateScope | typeof AuthSettingsWriteScope;
   request: ProjectScriptEditorRequest | null;
   scripts: ReadonlyArray<ProjectScript>;
@@ -258,8 +258,8 @@ function ProjectScriptEditorForm({
   onRequestDelete: (name: string) => void;
   onClose: () => void;
 }) {
-  const canEditActions = useEnvironmentScope(environmentId, editScope);
-  const canWriteSettings = useEnvironmentScope(environmentId, AuthSettingsWriteScope);
+  const canEditActions = useMachineScope(machineId, editScope);
+  const canWriteSettings = useMachineScope(machineId, AuthSettingsWriteScope);
   const formId = React.useId();
   const [name, setName] = useState("");
   const [command, setCommand] = useState("");
@@ -312,8 +312,8 @@ function ProjectScriptEditorForm({
   };
 
   const captureKeybinding = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (!readEnvironmentScope(environmentId, editScope)) return;
-    if (!readEnvironmentScope(environmentId, AuthSettingsWriteScope)) return;
+    if (!readMachineScope(machineId, editScope)) return;
+    if (!readMachineScope(machineId, AuthSettingsWriteScope)) return;
     if (event.key === "Tab") return;
     event.preventDefault();
     if (event.key === "Backspace" || event.key === "Delete") {
@@ -328,13 +328,13 @@ function ProjectScriptEditorForm({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!request || pendingSubmissionRef.current !== null) return;
-    if (!readEnvironmentScope(environmentId, editScope)) {
+    if (!readMachineScope(machineId, editScope)) {
       setValidationError("This connection cannot change project actions.");
       return;
     }
     const changesKeybinding =
       (keybinding.trim() || null) !== (request.initial.keybinding?.trim() || null);
-    const canChangeKeybinding = readEnvironmentScope(environmentId, AuthSettingsWriteScope);
+    const canChangeKeybinding = readMachineScope(machineId, AuthSettingsWriteScope);
     if (changesKeybinding && !canChangeKeybinding) {
       setValidationError("This connection cannot change keyboard shortcuts.");
       return;
@@ -483,7 +483,7 @@ function ProjectScriptEditorForm({
               />
               <p className="text-xs text-muted-foreground">
                 Press a shortcut. Use <code>Backspace</code> to clear. Shortcuts are
-                environment-wide. Projects using the same action share its shortcut.
+                machine-wide. Projects using the same action share its shortcut.
               </p>
             </div>
             <div className="space-y-1.5">

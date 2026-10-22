@@ -1,4 +1,4 @@
-import type { DeviceSummary, EnvironmentId } from "@vekrel/contracts";
+import type { DeviceSummary, MachineId } from "@vekrel/contracts";
 import { useEffect, useRef, useState } from "react";
 import {
   captureDeviceScreenshot,
@@ -11,7 +11,7 @@ import { DeviceToolsPanel } from "./DeviceToolsPanel";
 import { useDeviceControls } from "./useDeviceControls";
 
 export function DeviceWorkspace(props: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   device: DeviceSummary;
   hostLabel: string;
   hostDiagnostics: string | undefined;
@@ -27,7 +27,7 @@ export function DeviceWorkspace(props: {
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
   const captureRef = useRef<AbortController | null>(null);
   const downloadRef = useRef<string | null>(null);
-  const access = useDeviceHubAccess(props.environmentId, props.device.hostId);
+  const access = useDeviceHubAccess(props.machineId, props.device.hostId);
   const controls = useDeviceControls({ ...props, access });
   useEffect(() => {
     if (!access || !props.visible) captureRef.current?.abort();
@@ -62,7 +62,7 @@ export function DeviceWorkspace(props: {
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) {
           if (cause instanceof DeviceScreenshotError && cause.status === 401)
-            refreshDeviceHubAccess(props.environmentId);
+            refreshDeviceHubAccess(props.machineId);
           setScreenshotError(
             cause instanceof Error ? cause.message : "Screenshot capture failed. Try again.",
           );
@@ -85,7 +85,7 @@ export function DeviceWorkspace(props: {
         ) : null}
         <div className="min-h-0 flex-1">
           <DeviceStreamView
-            environmentId={props.environmentId}
+            machineId={props.machineId}
             platform={props.device.platform}
             deviceName={props.device.name}
             deviceDescription={`${props.hostLabel} · ${props.device.version}`}

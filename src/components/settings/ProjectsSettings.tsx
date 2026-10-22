@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import { LayersIcon } from "lucide-react";
 
 import { Button } from "../ui/button";
@@ -6,7 +6,7 @@ import { ProjectSettingsPanel } from "./ProjectSettingsPanel";
 import { useSettingsScope } from "./SettingsScopeContext";
 import { SettingsScopeNotice } from "./SettingsScopeNotice";
 import { SettingsPageContainer } from "./settingsLayout";
-import { ALL_ENVIRONMENTS_VALUE, selectEnvironmentAxis } from "./settingsScopeAxis";
+import { ALL_MACHINES_VALUE, selectMachineAxis } from "./settingsScopeAxis";
 
 export function ProjectsSettings() {
   const { search: value, scope, selectScope } = useSettingsScope();
@@ -19,10 +19,10 @@ export function ProjectsSettings() {
             <Button
               variant="outline"
               size="xs"
-              onClick={() => selectScope(selectEnvironmentAxis(value, ALL_ENVIRONMENTS_VALUE))}
+              onClick={() => selectScope(selectMachineAxis(value, ALL_MACHINES_VALUE))}
             >
               <LayersIcon />
-              Show all environments
+              Show all machines
             </Button>
           ) : null}
         </div>
@@ -39,7 +39,7 @@ export function ProjectsSettings() {
       {value.project && projectScope ? (
         <ProjectSettingsPanel
           projectKey={value.project}
-          environmentId={value.machine ? EnvironmentId.make(value.machine) : null}
+          machineId={value.machine ? MachineId.make(value.machine) : null}
           checkoutKey={value.checkout ?? null}
           unavailable={unavailable}
         />

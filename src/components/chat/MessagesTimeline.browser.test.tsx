@@ -1,4 +1,4 @@
-import { EnvironmentId, MessageId, RunId, ScheduledTaskId } from "@vekrel/contracts";
+import { MachineId, MessageId, RunId, ScheduledTaskId } from "@vekrel/contracts";
 import type { LegendListRef } from "@legendapp/list/react";
 import { createRef, Profiler, type ComponentProps, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -11,16 +11,16 @@ import { remarkThoughtPreview } from "./TimelineWorkEntryRow.logic";
 import { parseMarkdownWithMath } from "@vekrel/shared/markdownMath";
 import { collectThreadFindRanges } from "./threadFindHighlights";
 
-const environmentQuery = vi.hoisted(() => ({
+const machineQuery = vi.hoisted(() => ({
   error: "Pull request not found",
   data: null as unknown,
 }));
 vi.mock(import("~/state/query"), async (original) => ({
   ...(await original()),
-  useEnvironmentQuery: (() => ({
-    data: environmentQuery.data,
+  useMachineQuery: (() => ({
+    data: machineQuery.data,
     dataUpdatedAt: 0,
-    error: environmentQuery.error,
+    error: machineQuery.error,
     failure: null,
     isPending: false,
     isSuccess: false,
@@ -28,7 +28,7 @@ vi.mock(import("~/state/query"), async (original) => ({
   })) as never,
 }));
 
-const ENVIRONMENT_ID = EnvironmentId.make("environment-local");
+const MACHINE_ID = MachineId.make("machine-local");
 const CREATED_AT = "2026-03-17T19:12:28.000Z";
 
 type TimelineProps = ComponentProps<typeof MessagesTimeline>;
@@ -44,7 +44,7 @@ function baseProps(): Omit<TimelineProps, "timelineEntries"> {
     latestRun: null,
     turnDiffSummaries: [],
     runs: [],
-    routeThreadKey: `environment-local:thread-${Math.random().toString(36).slice(2)}`,
+    routeThreadKey: `machine-local:thread-${Math.random().toString(36).slice(2)}`,
     onOpenTurnDiff: () => {},
     onOpenThread: () => {},
     onForkFromRun: async () => {},
@@ -53,7 +53,7 @@ function baseProps(): Omit<TimelineProps, "timelineEntries"> {
     onRevertToTurnCount: () => {},
     isRevertingCheckpoint: false,
     onImageExpand: () => {},
-    activeThreadEnvironmentId: ENVIRONMENT_ID,
+    activeThreadMachineId: MACHINE_ID,
     markdownCwd: undefined,
     resolvedTheme: "light",
     timestampFormat: "locale",
@@ -122,7 +122,7 @@ async function click(element: HTMLElement) {
 }
 
 function setup({ scheduledTasks = [] as ReadonlyArray<{ id: string; title: string }> } = {}) {
-  environmentQuery.data = { tasks: scheduledTasks };
+  machineQuery.data = { tasks: scheduledTasks };
 }
 
 const TASK_ID = ScheduledTaskId.make("task-1");

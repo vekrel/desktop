@@ -1,12 +1,12 @@
 import { useState } from "react";
 import {
   AuthSourceControlWriteScope,
-  type EnvironmentId,
+  type MachineId,
   type ScopedThreadRef,
 } from "@vekrel/contracts";
 
 import { cn } from "~/lib/utils";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import { readMachineScope, useMachineScope } from "~/state/session";
 
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
@@ -16,7 +16,7 @@ import { PullRequestMarkdown } from "./PullRequestMarkdown";
 export function PullRequestMarkdownEditor({
   value,
   cwd,
-  environmentId,
+  machineId,
   threadRef = null,
   placeholder,
   label,
@@ -28,7 +28,7 @@ export function PullRequestMarkdownEditor({
 }: {
   readonly value: string;
   readonly cwd: string;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadRef?: ScopedThreadRef | null;
   readonly placeholder?: string | undefined;
   readonly label: string;
@@ -38,7 +38,7 @@ export function PullRequestMarkdownEditor({
   readonly onSave: (next: string) => void;
   readonly onCancel: () => void;
 }) {
-  const canWriteSourceControl = useEnvironmentScope(environmentId, AuthSourceControlWriteScope);
+  const canWriteSourceControl = useMachineScope(machineId, AuthSourceControlWriteScope);
   const [draft, setDraft] = useState(value);
   const [preview, setPreview] = useState(false);
   // React keeps a component instance wherever the same position and key come round again, so an
@@ -68,7 +68,7 @@ export function PullRequestMarkdownEditor({
           if (
             !saveDisabled &&
             !event.repeat &&
-            readEnvironmentScope(environmentId, AuthSourceControlWriteScope)
+            readMachineScope(machineId, AuthSourceControlWriteScope)
           )
             onSave(draft);
           return;
@@ -99,7 +99,7 @@ export function PullRequestMarkdownEditor({
             <PullRequestMarkdown
               text={draft}
               cwd={cwd}
-              environmentId={environmentId}
+              machineId={machineId}
               threadRef={threadRef}
             />
           )}
@@ -125,7 +125,7 @@ export function PullRequestMarkdownEditor({
           disabled={!canWriteSourceControl || saving || (empty && !allowEmpty)}
           onClick={() => {
             if (
-              !readEnvironmentScope(environmentId, AuthSourceControlWriteScope) ||
+              !readMachineScope(machineId, AuthSourceControlWriteScope) ||
               saving ||
               (empty && !allowEmpty)
             )

@@ -1,4 +1,4 @@
-import type { EnvironmentId, ProjectId } from "@vekrel/contracts";
+import type { MachineId, ProjectId } from "@vekrel/contracts";
 
 import type { OpenPreviewMutation } from "./browser/openFileInPreview";
 import type { ClosedView, ClosedViewEntry } from "./closedViewStore";
@@ -11,7 +11,7 @@ import {
 } from "./rightPanelStore";
 
 export interface ReopenOwnerState {
-  environmentKnown: boolean;
+  machineKnown: boolean;
   catalogReady: boolean;
   ownerExists: boolean;
   shellLive: boolean;
@@ -25,7 +25,7 @@ export function planNextReopen(
   const drop: ClosedViewEntry[] = [];
   for (const entry of entries) {
     const owner = ownerState(entry);
-    if (!owner.environmentKnown) {
+    if (!owner.machineKnown) {
       if (!owner.catalogReady) break;
       drop.push(entry);
       continue;
@@ -54,7 +54,7 @@ type PullRequestsSearchLike = Partial<PullRequestListPreferences> & {
   number?: number;
   selectedProjectId?: ProjectId;
   selectedHost?: string;
-  selectedEnvironmentId?: EnvironmentId;
+  selectedMachineId?: MachineId;
 };
 
 export function pullRequestsSearchForRestore<S extends PullRequestsSearchLike>(
@@ -66,7 +66,7 @@ export function pullRequestsSearchForRestore<S extends PullRequestsSearchLike>(
     number: _number,
     selectedProjectId: _projectId,
     selectedHost: _host,
-    selectedEnvironmentId: _environmentId,
+    selectedMachineId: _machineId,
     ...filters
   } = previous;
   return {
@@ -79,9 +79,9 @@ export function pullRequestsSearchForRestore<S extends PullRequestsSearchLike>(
           number: selected.number,
           selectedProjectId: selected.projectId as ProjectId,
           ...(selected.host === undefined ? {} : { selectedHost: selected.host }),
-          ...(selected.environmentId === undefined
+          ...(selected.machineId === undefined
             ? {}
-            : { selectedEnvironmentId: selected.environmentId as EnvironmentId }),
+            : { selectedMachineId: selected.machineId as MachineId }),
         }
       : {}),
   } as S & PullRequestListPreferences;

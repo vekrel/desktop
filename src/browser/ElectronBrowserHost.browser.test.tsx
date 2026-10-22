@@ -1,7 +1,7 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import {
   DEFAULT_CLIENT_SETTINGS,
-  EnvironmentId,
+  MachineId,
   ThreadId,
   type ClientSettings,
   type DesktopPreviewBridge,
@@ -24,7 +24,7 @@ vi.mock(import("~/env"), async (original) => ({ ...(await original()), isElectro
 
 vi.mock(import("~/state/session"), async (original) => ({
   ...(await original()),
-  useEnvironmentScope: () => true,
+  useMachineScope: () => true,
 }));
 
 vi.mock(import("~/localApi"), async (original) => {
@@ -60,7 +60,7 @@ import { AppAtomRegistryProvider } from "~/rpc/atomRegistry";
 import { ElectronBrowserHost } from "./ElectronBrowserHost";
 
 const threadRef = scopeThreadRef(
-  EnvironmentId.make("host-webview-order"),
+  MachineId.make("host-webview-order"),
   ThreadId.make("thread-webview-order"),
 );
 
@@ -109,8 +109,8 @@ async function renderHost() {
     await vi.advanceTimersByTimeAsync(0);
   });
   await act(() => ensureClientSettingsHydrated());
-  const environment = stack.move();
-  return { container: screen.container, [Symbol.asyncDispose]: () => environment.disposeAsync() };
+  const machine = stack.move();
+  return { container: screen.container, [Symbol.asyncDispose]: () => machine.disposeAsync() };
 }
 
 describe("ElectronBrowserHost", () => {

@@ -14,9 +14,9 @@ async function renderPicker(ui: ReactNode) {
   // Synthetic pointer ids are not active pointers, so the browser would reject capture.
   stack.use(vi.spyOn(HTMLElement.prototype, "setPointerCapture").mockImplementation(() => {}));
   const screen = stack.use(await render(ui));
-  const environment = stack.move();
+  const machine = stack.move();
   return Object.assign(screen, {
-    [Symbol.asyncDispose]: () => environment.disposeAsync(),
+    [Symbol.asyncDispose]: () => machine.disposeAsync(),
   });
 }
 

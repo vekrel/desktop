@@ -6,7 +6,7 @@ import type { WorktreeSetupSnapshot } from "@vekrel/contracts";
 import { deriveTimelineMinimapItems } from "./timelineMinimapItems";
 import {
   type AssistantCitation,
-  type EnvironmentId,
+  type MachineId,
   type MessageId,
   type OrchestrationV2TurnItem,
   type RunAttemptId,
@@ -14,7 +14,7 @@ import {
   type RunId,
   ThreadId,
 } from "@vekrel/contracts";
-import { parseScopedThreadKey } from "@vekrel/client-runtime/environment";
+import { parseScopedThreadKey } from "@vekrel/client-runtime/machine";
 import { resolveWorkGroupScrollAnchor } from "@vekrel/client-runtime/work-log/scroll-anchor";
 import type { WorkflowOpening } from "@vekrel/client-runtime/state/subagentRuntime";
 import { observeResize } from "~/lib/observeResize";
@@ -230,7 +230,7 @@ interface MessagesTimelineProps {
   onImageExpand: (preview: ExpandedImagePreview) => void;
   onFileOpen?: (attachment: ChatFileAttachment) => void;
   onFileDownload?: (attachment: ChatFileAttachment) => void;
-  activeThreadEnvironmentId: EnvironmentId;
+  activeThreadMachineId: MachineId;
   markdownCwd: string | undefined;
   resolvedTheme: "light" | "dark";
   timestampFormat: TimestampFormat;
@@ -330,7 +330,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
   onImageExpand,
   onFileOpen = NOOP_OPEN_ATTACHMENT,
   onFileDownload = NOOP_OPEN_ATTACHMENT,
-  activeThreadEnvironmentId,
+  activeThreadMachineId,
   markdownCwd,
   resolvedTheme,
   timestampFormat,
@@ -905,7 +905,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
     workspaceRoot,
     skills,
     runs,
-    activeThreadEnvironmentId,
+    activeThreadMachineId,
     onRevertToTurnCount,
     onRunShellCommand,
     findActive,

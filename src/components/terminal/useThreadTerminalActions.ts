@@ -3,7 +3,7 @@ import {
   AuthTerminalReadScope,
   type ScopedThreadRef,
 } from "@vekrel/contracts";
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
 import { isAtomCommandInterrupted } from "@vekrel/client-runtime/state/runtime";
 import { projectScriptCwd, projectScriptRuntimeEnv } from "@vekrel/shared/projectScripts";
 import { nextTerminalId } from "@vekrel/shared/terminalLabels";
@@ -12,8 +12,8 @@ import { useStableCallback } from "../../hooks/useStableCallback";
 import { randomUUID } from "~/lib/utils";
 import { selectThreadRightPanelState, useRightPanelStore } from "../../rightPanelStore";
 import { useProject, useQuietThreadShell } from "../../state/entities";
-import { readEnvironmentScope } from "../../state/session";
-import { terminalEnvironment } from "../../state/terminal";
+import { readMachineScope } from "../../state/session";
+import { terminalMachine } from "../../state/terminal";
 import { useKnownTerminalSessions } from "../../state/terminalSessions";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../../terminalUiStateStore";
@@ -28,25 +28,25 @@ export interface TerminalLaunchLocation {
  * Opens and closes a thread's terminal sessions. Every surface that hosts a
  * terminal (the drawer, a right panel tab, the setup flow, script runs) goes
  * through here, so ids are allocated from one view of the thread's terminals
- * and every new session starts with the same cwd and environment.
+ * and every new session starts with the same cwd and machine.
  */
 export function useThreadTerminalActions(threadRef: ScopedThreadRef | null) {
-  const openTerminalCommand = useAtomCommand(terminalEnvironment.open, "terminal open");
-  const writeTerminal = useAtomCommand(terminalEnvironment.write, "terminal write");
-  const closeTerminalCommand = useAtomCommand(terminalEnvironment.close, "terminal close");
+  const openTerminalCommand = useAtomCommand(terminalMachine.open, "terminal open");
+  const writeTerminal = useAtomCommand(terminalMachine.write, "terminal write");
+  const closeTerminalCommand = useAtomCommand(terminalMachine.close, "terminal close");
   const serverThread = useQuietThreadShell(threadRef);
   const draftThread = useComposerDraftStore((store) =>
     threadRef ? store.getDraftThreadByRef(threadRef) : null,
   );
   const projectRef = serverThread
-    ? scopeProjectRef(serverThread.environmentId, serverThread.projectId)
+    ? scopeProjectRef(serverThread.machineId, serverThread.projectId)
     : draftThread
-      ? scopeProjectRef(draftThread.environmentId, draftThread.projectId)
+      ? scopeProjectRef(draftThread.machineId, draftThread.projectId)
       : null;
   const project = useProject(projectRef);
   const threadWorktreePath = serverThread?.worktreePath ?? draftThread?.worktreePath ?? null;
   const knownSessions = useKnownTerminalSessions({
-    environmentId: threadRef?.environmentId ?? null,
+    machineId: threadRef?.machineId ?? null,
     threadId: threadRef?.threadId ?? null,
   });
   const drawerTerminalIds = useTerminalUiStateStore(
@@ -57,7 +57,7 @@ export function useThreadTerminalActions(threadRef: ScopedThreadRef | null) {
   );
 
   const canWrite = () =>
-    threadRef !== null && readEnvironmentScope(threadRef.environmentId, AuthTerminalOperateScope);
+    threadRef !== null && readMachineScope(threadRef.machineId, AuthTerminalOperateScope);
 
   // Every client-side id source participates: the server list lags fresh opens,
   // and an id collision attaches two viewports to one PTY session. Without a
@@ -74,7 +74,7 @@ export function useThreadTerminalActions(threadRef: ScopedThreadRef | null) {
     const canReuse =
       knownSessions !== null &&
       threadRef !== null &&
-      readEnvironmentScope(threadRef.environmentId, AuthTerminalReadScope);
+      readMachineScope(threadRef.machineId, AuthTerminalReadScope);
     return nextTerminalId([...ids], canReuse ? undefined : randomUUID());
   };
 
@@ -107,7 +107,7 @@ export function useThreadTerminalActions(threadRef: ScopedThreadRef | null) {
     const terminalId = input.terminalId ?? allocateTerminalId();
     input.place(terminalId);
     const result = openTerminalCommand({
-      environmentId: threadRef.environmentId,
+      machineId: threadRef.machineId,
       input: {
         threadId: threadRef.threadId,
         terminalId,
@@ -127,19 +127,19 @@ export function useThreadTerminalActions(threadRef: ScopedThreadRef | null) {
   /** Ends a session and deletes its history. A failed close falls back to typing `exit`. */
   const closeTerminalSession = (terminalId: string) => {
     if (!threadRef || !canWrite()) return;
-    const environmentId = threadRef.environmentId;
+    const machineId = threadRef.machineId;
     const threadId = threadRef.threadId;
     void (async () => {
       const closeResult = await closeTerminalCommand({
-        environmentId,
+        machineId,
         input: { threadId, terminalId, deleteHistory: true },
       });
       if (
         closeResult._tag === "Failure" &&
         !isAtomCommandInterrupted(closeResult) &&
-        readEnvironmentScope(environmentId, AuthTerminalOperateScope)
+        readMachineScope(machineId, AuthTerminalOperateScope)
       ) {
-        await writeTerminal({ environmentId, input: { threadId, terminalId, data: "exit\n" } });
+        await writeTerminal({ machineId, input: { threadId, terminalId, data: "exit\n" } });
       }
     })();
   };
@@ -147,7 +147,7 @@ export function useThreadTerminalActions(threadRef: ScopedThreadRef | null) {
   const writeToTerminal = (terminalId: string, data: string) => {
     if (!threadRef || !canWrite()) return null;
     return writeTerminal({
-      environmentId: threadRef.environmentId,
+      machineId: threadRef.machineId,
       input: { threadId: threadRef.threadId, terminalId, data },
     });
   };

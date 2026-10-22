@@ -11,7 +11,7 @@ import {
   type RuntimeModeOption,
 } from "./ComposerFooterControls";
 import {
-  type EnvironmentId,
+  type MachineId,
   type ModelSelection,
   type ProviderDriverKind,
   type ProviderInstanceId,
@@ -31,7 +31,7 @@ import type { useComposerProviderModel } from "./useComposerProviderModel";
  * blocks that do not fit. Rendered in the expanded footer or the resting controls host.
  */
 export function ComposerControlsBar(props: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   routeKind: ChatComposerProps["routeKind"];
   routeThreadRef: ChatComposerProps["routeThreadRef"];
   draftId: ChatComposerProps["draftId"];
@@ -80,7 +80,7 @@ export function ComposerControlsBar(props: {
   getModelDisabledReason: ChatComposerProps["getModelDisabledReason"];
 }) {
   const {
-    environmentId,
+    machineId,
     routeKind,
     routeThreadRef,
     draftId,
@@ -197,7 +197,7 @@ export function ComposerControlsBar(props: {
   // Its own element, so typing (which rebuilds the controls around it) leaves it cached.
   const composerModelPicker = (
     <ComposerModelPicker
-      environmentId={environmentId}
+      machineId={machineId}
       compact={false}
       isComposerOwned
       disabled={providerCatalogPending || isSendBusy}

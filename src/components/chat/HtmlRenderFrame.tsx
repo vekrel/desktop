@@ -1,4 +1,4 @@
-import type { EnvironmentId, ScopedThreadRef } from "@vekrel/contracts";
+import type { MachineId, ScopedThreadRef } from "@vekrel/contracts";
 import {
   HTML_RENDER_COLUMN_WIDTH,
   htmlRenderFileName,
@@ -20,7 +20,7 @@ import { observeResize } from "~/lib/observeResize";
 const MIN_URL_LIFE_MS = 5 * 60_000;
 
 export function HtmlRenderFrame(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly htmlRender: HtmlRenderReference;
   readonly threadRef: ScopedThreadRef | undefined;
   readonly onFullscreenChange?: (fullscreen: boolean) => void;
@@ -61,11 +61,11 @@ export function HtmlRenderFrame(props: {
     return () => onFullscreenChange?.(false);
   }, [expandedSrc, onFullscreenChange]);
   const [failed, setFailed] = useState(false);
-  const assetUrl = useAssetUrlState(src === null ? props.environmentId : null, resource);
+  const assetUrl = useAssetUrlState(src === null ? props.machineId : null, resource);
   const cachedUrl = assetUrl._tag === "Success" ? assetUrl.url : null;
   const cachedExpiresAt = assetUrl._tag === "Success" ? assetUrl.expiresAt : 0;
   const cacheFailed = assetUrl._tag === "Failure";
-  const refresh = useAssetUrlRefresh(props.environmentId, resource);
+  const refresh = useAssetUrlRefresh(props.machineId, resource);
   // At most one mint per mount: expiry is server time and the check uses the
   // client clock, so a skewed clock must not mint again on every update.
   const minting = useRef(false);
@@ -119,7 +119,7 @@ export function HtmlRenderFrame(props: {
                         toastManager.add({
                           type: "error",
                           title: "Page unavailable",
-                          description: "Reconnect to the environment and try again.",
+                          description: "Reconnect to the machine and try again.",
                         });
                     }}
                   />

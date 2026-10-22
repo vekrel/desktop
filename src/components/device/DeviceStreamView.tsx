@@ -1,4 +1,4 @@
-import type { DevicePlatform, EnvironmentId } from "@vekrel/contracts";
+import type { DevicePlatform, MachineId } from "@vekrel/contracts";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "~/lib/utils";
@@ -75,7 +75,7 @@ export interface DeviceStreamHandle {
 }
 
 export function DeviceStreamView(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly platform: DevicePlatform;
   readonly deviceId: string;
   readonly deviceName?: string;
@@ -114,7 +114,7 @@ export function DeviceStreamView(props: {
   const onInputCancel = useStableCallback((cancel: (() => void) | null) => {
     cancelPhoneInputRef.current = cancel;
   });
-  const access = useDeviceHubAccess(props.environmentId, props.hostId);
+  const access = useDeviceHubAccess(props.machineId, props.hostId);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const clientRef = useRef<DeviceStreamClient | null>(null);
   const [status, setStatus] = useState<DeviceStreamStatus>("connecting");
@@ -158,7 +158,7 @@ export function DeviceStreamView(props: {
           onScreen?.(next);
         },
         onUnauthorized: () => {
-          refreshDeviceHubAccess(props.environmentId);
+          refreshDeviceHubAccess(props.machineId);
         },
         onMjpegFallback: (url) => {
           setMjpegUrl(url);
@@ -198,7 +198,7 @@ export function DeviceStreamView(props: {
     onPhoneUnavailable,
     onScreen,
     props.deviceId,
-    props.environmentId,
+    props.machineId,
     props.platform,
     props.visible,
   ]);
@@ -344,7 +344,7 @@ export function DeviceStreamView(props: {
                   screenWidth={screen?.width}
                   screenHeight={screen?.height}
                   onFoldAngle={setFoldAngle}
-                  renewAccess={() => renewDeviceHubAccess(props.environmentId, props.hostId)}
+                  renewAccess={() => renewDeviceHubAccess(props.machineId, props.hostId)}
                 />
               ) : showPhone && isDuo && screen?.supportsHingeAngle ? (
                 <DeviceDuoControls

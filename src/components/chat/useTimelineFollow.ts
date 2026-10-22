@@ -33,7 +33,7 @@ import { releaseChatTimelineAnchor } from "../ChatView.logic";
 import type { Dispatch, RefObject } from "react";
 import type { ThreadStructure } from "@vekrel/client-runtime/state/shell";
 import type { deriveThreadActivityRun } from "@vekrel/client-runtime/state/thread-execution";
-import type { EnvironmentThreadStatus } from "@vekrel/client-runtime/state/threads";
+import type { MachineThreadStatus } from "@vekrel/client-runtime/state/threads";
 import type { TimelineEntry } from "../../session-logic";
 
 const TIMELINE_SCROLL_CANCEL_SENTINEL = Object.freeze({});
@@ -53,7 +53,7 @@ interface TimelineFollowInput {
   readonly activeThreadId: ThreadId | undefined;
   readonly isServerThread: boolean;
   readonly serverProjection: ThreadStructure | null;
-  readonly threadStatus: EnvironmentThreadStatus;
+  readonly threadStatus: MachineThreadStatus;
   readonly activeActivityRun: ReturnType<typeof deriveThreadActivityRun>;
   readonly activeRunningTurnId: RunId | null;
   readonly timelineEntries: ReadonlyArray<TimelineEntry>;

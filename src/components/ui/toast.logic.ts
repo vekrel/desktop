@@ -104,7 +104,7 @@ export function shouldRenderThreadScopedToast(
   if (data?.threadRef) {
     return (
       activeThreadRef !== null &&
-      data.threadRef.environmentId === activeThreadRef.environmentId &&
+      data.threadRef.machineId === activeThreadRef.machineId &&
       data.threadRef.threadId === activeThreadRef.threadId
     );
   }

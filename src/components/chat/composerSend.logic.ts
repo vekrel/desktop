@@ -1,4 +1,4 @@
-import type { EnvironmentId, ThreadContextRecord } from "@vekrel/contracts";
+import type { MachineId, ThreadContextRecord } from "@vekrel/contracts";
 import { collectInlineContextIds } from "../../lib/composerContextReferences";
 
 /** Attached threads the prompt still links to; replacing linked text leaves stale records. */
@@ -15,7 +15,7 @@ export function referencedThreadContexts(draft: {
 export function loadBalancingSendWarning(input: {
   readonly pending: boolean;
   readonly threadContexts: ReadonlyArray<ThreadContextRecord>;
-  readonly candidateEnvironmentIds: ReadonlyArray<EnvironmentId>;
+  readonly candidateMachineIds: ReadonlyArray<MachineId>;
 }) {
   if (input.pending) {
     return {
@@ -25,8 +25,8 @@ export function loadBalancingSendWarning(input: {
   }
   const noMachineReadsEveryThread =
     input.threadContexts.length > 0 &&
-    !input.candidateEnvironmentIds.some((environmentId) =>
-      input.threadContexts.every((record) => record.environmentId === environmentId),
+    !input.candidateMachineIds.some((machineId) =>
+      input.threadContexts.every((record) => record.machineId === machineId),
     );
   return {
     title: "Choose a machine to continue",

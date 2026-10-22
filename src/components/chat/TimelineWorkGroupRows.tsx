@@ -488,7 +488,7 @@ export function LiveWorkEntryTimelineRow({
   row: Extract<TimelineRow, { kind: "work-live" }>;
 }) {
   const ctx = use(TimelineRowCtx);
-  const threadTarget = useThreadReadTarget(row.entry, ctx.activeThreadEnvironmentId);
+  const threadTarget = useThreadReadTarget(row.entry, ctx.activeThreadMachineId);
   const questionHeading = row.entry.questionAnswer
     ? getQuestionTextPreview(row.entry.questionAnswer)
     : "";
@@ -566,7 +566,7 @@ export function LiveWorkEntryTimelineRow({
           ) : threadLabel ? (
             <ThreadReadLabel
               label={threadLabel}
-              environmentId={ctx.activeThreadEnvironmentId}
+              machineId={ctx.activeThreadMachineId}
               linked={false}
             />
           ) : (

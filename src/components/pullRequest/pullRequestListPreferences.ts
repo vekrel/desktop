@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 
 import {
-  EnvironmentId,
+  MachineId,
   ProjectId,
   PullRequestInvolvement,
   PullRequestListFilters,
@@ -22,7 +22,7 @@ export type PullRequestListSort = typeof PullRequestListSort.Type;
 export interface PullRequestListPreferences {
   readonly involvement: PullRequestInvolvement;
   readonly state: PullRequestListState;
-  readonly environmentId?: EnvironmentId;
+  readonly machineId?: MachineId;
   readonly projectId?: ProjectId;
   readonly host?: string;
   readonly q?: string | undefined;
@@ -47,7 +47,7 @@ const BoundedPreference = Schema.String.check(Schema.isMaxLength(200));
 const PullRequestListPreferencesSchema = Schema.Struct({
   involvement: PullRequestInvolvement,
   state: PullRequestListState,
-  environmentId: Schema.optional(EnvironmentId),
+  machineId: Schema.optional(MachineId),
   projectId: Schema.optional(ProjectId),
   host: Schema.optional(BoundedPreference),
   q: Schema.optional(BoundedPreference),
@@ -77,7 +77,7 @@ export function pullRequestListPreferences(
   return {
     involvement: search.involvement,
     state: search.state,
-    ...(search.environmentId ? { environmentId: search.environmentId } : {}),
+    ...(search.machineId ? { machineId: search.machineId } : {}),
     ...(search.projectId ? { projectId: search.projectId } : {}),
     ...(search.host ? { host: search.host } : {}),
     ...(search.q ? { q: search.q } : {}),

@@ -32,7 +32,7 @@ function WorkspaceIcon(props: { variant: ThreadCommandSubtitleVariant; isWorktre
 export function ThreadCommandSubtitle(props: {
   project: ProjectFaviconProject | null;
   projectTitle: string | null;
-  environmentLabel?: string | null;
+  machineLabel?: string | null;
   branch: string | null;
   worktreePath: string | null;
   isCurrent: boolean;
@@ -68,10 +68,10 @@ export function ThreadCommandSubtitle(props: {
             <ProjectFavicon project={props.project} className="size-3 shrink-0" />
           ) : null}
           <span className="min-w-0 truncate">{projectLabel}</span>
-          {props.environmentLabel ? (
+          {props.machineLabel ? (
             <>
               <CommandPaletteMetaDot />
-              <span className="shrink-0">{props.environmentLabel}</span>
+              <span className="shrink-0">{props.machineLabel}</span>
             </>
           ) : null}
         </span>

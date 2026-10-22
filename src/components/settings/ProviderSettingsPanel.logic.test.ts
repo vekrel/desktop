@@ -104,7 +104,7 @@ describe("remote operate access", () => {
         session: {
           authenticated: true,
           scopes: ["orchestration:operate"],
-          auth: { serverUpdateScope: "environment:maintain" },
+          auth: { serverUpdateScope: "machine:maintain" },
         },
         isPending: false,
         hasError: false,
@@ -121,7 +121,7 @@ describe("remote operate access", () => {
       }),
     ).toBe("granted");
   });
-  it("derives access from the environment session's granted scopes", () => {
+  it("derives access from the machine session's granted scopes", () => {
     expect(
       resolveRemoteOperateAccess({
         session: { authenticated: true, scopes: [AuthProvidersManageScope] },

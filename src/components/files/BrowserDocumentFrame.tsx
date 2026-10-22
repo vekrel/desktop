@@ -32,7 +32,7 @@ import { shortcutConflictKey } from "~/keybindings";
 import { useOpenChangeRequestLink } from "~/lib/openPullRequestLink";
 import { readLocalApi } from "~/localApi";
 import { cn } from "~/lib/utils";
-import { primaryServerKeybindingsAtom, serverEnvironment } from "~/state/server";
+import { primaryServerKeybindingsAtom, serverMachine } from "~/state/server";
 
 /**
  * The page reports the keys, and a page script can report any key it likes,
@@ -132,8 +132,8 @@ export function HtmlRenderDocument(props: {
   };
   useEffect(postTheme, [theme]);
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
-  const environmentKeybindings = useAtomValue(
-    serverEnvironment.configValueAtom(props.threadRef?.environmentId ?? null),
+  const machineKeybindings = useAtomValue(
+    serverMachine.configValueAtom(props.threadRef?.machineId ?? null),
   )?.keybindings;
   // The app resolves a replayed key in its live context, so every allowed
   // binding counts whatever its `when`, and a key that any binding gives to
@@ -147,7 +147,7 @@ export function HtmlRenderDocument(props: {
     shiftKey: shortcut.shiftKey,
     altKey: shortcut.altKey,
   });
-  const blocked = [...keybindings, ...(environmentKeybindings ?? [])]
+  const blocked = [...keybindings, ...(machineKeybindings ?? [])]
     .filter((binding) => !HTML_RENDER_SHORTCUT_COMMANDS.has(binding.command))
     .map((binding) => resolve(binding.shortcut));
   const shortcutsByKey = new Map<string, HtmlRenderShortcut>();
@@ -200,7 +200,7 @@ export function HtmlRenderDocument(props: {
         { ...modifiers, preventDefault: () => undefined, stopPropagation: () => undefined },
         url,
         undefined,
-        props.threadRef.environmentId,
+        props.threadRef.machineId,
       )
     ) {
       return;

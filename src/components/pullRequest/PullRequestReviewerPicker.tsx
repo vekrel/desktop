@@ -1,14 +1,14 @@
 import { useAtomCommand } from "~/state/use-atom-command";
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestRef,
   PullRequestReviewerCandidate,
 } from "@vekrel/contracts";
 import { CheckIcon, UserPlusIcon } from "lucide-react";
 import { useState } from "react";
 
-import { pullRequestEnvironment } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestMachine } from "~/state/pullRequests";
+import { useMachineQuery } from "~/state/query";
 import { squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
 
 import { toastManager } from "../ui/toast";
@@ -26,11 +26,11 @@ function matches(candidate: PullRequestReviewerCandidate, query: string): boolea
 }
 
 export function PullRequestReviewerPicker({
-  environmentId,
+  machineId,
   reference,
   allowed,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   allowed: boolean;
 }) {
@@ -38,10 +38,10 @@ export function PullRequestReviewerPicker({
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<string | null>(null);
 
-  const candidatesQuery = useEnvironmentQuery(
-    open ? pullRequestEnvironment.reviewerCandidates({ environmentId, input: reference }) : null,
+  const candidatesQuery = useMachineQuery(
+    open ? pullRequestMachine.reviewerCandidates({ machineId, input: reference }) : null,
   );
-  const requestReviewers = useAtomCommand(pullRequestEnvironment.requestReviewers, {
+  const requestReviewers = useAtomCommand(pullRequestMachine.requestReviewers, {
     reportFailure: false,
   });
 
@@ -53,7 +53,7 @@ export function PullRequestReviewerPicker({
     if (pending !== null) return;
     setPending(candidate.id);
     const result = await requestReviewers({
-      environmentId,
+      machineId,
       input: {
         ...reference,
         reviewers: [{ id: candidate.id, kind: candidate.kind }],

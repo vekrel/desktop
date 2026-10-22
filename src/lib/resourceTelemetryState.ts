@@ -1,16 +1,16 @@
 import { AuthDiagnosticsReadScope } from "@vekrel/contracts";
-import { AuthEnvironmentMaintainScope } from "@vekrel/contracts";
+import { AuthMachineMaintainScope } from "@vekrel/contracts";
 import type {
-  EnvironmentId,
+  MachineId,
   ResourceTelemetryHistoryInput,
   ResourceTelemetrySnapshot,
 } from "@vekrel/contracts";
 import * as Cause from "effect/Cause";
 
-import { usePrimaryEnvironment } from "../state/environments";
-import { useEnvironmentQuery } from "../state/query";
-import { serverEnvironment } from "../state/server";
-import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
+import { usePrimaryMachine } from "../state/machines";
+import { useMachineQuery } from "../state/query";
+import { serverMachine } from "../state/server";
+import { readMachineScope, useMachineScope } from "../state/session";
 import { useAtomCommand } from "../state/use-atom-command";
 
 export interface ResourceTelemetryState {
@@ -22,33 +22,33 @@ export interface ResourceTelemetryState {
 }
 
 export function useResourceTelemetry(
-  targetEnvironmentId?: EnvironmentId | null,
+  targetMachineId?: MachineId | null,
 ): ResourceTelemetryState {
-  const primaryEnvironment = usePrimaryEnvironment();
-  const environmentId =
-    targetEnvironmentId === undefined
-      ? (primaryEnvironment?.environmentId ?? null)
-      : targetEnvironmentId;
-  const canReadDiagnostics = useEnvironmentScope(environmentId, AuthDiagnosticsReadScope);
-  const query = useEnvironmentQuery(
-    environmentId === null || !canReadDiagnostics
+  const primaryMachine = usePrimaryMachine();
+  const machineId =
+    targetMachineId === undefined
+      ? (primaryMachine?.machineId ?? null)
+      : targetMachineId;
+  const canReadDiagnostics = useMachineScope(machineId, AuthDiagnosticsReadScope);
+  const query = useMachineQuery(
+    machineId === null || !canReadDiagnostics
       ? null
-      : serverEnvironment.resourceTelemetry({ environmentId, input: {} }),
+      : serverMachine.resourceTelemetry({ machineId, input: {} }),
   );
-  const retryCommand = useAtomCommand(serverEnvironment.retryResourceTelemetry, {
+  const retryCommand = useAtomCommand(serverMachine.retryResourceTelemetry, {
     reportFailure: false,
   });
   const retry = async () => {
-    if (environmentId === null) {
-      throw new Error("No environment is selected.");
+    if (machineId === null) {
+      throw new Error("No machine is selected.");
     }
     if (
-      !readEnvironmentScope(environmentId, AuthEnvironmentMaintainScope) ||
-      !readEnvironmentScope(environmentId, AuthDiagnosticsReadScope)
+      !readMachineScope(machineId, AuthMachineMaintainScope) ||
+      !readMachineScope(machineId, AuthDiagnosticsReadScope)
     ) {
       throw new Error("This connection cannot restart the resource monitor.");
     }
-    const result = await retryCommand({ environmentId, input: {} });
+    const result = await retryCommand({ machineId, input: {} });
     if (result._tag === "Failure") {
       throw Cause.squash(result.cause);
     }
@@ -60,17 +60,17 @@ export function useResourceTelemetry(
 
 export function useResourceTelemetryHistory(
   input: ResourceTelemetryHistoryInput,
-  targetEnvironmentId?: EnvironmentId | null,
+  targetMachineId?: MachineId | null,
 ) {
-  const primaryEnvironment = usePrimaryEnvironment();
-  const environmentId =
-    targetEnvironmentId === undefined
-      ? (primaryEnvironment?.environmentId ?? null)
-      : targetEnvironmentId;
-  const canReadDiagnostics = useEnvironmentScope(environmentId, AuthDiagnosticsReadScope);
-  return useEnvironmentQuery(
-    environmentId === null || !canReadDiagnostics
+  const primaryMachine = usePrimaryMachine();
+  const machineId =
+    targetMachineId === undefined
+      ? (primaryMachine?.machineId ?? null)
+      : targetMachineId;
+  const canReadDiagnostics = useMachineScope(machineId, AuthDiagnosticsReadScope);
+  return useMachineQuery(
+    machineId === null || !canReadDiagnostics
       ? null
-      : serverEnvironment.resourceTelemetryHistory({ environmentId, input }),
+      : serverMachine.resourceTelemetryHistory({ machineId, input }),
   );
 }

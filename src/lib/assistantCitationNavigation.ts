@@ -38,8 +38,8 @@ export function assistantCitationFromLocation(href: string) {
 /** A fresh activation lets the same link reveal its source again after dismissal. */
 export function assistantCitationNavigation(citation: AssistantCitation) {
   return {
-    to: "/$environmentId/$threadId" as const,
-    params: { environmentId: citation.environmentId, threadId: citation.threadId },
+    to: "/$machineId/$threadId" as const,
+    params: { machineId: citation.machineId, threadId: citation.threadId },
     hash: assistantCitationHash(citation),
     resetScroll: false,
     state: { assistantCitationActivation: randomUUID() },

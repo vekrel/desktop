@@ -1,7 +1,7 @@
 import type { CodeViewItem, DiffLineAnnotation, SelectedLineRange } from "@pierre/diffs";
 import type { CodeViewDiffItem, CodeViewHandle } from "@pierre/diffs/react";
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestDetailView,
   PullRequestDiffSide,
   PullRequestOmittedFileStat,
@@ -62,8 +62,8 @@ import {
   resolveDiffReviewPosition,
   type ReviewCommentContext,
 } from "~/reviewCommentContext";
-import { pullRequestEnvironment } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestMachine } from "~/state/pullRequests";
+import { useMachineQuery } from "~/state/query";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { DiffPanelLoadingState } from "../DiffPanelShell";
@@ -241,7 +241,7 @@ export interface PullRequestAgentSelectionInput {
 
 function PullRequestCodeTab({
   scrollerRef,
-  environmentId,
+  machineId,
   reference,
   detail,
   selectedCommitOid,
@@ -256,7 +256,7 @@ function PullRequestCodeTab({
   revealRequest = null,
 }: {
   scrollerRef: (node: HTMLDivElement | null) => void;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   detail: PullRequestDetailView;
   selectedCommitOid: string | null;
@@ -310,7 +310,7 @@ function PullRequestCodeTab({
 
   const referenceKey = pullRequestReviewKey(reference);
   const commit = selectedCommitOid;
-  const scopeKey = JSON.stringify([environmentId, referenceKey, commit]);
+  const scopeKey = JSON.stringify([machineId, referenceKey, commit]);
   // The panel keeps this mounted across pull requests, so an open composer would otherwise
   // survive the switch and attach its comment to whichever one is on screen when it is sent.
   const [stateScopeKey, setStateScopeKey] = useState(scopeKey);
@@ -327,9 +327,9 @@ function PullRequestCodeTab({
 
   const loadedSlices = sliceState.key === scopeKey ? sliceState.slices : NO_SLICES;
   const cursor = sliceState.key === scopeKey ? sliceState.cursor : null;
-  const diffQuery = useEnvironmentQuery(
-    pullRequestEnvironment.diff({
-      environmentId,
+  const diffQuery = useMachineQuery(
+    pullRequestMachine.diff({
+      machineId,
       input: {
         ...reference,
         ...(cursor === null ? {} : { cursor }),
@@ -390,8 +390,8 @@ function PullRequestCodeTab({
     });
   }
   const refreshFirstDiffPage = useAtomRefresh(
-    pullRequestEnvironment.diff({
-      environmentId,
+    pullRequestMachine.diff({
+      machineId,
       input: { ...reference, ...(commit === null ? {} : { commit }) },
     }),
   );
@@ -399,23 +399,23 @@ function PullRequestCodeTab({
   const pendingComments = usePendingReviewComments(reference);
   const addComment = usePullRequestReviewStore((store) => store.addComment);
   const removeComment = usePullRequestReviewStore((store) => store.removeComment);
-  const replyToThread = useAtomCommand(pullRequestEnvironment.replyToThread, {
+  const replyToThread = useAtomCommand(pullRequestMachine.replyToThread, {
     reportFailure: false,
   });
-  const setThreadResolution = useAtomCommand(pullRequestEnvironment.setThreadResolution, {
+  const setThreadResolution = useAtomCommand(pullRequestMachine.setThreadResolution, {
     reportFailure: false,
   });
-  const updateComment = useAtomCommand(pullRequestEnvironment.updateComment, {
+  const updateComment = useAtomCommand(pullRequestMachine.updateComment, {
     reportFailure: false,
   });
-  const loadThreadComments = useAtomCommand(pullRequestEnvironment.threadComments, {
+  const loadThreadComments = useAtomCommand(pullRequestMachine.threadComments, {
     reportFailure: false,
   });
-  const getDiffFileContents = useAtomCommand(pullRequestEnvironment.diffFileContents);
+  const getDiffFileContents = useAtomCommand(pullRequestMachine.diffFileContents);
 
   const viewedFilesStore = detail.capabilities.viewedFiles;
   const filesViewed = usePullRequestFilesViewed({
-    environmentId,
+    machineId,
     reference,
     enabled: viewedFilesStore !== undefined,
   });
@@ -454,7 +454,7 @@ function PullRequestCodeTab({
   const answeredReveal = useRef<number | null>(null);
 
   const loadDiffFiles = createPullRequestDiffFileContentsLoader(getDiffFileContents, {
-    environmentId,
+    machineId,
     reference,
     commit,
     cacheKey: `pull-request:${referenceKey}:${detail.updatedAt}:${commit ?? "all"}`,
@@ -871,7 +871,7 @@ function PullRequestCodeTab({
       canReply={review.reply}
       canResolve={review.resolve && canResolvePullRequestThread(detail, thread)}
       canReact={detail.capabilities.reactions === true}
-      environmentId={environmentId}
+      machineId={machineId}
       reference={reference}
       pending={threadPending}
       fixPending={pendingFinding === pullRequestFindingKey({ kind: "thread", thread })}
@@ -879,7 +879,7 @@ function PullRequestCodeTab({
       {...(onFixFinding ? { onFix: () => onFixFinding({ kind: "thread", thread }) } : {})}
       onLoadMore={async (cursor): Promise<PullRequestThreadCommentsResult | null> => {
         const result = await loadThreadComments({
-          environmentId,
+          machineId,
           input: { ...reference, threadId: thread.id, cursor },
         });
         if (result._tag === "Failure") {
@@ -894,7 +894,7 @@ function PullRequestCodeTab({
       onReply={(body) =>
         runThreadCommand("Reply could not be posted", () =>
           replyToThread({
-            environmentId,
+            machineId,
             input: { ...reference, threadId: thread.id, body },
           }),
         )
@@ -909,7 +909,7 @@ function PullRequestCodeTab({
       onEditComment={(commentId, body) =>
         runThreadCommand("The comment could not be saved", () =>
           updateComment({
-            environmentId,
+            machineId,
             input: { ...reference, commentId, kind: "review-comment", body },
           }),
         )
@@ -917,7 +917,7 @@ function PullRequestCodeTab({
       onToggleResolved={() =>
         void runThreadCommand("The conversation could not be updated", () =>
           setThreadResolution({
-            environmentId,
+            machineId,
             input: { ...reference, threadId: thread.id, resolved: !thread.isResolved },
           }),
         )
@@ -1055,9 +1055,9 @@ function PullRequestCodeTab({
                 {filePaths.filter(isFileViewed).length} / {files.length}
               </span>
               <span className="truncate">
-                {viewedFilesStore === "environment" ? `viewed in ${APP_BASE_NAME}` : "viewed"}
+                {viewedFilesStore === "machine" ? `viewed in ${APP_BASE_NAME}` : "viewed"}
               </span>
-              {viewedFilesStore === "environment" ? (
+              {viewedFilesStore === "machine" ? (
                 <Tooltip>
                   <TooltipTrigger render={<span className="flex shrink-0 items-center" />}>
                     <InfoIcon
@@ -1067,7 +1067,7 @@ function PullRequestCodeTab({
                   </TooltipTrigger>
                   <TooltipPopup side="bottom">
                     This host keeps no shared record of which files you have read, so these ticks
-                    are kept by this environment. They follow you between the apps connected to it,
+                    are kept by this machine. They follow you between the apps connected to it,
                     but the host's own web UI will not show them.
                   </TooltipPopup>
                 </Tooltip>

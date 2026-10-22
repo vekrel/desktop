@@ -14,7 +14,7 @@ describe("browser DPoP proofs", () => {
       const proofKey = yield* generateBrowserDpopKey;
       const proof = yield* createBrowserDpopProof({
         method: "POST",
-        url: "https://relay.example.test/v1/environments/env-1/connect?ignored=true",
+        url: "https://relay.example.test/v1/machines/env-1/connect?ignored=true",
         accessToken: "relay-access-token",
         proofKey,
       }).pipe(Effect.provide(Dpop.layer));
@@ -25,7 +25,7 @@ describe("browser DPoP proofs", () => {
         verifyDpopProof({
           proof: proof.proof,
           method: "POST",
-          url: "https://relay.example.test/v1/environments/env-1/connect",
+          url: "https://relay.example.test/v1/machines/env-1/connect",
           expectedThumbprint: proof.thumbprint,
           expectedAccessToken: "relay-access-token",
           nowEpochSeconds: issuedAt!,

@@ -5,9 +5,9 @@ import type { ReactNode } from "react";
 import { useThreadShell, useProject } from "../../state/entities";
 import { SubagentTooltipContent } from "./SubagentTooltipContent";
 import { useAtomValue } from "@effect/atom-react";
-import { scopeThreadRef, scopeProjectRef } from "@vekrel/client-runtime/environment";
-import { environmentThreadDetails } from "../../state/threads";
-import { EMPTY_SERVER_PROVIDERS, serverEnvironment } from "../../state/server";
+import { scopeThreadRef, scopeProjectRef } from "@vekrel/client-runtime/machine";
+import { machineThreadDetails } from "../../state/threads";
+import { EMPTY_SERVER_PROVIDERS, serverMachine } from "../../state/server";
 import { MiddleTruncate } from "../ui/middle-truncate";
 import * as DateTime from "effect/DateTime";
 import { WorkLogRow } from "./WorkLog";
@@ -25,7 +25,7 @@ import {
   type ProviderInstanceId,
   type ServerProvider,
   type ThreadId,
-  type EnvironmentId,
+  type MachineId,
   type NodeId,
   type ScopedThreadRef,
 } from "@vekrel/contracts";
@@ -75,7 +75,7 @@ export type { HandoffTimelineRun } from "@vekrel/client-runtime/handoff";
 
 export function V2LifecycleRow(props: {
   readonly item: OrchestrationV2TurnItem;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly resourceSummary?: boolean | undefined;
   readonly createdAt: string;
   readonly timestampFormat: TimestampFormat;
@@ -131,8 +131,8 @@ export function V2LifecycleRow(props: {
   }
   if (item.type === "handoff") {
     return (
-      <EnvironmentHandoffRow
-        environmentId={props.environmentId}
+      <MachineHandoffRow
+        machineId={props.machineId}
         endpoints={resolveHandoffEndpoints(item, props.runs)}
         failed={item.status === "failed"}
       />
@@ -192,7 +192,7 @@ export function V2LifecycleRow(props: {
   if (item.type === "subagent") {
     return (
       <SubagentTimelineLink
-        parentRef={scopeThreadRef(props.environmentId, item.threadId)}
+        parentRef={scopeThreadRef(props.machineId, item.threadId)}
         subagentId={item.subagentId}
         providerInstanceId={item.providerInstanceId}
         origin={item.origin}
@@ -304,17 +304,17 @@ function SubagentAvatar({
  * replace the provider objects (fresh `checkedAt`), so selecting strings keeps
  * the avatar from re-rendering when nothing it shows changed.
  */
-export function EnvironmentSubagentAvatar({
-  environmentId,
+export function MachineSubagentAvatar({
+  machineId,
   providerInstanceId,
   ...props
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   providerInstanceId: ProviderInstanceId;
   driver?: ProviderDriverKind | undefined;
   status?: OrchestrationV2TurnItem["status"] | undefined;
 }) {
-  const providersAtom = serverEnvironment.providersValueAtom(environmentId);
+  const providersAtom = serverMachine.providersValueAtom(machineId);
   const displayName = useAtomValue(
     providersAtom,
     (providers) =>
@@ -357,7 +357,7 @@ export function SubagentNotificationLink(props: {
   readonly fallback: ReactNode;
 }) {
   const agent = useAtomValue(
-    environmentThreadDetails.threadAtom(props.parentRef),
+    machineThreadDetails.threadAtom(props.parentRef),
     (thread) =>
       thread?.projection.subagents.find((agent) => agent.childThreadId === props.childThreadId) ??
       null,
@@ -416,7 +416,7 @@ function SubagentTimelineLink(props: {
   };
 }) {
   const agent = useAtomValue(
-    environmentThreadDetails.threadAtom(props.parentRef),
+    machineThreadDetails.threadAtom(props.parentRef),
     (thread) => thread?.projection.subagents.find((agent) => agent.id === props.subagentId) ?? null,
   );
   const threadId = props.threadId;
@@ -437,8 +437,8 @@ function SubagentTimelineLink(props: {
   };
   const content = (
     <>
-      <EnvironmentSubagentAvatar
-        environmentId={props.parentRef.environmentId}
+      <MachineSubagentAvatar
+        machineId={props.parentRef.machineId}
         providerInstanceId={props.providerInstanceId}
         driver={props.driver}
         status={status ?? undefined}
@@ -535,19 +535,19 @@ function SubagentTimelineTooltip(
     elapsed: ReactNode;
   },
 ) {
-  const environmentId = props.parentRef.environmentId;
+  const machineId = props.parentRef.machineId;
   // The popup only mounts while open, so the full provider list is read here
   // instead of in every timeline row.
   const providers =
-    useAtomValue(serverEnvironment.providersValueAtom(environmentId)) ?? EMPTY_SERVER_PROVIDERS;
+    useAtomValue(serverMachine.providersValueAtom(machineId)) ?? EMPTY_SERVER_PROVIDERS;
   const parent = useThreadShell(props.parentRef)?.source;
   const child = useThreadShell(
-    props.threadId ? scopeThreadRef(environmentId, props.threadId) : null,
+    props.threadId ? scopeThreadRef(machineId, props.threadId) : null,
   )?.source;
   const parentProject = useProject(
-    parent ? scopeProjectRef(environmentId, parent.projectId) : null,
+    parent ? scopeProjectRef(machineId, parent.projectId) : null,
   );
-  const childProject = useProject(child ? scopeProjectRef(environmentId, child.projectId) : null);
+  const childProject = useProject(child ? scopeProjectRef(machineId, child.projectId) : null);
   return (
     <SubagentTooltipContent
       title={formatSubagentDisplayTitle(child?.title ?? props.title)}
@@ -570,28 +570,28 @@ function SubagentTimelineTooltip(
   );
 }
 
-function EnvironmentHandoffRow({
-  environmentId,
+function MachineHandoffRow({
+  machineId,
   ...props
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly endpoints: HandoffEndpoints;
   readonly failed: boolean;
 }) {
   const providers =
-    useAtomValue(serverEnvironment.providersValueAtom(environmentId)) ?? EMPTY_SERVER_PROVIDERS;
-  return <HandoffRow {...props} environmentId={environmentId} providers={providers} />;
+    useAtomValue(serverMachine.providersValueAtom(machineId)) ?? EMPTY_SERVER_PROVIDERS;
+  return <HandoffRow {...props} machineId={machineId} providers={providers} />;
 }
 
 export function HandoffRow(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly endpoints: HandoffEndpoints;
   readonly providers: ReadonlyArray<ServerProvider>;
   readonly pending?: boolean;
   readonly failed?: boolean;
 }) {
   const { from: fromEndpoints, to } = props.endpoints;
-  const settings = useAtomValue(serverEnvironment.settingsValueAtom(props.environmentId));
+  const settings = useAtomValue(serverMachine.settingsValueAtom(props.machineId));
   const derived = deriveProviderInstanceEntries(props.providers);
   const entries = settings ? applyProviderInstanceSettings(derived, settings, null) : derived;
   return (

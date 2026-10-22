@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import type { OtlpEndpointCheckResult, OtlpSignal } from "@vekrel/contracts";
 import { useEffect, useEffectEvent, useState } from "react";
 
-import { serverEnvironment } from "../../state/server";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -41,31 +41,31 @@ function endpointStatus(url: string, check: EndpointCheck | undefined) {
 }
 
 export function TelemetryExportSettings() {
-  const { environment, scope } = useSettingsScope();
-  if (scope.kind !== "environment" || !environment) {
+  const { machine, scope } = useSettingsScope();
+  if (scope.kind !== "machine" || !machine) {
     return (
       <SettingsSection title="OpenTelemetry export" id="telemetry-export">
-        <SettingsScopeNotice target="environment">
-          Choose one environment to configure its telemetry exports.
+        <SettingsScopeNotice target="machine">
+          Choose one machine to configure its telemetry exports.
         </SettingsScopeNotice>
       </SettingsSection>
     );
   }
-  return <TelemetryExportForm key={environment.environmentId} />;
+  return <TelemetryExportForm key={machine.machineId} />;
 }
 
 function TelemetryExportForm() {
-  const { environment } = useSettingsScope();
+  const { machine } = useSettingsScope();
   const saved = useScopedSettings((settings) => settings.observability);
   const [draft, setDraft] = useState<Partial<typeof saved>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const environmentId = environment?.environmentId;
+  const machineId = machine?.machineId;
   const canEdit = useAtomValue(
-    serverEnvironment.checkOtlpEndpoint.permissionAtom(environmentId ?? null),
+    serverMachine.checkOtlpEndpoint.permissionAtom(machineId ?? null),
   );
   const canCheck =
-    canEdit && environment?.serverConfig?.environment.capabilities.otlpEndpointCheck === true;
+    canEdit && machine?.serverConfig?.machine.capabilities.otlpEndpointCheck === true;
   const [checks, setChecks] = useState<Partial<Record<SignalKey, EndpointCheck>>>(() =>
     Object.fromEntries(
       SIGNALS.filter(({ key }) => isHttpUrl(saved[key])).map(({ key }) => [
@@ -74,16 +74,16 @@ function TelemetryExportForm() {
       ]),
     ),
   );
-  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: true });
-  const checkOtlpEndpoint = useAtomCommand(serverEnvironment.checkOtlpEndpoint);
+  const updateSettings = useAtomCommand(serverMachine.updateSettings, { reportFailure: true });
+  const checkOtlpEndpoint = useAtomCommand(serverMachine.checkOtlpEndpoint);
   const values = { ...saved, ...draft };
   const changedSignals = SIGNALS.filter(({ key }) => values[key].trim() !== saved[key]);
   const changed = changedSignals.length > 0;
-  const running = environment?.serverConfig?.observability;
+  const running = machine?.serverConfig?.observability;
 
   const sendCheck = async (key: SignalKey, signal: OtlpSignal, url: string) => {
-    if (!environmentId) return;
-    const response = await checkOtlpEndpoint({ environmentId, input: { signal, url } });
+    if (!machineId) return;
+    const response = await checkOtlpEndpoint({ machineId, input: { signal, url } });
     setChecks((previous) => {
       if (previous[key]?.url !== url || previous[key].result !== null) return previous;
       const next = { ...previous };
@@ -116,11 +116,11 @@ function TelemetryExportForm() {
         className="grid gap-4 px-4 py-4 sm:px-5"
         onSubmit={async (event) => {
           event.preventDefault();
-          if (!environment || saving) return;
+          if (!machine || saving) return;
           setSaving(true);
           setMessage(null);
           const result = await updateSettings({
-            environmentId: environment.environmentId,
+            machineId: machine.machineId,
             input: {
               patch: {
                 observability: Object.fromEntries(
@@ -143,7 +143,7 @@ function TelemetryExportForm() {
         {!canEdit && (
           <p className="text-xs text-muted-foreground">
             This connection lacks permission to change settings on{" "}
-            {environment?.label ?? "the selected environment"}.
+            {machine?.label ?? "the selected machine"}.
           </p>
         )}
         {SIGNALS.map(({ key, label, signal }) => {

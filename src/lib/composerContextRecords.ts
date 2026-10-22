@@ -5,7 +5,7 @@ import {
 import type {
   ComposerContextId,
   ComposerContextRecord,
-  EnvironmentId,
+  MachineId,
   FileContextRecord,
   ImageContextRecord,
   KnownComposerContextRecord,
@@ -165,7 +165,7 @@ export function threadContextRecord(ref: ScopedThreadRef, title: string): Thread
     kind: "thread",
     contextId: threadContextId(ref.threadId),
     label,
-    environmentId: ref.environmentId,
+    machineId: ref.machineId,
     threadId: ref.threadId,
     title: label,
   };
@@ -360,7 +360,7 @@ export interface ResolvedUserMessageContext {
 export function selectedMessageContextFragment(input: {
   readonly markdown: string;
   readonly records: ReadonlyArray<ComposerContextRecord>;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId?: ThreadId;
   readonly messageId: MessageId;
 }): string | null {
@@ -372,7 +372,7 @@ export function selectedMessageContextFragment(input: {
   return encodeComposerContextFragment({
     version: 1,
     source: {
-      environmentId: input.environmentId,
+      machineId: input.machineId,
       ...(input.threadId ? { threadId: input.threadId } : {}),
       messageId: input.messageId,
     },

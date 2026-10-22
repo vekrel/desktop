@@ -1,25 +1,25 @@
 import { useAtomValue } from "@effect/atom-react";
-import { sessionHasLegacyPermissions, type EnvironmentId } from "@vekrel/contracts";
+import { sessionHasLegacyPermissions, type MachineId } from "@vekrel/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import * as Schema from "effect/Schema";
 import { useEffect } from "react";
 
 import { getLocalStorageItem, setLocalStorageItem } from "../hooks/useLocalStorage";
-import { useEnvironments } from "../state/environments";
-import { environmentSession } from "../state/session";
+import { useMachines } from "../state/machines";
+import { machineSession } from "../state/session";
 import { toastManager } from "./ui/toast";
 
 // Keep an active toast across remounts, including Strict Mode effect replay.
-const shown = new Set<EnvironmentId>();
+const shown = new Set<MachineId>();
 
-function EnvironmentPermissionNotice({
-  environmentId,
+function MachinePermissionNotice({
+  machineId,
   label,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   label: string;
 }) {
-  const session = useAtomValue(environmentSession.sessionStateAtom(environmentId));
+  const session = useAtomValue(machineSession.sessionStateAtom(machineId));
   const navigate = useNavigate();
   useEffect(() => {
     if (
@@ -28,12 +28,12 @@ function EnvironmentPermissionNotice({
       !sessionHasLegacyPermissions(session.value)
     )
       return;
-    if (shown.has(environmentId)) return;
-    const key = `t3code:permission-update:v1:${environmentId}`;
+    if (shown.has(machineId)) return;
+    const key = `t3code:permission-update:v1:${machineId}`;
     try {
       if (getLocalStorageItem(key, Schema.Boolean)) return;
     } catch {}
-    shown.add(environmentId);
+    shown.add(machineId);
     const persistDismissal = () => {
       try {
         setLocalStorageItem(key, true, Schema.Boolean);
@@ -62,13 +62,13 @@ function EnvironmentPermissionNotice({
         secondaryActionVariant: "ghost",
       },
     });
-  }, [environmentId, label, navigate, session]);
+  }, [machineId, label, navigate, session]);
   return null;
 }
 
 export function PermissionUpdateNotice() {
-  const { environments } = useEnvironments();
-  return environments.map(({ environmentId, label }) => (
-    <EnvironmentPermissionNotice key={environmentId} environmentId={environmentId} label={label} />
+  const { machines } = useMachines();
+  return machines.map(({ machineId, label }) => (
+    <MachinePermissionNotice key={machineId} machineId={machineId} label={label} />
   ));
 }

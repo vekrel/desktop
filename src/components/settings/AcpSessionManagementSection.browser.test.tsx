@@ -1,5 +1,5 @@
 import {
-  EnvironmentId,
+  MachineId,
   ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
@@ -24,19 +24,19 @@ const dialogs = vi.hoisted(() => ({ confirm: vi.fn() }));
 
 vi.mock(import("~/state/session"), async (original) => ({
   ...(await original()),
-  useEnvironmentScope: ((_id: unknown, scope: string) => grants.scopes.has(scope)) as never,
-  readEnvironmentScope: ((_id: unknown, scope: string) => grants.scopes.has(scope)) as never,
+  useMachineScope: ((_id: unknown, scope: string) => grants.scopes.has(scope)) as never,
+  readMachineScope: ((_id: unknown, scope: string) => grants.scopes.has(scope)) as never,
 }));
 vi.mock(import("../../state/use-atom-command"), async (original) => {
-  const { serverEnvironment } = await import("../../state/server");
+  const { serverMachine } = await import("../../state/server");
   const byAtom = new Map<unknown, unknown>([
-    [serverEnvironment.listAcpRegistrySessions, commands.list],
-    [serverEnvironment.importAcpRegistrySession, commands.import],
-    [serverEnvironment.deleteAcpRegistrySession, commands.delete],
-    [serverEnvironment.listAcpRegistryProviders, commands.listProviders],
-    [serverEnvironment.setAcpRegistryProvider, commands.setProvider],
-    [serverEnvironment.disableAcpRegistryProvider, commands.disableProvider],
-    [serverEnvironment.logoutAcpRegistry, commands.logout],
+    [serverMachine.listAcpRegistrySessions, commands.list],
+    [serverMachine.importAcpRegistrySession, commands.import],
+    [serverMachine.deleteAcpRegistrySession, commands.delete],
+    [serverMachine.listAcpRegistryProviders, commands.listProviders],
+    [serverMachine.setAcpRegistryProvider, commands.setProvider],
+    [serverMachine.disableAcpRegistryProvider, commands.disableProvider],
+    [serverMachine.logoutAcpRegistry, commands.logout],
   ]);
   return {
     ...(await original()),
@@ -50,7 +50,7 @@ vi.mock(import("../../localApi"), async (original) => ({
 
 import { AcpSessionManagementSection } from "./AcpSessionManagementSection";
 
-const environmentId = EnvironmentId.make("remote-device");
+const machineId = MachineId.make("remote-device");
 const instanceId = ProviderInstanceId.make("acpRegistry_antigravity");
 const projectId = ProjectId.make("project-antigravity");
 const session = {
@@ -80,7 +80,7 @@ const provider = {
 async function renderSection(readOnly = false) {
   const screen = await render(
     <AcpSessionManagementSection
-      environmentId={environmentId}
+      machineId={machineId}
       instanceId={instanceId}
       provider={provider}
       projects={[{ id: projectId, title: "Antigravity", workspaceRoot: session.cwd }]}

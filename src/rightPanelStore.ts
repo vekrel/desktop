@@ -2,8 +2,8 @@ import {
   parseScopedThreadKey,
   scopedThreadKey,
   scopeThreadRef,
-} from "@vekrel/client-runtime/environment";
-import { EnvironmentId, RunId, ThreadId, type ScopedThreadRef } from "@vekrel/contracts";
+} from "@vekrel/client-runtime/machine";
+import { MachineId, RunId, ThreadId, type ScopedThreadRef } from "@vekrel/contracts";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -70,9 +70,9 @@ export type RightPanelSurface =
       kind: "pull-request";
       /**
        * The list spans every connected one, so two of them can hold the same project id; a
-       * panel beside a thread leaves this out and takes the environment from its own ref.
+       * panel beside a thread leaves this out and takes the machine from its own ref.
        */
-      environmentId?: string;
+      machineId?: string;
       projectId: string;
       host?: string;
       repository: string;
@@ -86,7 +86,7 @@ const RIGHT_PANEL_STORAGE_KEY = "t3code:right-panel-state:v2";
 const RIGHT_PANEL_STORAGE_VERSION = 14;
 
 export const PULL_REQUESTS_PANEL_REF = scopeThreadRef(
-  EnvironmentId.make("pull-requests-panel"),
+  MachineId.make("pull-requests-panel"),
   ThreadId.make("pull-requests-panel"),
 );
 
@@ -152,7 +152,7 @@ interface RightPanelStoreState {
   openPullRequest: (
     ref: ScopedThreadRef,
     target: {
-      environmentId?: string;
+      machineId?: string;
       projectId: string;
       host?: string;
       repository: string;
@@ -267,20 +267,20 @@ const terminalSurface = (terminalId: string): RightPanelSurface => ({
 export type PullRequestSurface = Extract<RightPanelSurface, { kind: "pull-request" }>;
 
 export function pullRequestSurfaceId(target: {
-  environmentId?: string;
+  machineId?: string;
   projectId: string;
   host?: string;
   repository: string;
   number: number;
 }): PullRequestSurface["id"] {
   const scope =
-    target.environmentId === undefined ? "" : `${encodeURIComponent(target.environmentId)}:`;
+    target.machineId === undefined ? "" : `${encodeURIComponent(target.machineId)}:`;
   const host = target.host === undefined ? "" : `${encodeURIComponent(target.host.toLowerCase())}:`;
   return `pull-request:${scope}${encodeURIComponent(target.projectId)}:${host}${encodeURIComponent(target.repository)}:${target.number}`;
 }
 
 export function pullRequestSurface(target: {
-  environmentId?: string;
+  machineId?: string;
   projectId: string;
   host?: string;
   repository: string;
@@ -291,7 +291,7 @@ export function pullRequestSurface(target: {
   return {
     id: pullRequestSurfaceId(target),
     kind: "pull-request",
-    ...(target.environmentId === undefined ? {} : { environmentId: target.environmentId }),
+    ...(target.machineId === undefined ? {} : { machineId: target.machineId }),
     projectId: target.projectId,
     ...(typeof target.host === "string" ? { host: target.host.toLowerCase() } : {}),
     repository: target.repository,
@@ -497,11 +497,11 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                       ) {
                         return [];
                       }
-                      const { environmentId, ...rest } = surface;
+                      const { machineId, ...rest } = surface;
                       return [
                         pullRequestSurface({
                           ...rest,
-                          ...(typeof environmentId === "string" ? { environmentId } : {}),
+                          ...(typeof machineId === "string" ? { machineId } : {}),
                         }),
                       ];
                     }

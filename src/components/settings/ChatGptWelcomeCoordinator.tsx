@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { usesChatGptSharing } from "@vekrel/shared/usageLimits";
 import { useState } from "react";
-import { environmentPresentations } from "../../state/presentation";
+import { machinePresentations } from "../../state/presentation";
 import { OpenAI } from "../Icons";
 import { Button } from "../ui/button";
 import {
@@ -27,21 +27,21 @@ function readAcknowledgedProfiles(): string[] {
 }
 
 export function ChatGptWelcomeCoordinator() {
-  const presentations = useAtomValue(environmentPresentations.presentationsAtom);
-  const providersByEnvironment = useAtomValue(environmentPresentations.providersByEnvironmentAtom);
+  const presentations = useAtomValue(machinePresentations.presentationsAtom);
+  const providersByMachine = useAtomValue(machinePresentations.providersByMachineAtom);
   const [acknowledged, setAcknowledged] = useState(readAcknowledgedProfiles);
-  const profiles = [...presentations].flatMap(([environmentId, presentation]) =>
+  const profiles = [...presentations].flatMap(([machineId, presentation]) =>
     presentation.connection.phase !== "connected"
       ? []
-      : (providersByEnvironment.get(environmentId) ?? [])
+      : (providersByMachine.get(machineId) ?? [])
           .filter(usesChatGptSharing)
           .map((provider) => ({
             key: JSON.stringify([
-              environmentId,
+              machineId,
               provider.instanceId,
               provider.auth.profileId ?? provider.auth.email ?? "default",
             ]),
-            environmentLabel: presentation.entry.target.label,
+            machineLabel: presentation.entry.target.label,
             providerName: provider.displayName ?? "Codex",
           })),
   );
@@ -70,7 +70,7 @@ export function ChatGptWelcomeCoordinator() {
             credit settings in ChatGPT.
           </DialogDescription>
           <p className="text-xs text-muted-foreground">
-            {next?.providerName} on {next?.environmentLabel}
+            {next?.providerName} on {next?.machineLabel}
           </p>
         </DialogHeader>
         <DialogFooter>

@@ -1,5 +1,5 @@
-import { createAuthEnvironmentAtoms } from "@vekrel/client-runtime/state/auth";
+import { createAuthMachineAtoms } from "@vekrel/client-runtime/state/auth";
 
 import { connectionAtomRuntime } from "../connection/runtime";
 
-export const authEnvironment = createAuthEnvironmentAtoms(connectionAtomRuntime);
+export const authMachine = createAuthMachineAtoms(connectionAtomRuntime);

@@ -1,6 +1,6 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { threadSearchMatchKey } from "@vekrel/client-runtime/state/thread-search";
-import type { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import type { MachineId, ThreadId } from "@vekrel/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 import { MessageSquareIcon } from "lucide-react";
@@ -13,15 +13,15 @@ import {
 } from "../providerInstances";
 import { useThreadShells } from "../state/entities";
 import {
-  useEnvironmentProviders,
-  useEnvironments,
-  usePrimaryEnvironmentId,
-} from "../state/environments";
+  useMachineProviders,
+  useMachines,
+  usePrimaryMachineId,
+} from "../state/machines";
 import { useThreadSearch } from "../state/queries";
 import { primaryServerProvidersAtom } from "../state/server";
 import { buildThreadRouteParams } from "../threadRoutes";
 import { buildThreadActionItems, ITEM_ICON_CLASS } from "./CommandPalette.logic";
-import { useEnvironmentLookups, useProjectLookups } from "./CommandPaletteLookups";
+import { useMachineLookups, useProjectLookups } from "./CommandPaletteLookups";
 import { ThreadCommandSubtitle } from "./ThreadCommandSubtitle";
 import {
   ThreadRowLeadingStatus,
@@ -29,34 +29,34 @@ import {
   ThreadSearchPullRequestNumber,
 } from "./ThreadStatusIndicators";
 
-function useProviderEntryByEnvironmentAndInstanceId() {
-  const { environments } = useEnvironments();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+function useProviderEntryByMachineAndInstanceId() {
+  const { machines } = useMachines();
+  const primaryMachineId = usePrimaryMachineId();
   const providers = useAtomValue(primaryServerProvidersAtom);
-  const providersByEnvironment = useEnvironmentProviders();
+  const providersByMachine = useMachineProviders();
   return new Map<string, ProviderInstanceEntry>(
-    environments.flatMap((environment) => {
-      const serverConfig = environment.serverConfig;
+    machines.flatMap((machine) => {
+      const serverConfig = machine.serverConfig;
       const derived = deriveProviderInstanceEntries(
-        providersByEnvironment.get(environment.environmentId) ??
-          (environment.environmentId === primaryEnvironmentId ? providers : []),
+        providersByMachine.get(machine.machineId) ??
+          (machine.machineId === primaryMachineId ? providers : []),
       );
       const entries = serverConfig
         ? applyProviderInstanceSettings(derived, serverConfig.settings, null)
         : derived;
       return entries.map(
-        (entry) => [`${environment.environmentId}:${entry.instanceId}`, entry] as const,
+        (entry) => [`${machine.machineId}:${entry.instanceId}`, entry] as const,
       );
     }),
   );
 }
 
 function useThreadSearchWithContentMatches(query: string) {
-  const { environments } = useEnvironments();
-  const environmentIds: ReadonlyArray<EnvironmentId> = environments
-    .filter((environment) => environment.connection.phase === "connected")
-    .map((environment) => environment.environmentId);
-  const threadSearch = useThreadSearch(environmentIds, query);
+  const { machines } = useMachines();
+  const machineIds: ReadonlyArray<MachineId> = machines
+    .filter((machine) => machine.connection.phase === "connected")
+    .map((machine) => machine.machineId);
+  const threadSearch = useThreadSearch(machineIds, query);
   const contentMatchByKey = new Map(
     threadSearch.matches.flatMap((match) =>
       match.source === "user" || match.source === "assistant"
@@ -76,8 +76,8 @@ export function useCommandPaletteThreadItems(input: {
   const navigate = useNavigate();
   const threads = useThreadShells();
   const sidebarThreadSortOrder = useClientSettings((settings) => settings.sidebarThreadSortOrder);
-  const { projectEnvironmentLocationById } = useEnvironmentLookups();
-  const providerEntryByEnvironmentAndInstanceId = useProviderEntryByEnvironmentAndInstanceId();
+  const { projectMachineLocationById } = useMachineLookups();
+  const providerEntryByMachineAndInstanceId = useProviderEntryByMachineAndInstanceId();
   const { threadSearch, contentMatchByKey } = useThreadSearchWithContentMatches(threadSearchQuery);
   const { projectByKey, projectTitleById } = useProjectLookups();
 
@@ -102,14 +102,14 @@ export function useCommandPaletteThreadItems(input: {
       const modelInstanceId =
         thread.runtime?.providerInstanceId ?? thread.modelSelection.instanceId;
       const providerEntry =
-        providerEntryByEnvironmentAndInstanceId.get(`${thread.environmentId}:${modelInstanceId}`) ??
+        providerEntryByMachineAndInstanceId.get(`${thread.machineId}:${modelInstanceId}`) ??
         null;
       return (
         <ThreadCommandSubtitle
-          project={projectByKey.get(`${thread.environmentId}:${thread.projectId}`) ?? null}
+          project={projectByKey.get(`${thread.machineId}:${thread.projectId}`) ?? null}
           projectTitle={projectTitle ?? null}
-          environmentLabel={
-            projectEnvironmentLocationById.get(thread.environmentId)?.label ?? "Remote"
+          machineLabel={
+            projectMachineLocationById.get(thread.machineId)?.label ?? "Remote"
           }
           branch={thread.branch}
           worktreePath={thread.worktreePath}
@@ -126,7 +126,7 @@ export function useCommandPaletteThreadItems(input: {
     getContentMatch: (thread) => {
       const match = contentMatchByKey.get(
         threadSearchMatchKey({
-          environmentId: thread.environmentId,
+          machineId: thread.machineId,
           threadId: thread.id,
         }),
       );
@@ -140,8 +140,8 @@ export function useCommandPaletteThreadItems(input: {
     },
     runThread: async (thread) => {
       await navigate({
-        to: "/$environmentId/$threadId",
-        params: buildThreadRouteParams(scopeThreadRef(thread.environmentId, thread.id)),
+        to: "/$machineId/$threadId",
+        params: buildThreadRouteParams(scopeThreadRef(thread.machineId, thread.id)),
       });
     },
   });

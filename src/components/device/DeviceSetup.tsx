@@ -1,5 +1,5 @@
 import { DeviceHostUpdates } from "./DeviceHostUpdates";
-import type { DevicePlatform, DeviceServiceState, EnvironmentId } from "@vekrel/contracts";
+import type { DevicePlatform, DeviceServiceState, MachineId } from "@vekrel/contracts";
 import { Check } from "lucide-react";
 import { Check as CheckGlyph, CircleAlert } from "lucide";
 import { AuthSettingsWriteScope } from "@vekrel/contracts";
@@ -11,17 +11,17 @@ import { MorphIcon } from "~/components/MorphIcon";
 import { WizardHeader, WizardPanel, WizardSteps, WizardFooter } from "~/components/ui/wizard";
 import { Spinner } from "~/components/ui/spinner";
 import { Switch } from "~/components/ui/switch";
-import { deviceEnvironment } from "~/state/device";
+import { deviceMachine } from "~/state/device";
 import { useAtomCommand } from "~/state/use-atom-command";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import { readMachineScope, useMachineScope } from "~/state/session";
 import { cn } from "~/lib/utils";
 
 const platformName = (platform: DevicePlatform) => (platform === "ios" ? "iOS" : "Android");
 
 export const deviceHubDescription =
-  "Enable this environment to open simulators and emulators, whether they run here or on a remote device host.";
+  "Enable this machine to open simulators and emulators, whether they run here or on a remote device host.";
 export const agentDeviceDescription =
-  "Allow new agent sessions in this environment to start and control local and remote devices, with required tools set up automatically.";
+  "Allow new agent sessions in this machine to start and control local and remote devices, with required tools set up automatically.";
 
 export const isAndroidDiscoveryUncertain = (state: DeviceServiceState) =>
   Object.values(state.hostStatuses).some(
@@ -126,13 +126,13 @@ export function platformSetupStatus(state: DeviceServiceState, platform: DeviceP
 }
 
 export function DeviceSetup(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly state: DeviceServiceState;
   readonly onComplete?: () => void;
 }) {
-  const canConfigure = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
-  const configure = useAtomCommand(deviceEnvironment.configure);
-  const list = useAtomCommand(deviceEnvironment.list, { reportFailure: false });
+  const canConfigure = useMachineScope(props.machineId, AuthSettingsWriteScope);
+  const configure = useAtomCommand(deviceMachine.configure);
+  const list = useAtomCommand(deviceMachine.list, { reportFailure: false });
   const [pending, setPending] = useState<"hub" | "check" | "agent" | "complete" | null>(null);
   const [step, setStep] = useState(0);
   const enabled = props.state.hostStatus !== "disabled";
@@ -143,16 +143,16 @@ export function DeviceSetup(props: {
 
   // Remote hosts report platforms only after a probe, like the Device panel's refresh on open.
   useEffect(() => {
-    if (enabled) void list({ environmentId: props.environmentId, input: {} });
-  }, [enabled, list, props.environmentId]);
+    if (enabled) void list({ machineId: props.machineId, input: {} });
+  }, [enabled, list, props.machineId]);
 
   const update = async (
     kind: NonNullable<typeof pending>,
     input: { enabled?: boolean; agentAccessEnabled?: boolean; onboardingCompleted?: boolean },
   ) => {
-    if (!readEnvironmentScope(props.environmentId, AuthSettingsWriteScope)) return;
+    if (!readMachineScope(props.machineId, AuthSettingsWriteScope)) return;
     setPending(kind);
-    const result = await configure({ environmentId: props.environmentId, input });
+    const result = await configure({ machineId: props.machineId, input });
     setPending(null);
     if (kind === "complete" && result._tag === "Success") props.onComplete?.();
   };
@@ -161,7 +161,7 @@ export function DeviceSetup(props: {
     <>
       <WizardHeader
         title="Set up devices"
-        description="Review what runs on this environment before using simulators and emulators."
+        description="Review what runs on this machine before using simulators and emulators."
       >
         <WizardSteps
           steps={["Device hub", "Simulators", "Agent access"]}
@@ -172,7 +172,7 @@ export function DeviceSetup(props: {
       </WizardHeader>
 
       <WizardPanel>
-        <DeviceHostUpdates state={props.state} environmentId={props.environmentId} />
+        <DeviceHostUpdates state={props.state} machineId={props.machineId} />
         {step === 0 ? (
           <section className="space-y-3 text-sm">
             <h3 className="font-medium">Enable the device hub</h3>
@@ -206,7 +206,7 @@ export function DeviceSetup(props: {
               disabled={!enabled || busy || pending !== null}
               onCheck={() => {
                 setPending("check");
-                void list({ environmentId: props.environmentId, input: {} }).finally(() =>
+                void list({ machineId: props.machineId, input: {} }).finally(() =>
                   setPending(null),
                 );
               }}

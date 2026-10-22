@@ -1,4 +1,4 @@
-import type { EnvironmentId, EnvironmentMachineKind } from "@vekrel/contracts";
+import type { MachineId, MachineKind } from "@vekrel/contracts";
 
 import type { SidebarProjectSnapshot } from "../sidebarProjectGrouping";
 import type { Project } from "../types";
@@ -8,14 +8,14 @@ import {
   type CommandPaletteProject,
   ITEM_ICON_CLASS,
 } from "./CommandPalette.logic";
-import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
+import { MachineIcon } from "./MachineIcon";
 import { ProjectFavicon } from "./ProjectFavicon";
 import { COMMAND_PALETTE_META_ICON_CLASS, CommandPaletteMetaDot } from "./ThreadCommandSubtitle";
 
 export interface CommandPaletteProjectLocation {
   readonly kind: "local" | "remote";
   readonly label: string;
-  readonly machine: EnvironmentMachineKind;
+  readonly machine: MachineKind;
 }
 
 const UNKNOWN_PROJECT_LOCATION: CommandPaletteProjectLocation = {
@@ -27,7 +27,7 @@ const UNKNOWN_PROJECT_LOCATION: CommandPaletteProjectLocation = {
 interface ProjectItemsInput {
   readonly projects: ReadonlyArray<CommandPaletteProject>;
   readonly projectGroupByTargetKey: ReadonlyMap<string, SidebarProjectSnapshot>;
-  readonly locationByEnvironmentId: ReadonlyMap<EnvironmentId, CommandPaletteProjectLocation>;
+  readonly locationByMachineId: ReadonlyMap<MachineId, CommandPaletteProjectLocation>;
   readonly runProject: (project: CommandPaletteProject) => Promise<void>;
 }
 
@@ -38,7 +38,7 @@ function projectFaviconIcon(project: Project) {
 /** Projects as root search results; a grouped project matches on every member. */
 export function buildProjectSearchItems(input: ProjectItemsInput) {
   const membersOf = (project: CommandPaletteProject) =>
-    input.projectGroupByTargetKey.get(`${project.environmentId}:${project.id}`)?.memberProjects ?? [
+    input.projectGroupByTargetKey.get(`${project.machineId}:${project.id}`)?.memberProjects ?? [
       project,
     ];
   return buildProjectActionItems({
@@ -47,19 +47,19 @@ export function buildProjectSearchItems(input: ProjectItemsInput) {
     searchTerms: (project) =>
       buildCommandPaletteProjectMetadata({
         projects: membersOf(project),
-        locationByEnvironmentId: input.locationByEnvironmentId,
+        locationByMachineId: input.locationByMachineId,
       }).searchTerms,
     renderDescription: (project) => {
       const members = membersOf(project);
       const metadata = buildCommandPaletteProjectMetadata({
         projects: members,
-        locationByEnvironmentId: input.locationByEnvironmentId,
+        locationByMachineId: input.locationByMachineId,
       });
       return members.length > 1 ? (
-        <span className="truncate">{metadata.environmentLabels.join(" · ")}</span>
+        <span className="truncate">{metadata.machineLabels.join(" · ")}</span>
       ) : (
         <ProjectLocationDescription
-          location={input.locationByEnvironmentId.get(project.environmentId)}
+          location={input.locationByMachineId.get(project.machineId)}
           workspaceRoot={project.workspaceRoot}
         />
       );
@@ -75,8 +75,8 @@ export function buildNewThreadInProjectItems(input: ProjectItemsInput) {
     projects: input.projects,
     valuePrefix: "new-thread-in",
     searchTerms: (project) => {
-      const group = input.projectGroupByTargetKey.get(`${project.environmentId}:${project.id}`);
-      const location = input.locationByEnvironmentId.get(project.environmentId);
+      const group = input.projectGroupByTargetKey.get(`${project.machineId}:${project.id}`);
+      const location = input.locationByMachineId.get(project.machineId);
       return [
         ...(group?.memberProjects.flatMap((member) => [member.title, member.workspaceRoot]) ?? []),
         ...(location ? [location.label] : []),
@@ -84,7 +84,7 @@ export function buildNewThreadInProjectItems(input: ProjectItemsInput) {
     },
     renderDescription: (project) => (
       <ProjectLocationDescription
-        location={input.locationByEnvironmentId.get(project.environmentId)}
+        location={input.locationByMachineId.get(project.machineId)}
         workspaceRoot={project.workspaceRoot}
       />
     ),
@@ -102,7 +102,7 @@ function ProjectLocationDescription(props: {
     <span className="flex min-w-0 items-center gap-1">
       <span className="inline-flex min-w-0 items-center gap-1">
         {location.kind === "remote" ? (
-          <EnvironmentMachineIcon
+          <MachineIcon
             aria-hidden
             kind={location.machine}
             className={COMMAND_PALETTE_META_ICON_CLASS}

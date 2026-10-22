@@ -4,7 +4,7 @@ import {
   squashAtomCommandFailure,
   type AtomCommandResult,
 } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentId, ScopedThreadRef } from "@vekrel/contracts";
+import type { MachineId, ScopedThreadRef } from "@vekrel/contracts";
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
 
 import { readLocalApi } from "../../localApi";
@@ -24,7 +24,7 @@ import { reportMarkdownActionFailure } from "./markdownActionFailure";
 import { WorkspaceEntryTooltip } from "./WorkspaceEntryIcon";
 
 interface MarkdownFileLinkProps {
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   href: string;
   targetPath: string;
   iconPath: string;
@@ -48,7 +48,7 @@ interface MarkdownFileLinkProps {
 const MARKDOWN_FILE_LINK_CLASS_NAME = "chat-markdown-file-link";
 
 export const MarkdownFileLink = memo(function MarkdownFileLink({
-  environmentId,
+  machineId,
   href,
   targetPath,
   iconPath,
@@ -349,7 +349,7 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
             >
               <FileTagChipContent
                 path={iconPath}
-                environmentId={environmentId}
+                machineId={machineId}
                 label={label}
                 theme={theme}
               />
@@ -368,7 +368,7 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
             >
               <FileTagChipContent
                 path={iconPath}
-                environmentId={environmentId}
+                machineId={machineId}
                 label={label}
                 theme={theme}
               />
@@ -378,7 +378,7 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
       />
       <TooltipPopup side="top" variant="code">
         <div className="overflow-x-auto whitespace-nowrap scrollbar-thumb-border/78 scrollbar-track-transparent [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/78 [&::-webkit-scrollbar-track]:bg-transparent">
-          <WorkspaceEntryTooltip path={iconPath} label={targetPath} environmentId={environmentId} />
+          <WorkspaceEntryTooltip path={iconPath} label={targetPath} machineId={machineId} />
         </div>
       </TooltipPopup>
     </Tooltip>
@@ -393,7 +393,7 @@ function areMarkdownFileLinkPropsEqual(
     previous.href === next.href &&
     previous.targetPath === next.targetPath &&
     previous.iconPath === next.iconPath &&
-    previous.environmentId === next.environmentId &&
+    previous.machineId === next.machineId &&
     previous.workspaceRelativePath === next.workspaceRelativePath &&
     previous.panelPath === next.panelPath &&
     previous.line === next.line &&

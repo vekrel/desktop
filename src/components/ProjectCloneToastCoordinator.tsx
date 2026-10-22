@@ -1,5 +1,5 @@
 import { useParams } from "@tanstack/react-router";
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
 import {
   type AtomCommandResult,
   isAtomCommandInterrupted,
@@ -8,7 +8,7 @@ import {
 import {
   projectCloneDisplayName,
   projectCloneProgressSummary,
-  type EnvironmentId,
+  type MachineId,
   type ProjectCloneSnapshot,
   type ProjectId,
 } from "@vekrel/contracts";
@@ -16,24 +16,24 @@ import { useEffect, useRef } from "react";
 
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { useRemoveClonedProject } from "../hooks/useRemoveClonedProject";
-import { useEnvironments } from "../state/environments";
+import { useMachines } from "../state/machines";
 import {
   isProjectCloneToastSilenced,
   silenceProjectCloneToasts,
-  useEnvironmentProjectClones,
+  useMachineProjectClones,
 } from "../state/projectClones";
-import { sourceControlEnvironment } from "../state/sourceControl";
+import { sourceControlMachine } from "../state/sourceControl";
 import { useAtomCommand } from "../state/use-atom-command";
 import { type DraftId, useComposerDraftStore } from "../composerDraftStore";
 import { toastManager } from "./ui/toast";
 import { stackedThreadToast } from "./ui/toastHelpers";
 
 export function ProjectCloneToastCoordinator() {
-  const { environments } = useEnvironments();
-  return environments.map((environment) => (
-    <EnvironmentCloneToasts
-      key={environment.environmentId}
-      environmentId={environment.environmentId}
+  const { machines } = useMachines();
+  return machines.map((machine) => (
+    <MachineCloneToasts
+      key={machine.machineId}
+      machineId={machine.machineId}
     />
   ));
 }
@@ -65,14 +65,14 @@ async function runCloneAction(
   }
 }
 
-function EnvironmentCloneToasts({ environmentId }: { environmentId: EnvironmentId }) {
-  const clones = useEnvironmentProjectClones(environmentId);
+function MachineCloneToasts({ machineId }: { machineId: MachineId }) {
+  const clones = useMachineProjectClones(machineId);
   const handleNewThread = useNewThreadHandler();
   const { draftId: routeDraftId } = useParams({ strict: false });
-  const cancelClone = useAtomCommand(sourceControlEnvironment.cancelProjectClone, {
+  const cancelClone = useAtomCommand(sourceControlMachine.cancelProjectClone, {
     reportFailure: false,
   });
-  const retryClone = useAtomCommand(sourceControlEnvironment.retryProjectClone, {
+  const retryClone = useAtomCommand(sourceControlMachine.retryProjectClone, {
     reportFailure: false,
   });
   const removeClonedProject = useRemoveClonedProject();
@@ -81,11 +81,11 @@ function EnvironmentCloneToasts({ environmentId }: { environmentId: EnvironmentI
   const isViewingProjectDraft = (projectId: ProjectId) => {
     if (!routeDraftId) return false;
     const draft = useComposerDraftStore.getState().getDraftSession(routeDraftId as DraftId);
-    return draft?.environmentId === environmentId && draft.projectId === projectId;
+    return draft?.machineId === machineId && draft.projectId === projectId;
   };
 
   const openProject = (projectId: ProjectId) => {
-    void handleNewThread(scopeProjectRef(environmentId, projectId));
+    void handleNewThread(scopeProjectRef(machineId, projectId));
   };
 
   useEffect(() => {
@@ -101,7 +101,7 @@ function EnvironmentCloneToasts({ environmentId }: { environmentId: EnvironmentI
         toastManager.close(current.toastId);
         toasts.current.delete(clone.projectId);
       };
-      const ref = { environmentId, projectId: clone.projectId };
+      const ref = { machineId, projectId: clone.projectId };
       if (isViewingProjectDraft(clone.projectId)) {
         silenceProjectCloneToasts(ref);
         closeToast();
@@ -126,7 +126,7 @@ function EnvironmentCloneToasts({ environmentId }: { environmentId: EnvironmentI
             children: "Cancel",
             onClick: () => {
               void runCloneAction("Failed to cancel clone", () =>
-                cancelClone({ environmentId, input: { projectId: clone.projectId } }),
+                cancelClone({ machineId, input: { projectId: clone.projectId } }),
               );
             },
           },
@@ -177,7 +177,7 @@ function EnvironmentCloneToasts({ environmentId }: { environmentId: EnvironmentI
           children: "Retry",
           onClick: () => {
             void runCloneAction("Failed to retry clone", () =>
-              retryClone({ environmentId, input: { projectId: clone.projectId } }),
+              retryClone({ machineId, input: { projectId: clone.projectId } }),
             );
           },
         },
@@ -186,7 +186,7 @@ function EnvironmentCloneToasts({ environmentId }: { environmentId: EnvironmentI
           secondaryActionProps: {
             children: "Remove project",
             onClick: () => {
-              void removeClonedProject({ environmentId, projectId: clone.projectId });
+              void removeClonedProject({ machineId, projectId: clone.projectId });
             },
           },
         },
@@ -208,7 +208,7 @@ function EnvironmentCloneToasts({ environmentId }: { environmentId: EnvironmentI
   }, [
     cancelClone,
     clones,
-    environmentId,
+    machineId,
     isViewingProjectDraft,
     openProject,
     removeClonedProject,

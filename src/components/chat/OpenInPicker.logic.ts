@@ -1,17 +1,17 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 
 import type { RemoteOpenMode } from "../../remoteOpen";
 
 export function shouldShowOpenInPicker(input: {
   readonly activeProjectName: string | undefined;
-  readonly activeThreadEnvironmentId: EnvironmentId;
-  readonly primaryEnvironmentId: EnvironmentId | null;
+  readonly activeThreadMachineId: MachineId;
+  readonly primaryMachineId: MachineId | null;
   readonly remoteOpenMode: RemoteOpenMode;
 }): boolean {
   if (!input.activeProjectName) return false;
   if (
-    input.primaryEnvironmentId !== null &&
-    input.activeThreadEnvironmentId === input.primaryEnvironmentId
+    input.primaryMachineId !== null &&
+    input.activeThreadMachineId === input.primaryMachineId
   ) {
     return true;
   }

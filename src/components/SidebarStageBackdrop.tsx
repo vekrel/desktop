@@ -6,7 +6,7 @@ import { resolveServerBackedAppStageLabel } from "../branding.logic";
 import { primaryServerConfigAtom } from "../state/server";
 
 export type SidebarStageBackdropVariant = "nightly" | "dev";
-export type EnvironmentIdentificationPillLabel = "Dev" | "Nightly";
+export type MachineIdentificationPillLabel = "Dev" | "Nightly";
 
 const STAGE_BACKDROP_VIEW_BOX = "0 0 8192 96";
 
@@ -21,18 +21,18 @@ export function resolveSidebarStageBackdropVariant(
   return null;
 }
 
-export function resolveEnvironmentIdentificationPillLabel(
+export function resolveMachineIdentificationPillLabel(
   stageLabel: string,
-): EnvironmentIdentificationPillLabel | null {
+): MachineIdentificationPillLabel | null {
   const normalized = stageLabel.trim().toLowerCase();
   if (normalized === "dev") return "Dev";
   if (normalized === "nightly") return "Nightly";
   return null;
 }
 
-export function useEnvironmentStageLabel(): string {
+export function useMachineStageLabel(): string {
   const primaryServerVersion =
-    useAtomValue(primaryServerConfigAtom)?.environment.serverVersion ?? null;
+    useAtomValue(primaryServerConfigAtom)?.machine.serverVersion ?? null;
 
   return resolveServerBackedAppStageLabel({
     primaryServerVersion,
@@ -41,7 +41,7 @@ export function useEnvironmentStageLabel(): string {
 }
 
 export function useSidebarStageBackdropVariant(enabled = true): SidebarStageBackdropVariant | null {
-  return resolveSidebarStageBackdropVariant(useEnvironmentStageLabel(), enabled);
+  return resolveSidebarStageBackdropVariant(useMachineStageLabel(), enabled);
 }
 
 export function SidebarStageBackdrop({ variant }: { variant: SidebarStageBackdropVariant }) {

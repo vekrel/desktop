@@ -12,7 +12,7 @@ import {
   type ConnectionAttemptError,
   ConnectionTransientError,
   Connectivity,
-  mapRemoteEnvironmentError,
+  mapRemoteMachineError,
   type PlatformConnectionRegistration,
   PrimaryConnectionRegistration,
   PrimaryConnectionTarget,
@@ -20,17 +20,17 @@ import {
   Wakeups,
 } from "@vekrel/client-runtime/connection";
 import { bootstrapRemoteBearerSession } from "@vekrel/client-runtime/authorization";
-import { fetchRemoteEnvironmentDescriptor } from "@vekrel/client-runtime/environment";
+import { fetchRemoteMachineDescriptor } from "@vekrel/client-runtime/machine";
 import { managedRelayAccountChanges, managedRelaySessionAtom } from "@vekrel/client-runtime/relay";
-import { EnvironmentRpcRequestObserver } from "@vekrel/client-runtime/rpc";
+import { MachineRpcRequestObserver } from "@vekrel/client-runtime/rpc";
 import {
   AuthStandardClientScopes,
   type DesktopBridge,
-  type DesktopEnvironmentBootstrap,
-  type DesktopSshEnvironmentBootstrap,
-  type DesktopSshEnvironmentTarget,
-  type EnvironmentId,
-  PRIMARY_LOCAL_ENVIRONMENT_ID,
+  type DesktopMachineBootstrap,
+  type DesktopSshMachineBootstrap,
+  type DesktopSshMachineTarget,
+  type MachineId,
+  PRIMARY_LOCAL_MACHINE_ID,
 } from "@vekrel/contracts";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -43,15 +43,15 @@ import * as Stream from "effect/Stream";
 import { FetchHttpClient } from "effect/http";
 
 import { APP_VERSION } from "../branding";
-import { readDesktopPrimaryBearerToken } from "../environments/primary/desktopAuth";
-import * as PrimaryEnvironmentHttpLayer from "../environments/primary/httpLayer";
+import { readDesktopPrimaryBearerToken } from "../machines/primary/desktopAuth";
+import * as PrimaryMachineHttpLayer from "../machines/primary/httpLayer";
 import {
-  readPrimaryEnvironmentTarget,
-  type PrimaryEnvironmentTarget,
-} from "../environments/primary/target";
-import { clearComposerDraftsEnvironment } from "../composerDraftStore";
+  readPrimaryMachineTarget,
+  type PrimaryMachineTarget,
+} from "../machines/primary/target";
+import { clearComposerDraftsMachine } from "../composerDraftStore";
 import { isHostedStaticApp } from "../hostedPairing";
-import { isLocalEnvironmentDisabled } from "../localEnvironment";
+import { isLocalMachineDisabled } from "../localMachine";
 import { randomUUID } from "../lib/utils";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { acknowledgeRpcRequest, trackRpcRequestSent } from "../rpc/requestLatencyState";
@@ -177,7 +177,7 @@ function sshPreparationError(cause: unknown) {
   }
   return new ConnectionTransientError({
     reason: "remote-unavailable",
-    detail: `Could not prepare the SSH environment: ${message}`,
+    detail: `Could not prepare the SSH machine: ${message}`,
   });
 }
 
@@ -185,10 +185,10 @@ function sshPreparationError(cause: unknown) {
 // that interrupted waiter's unfinished setup.
 const pendingSshSetups = new Map<
   string,
-  { readonly promise: Promise<DesktopSshEnvironmentBootstrap>; signal: AbortSignal }
+  { readonly promise: Promise<DesktopSshMachineBootstrap>; signal: AbortSignal }
 >();
 
-const ensureDesktopSshEnvironment = (bridge: DesktopBridge, target: DesktopSshEnvironmentTarget) =>
+const ensureDesktopSshMachine = (bridge: DesktopBridge, target: DesktopSshMachineTarget) =>
   Effect.tryPromise({
     try: (signal) => {
       const key = sshTargetKey(target);
@@ -198,7 +198,7 @@ const ensureDesktopSshEnvironment = (bridge: DesktopBridge, target: DesktopSshEn
         return pending.promise;
       }
       const setup = {
-        promise: bridge.ensureSshEnvironment(target, { issuePairingToken: true }),
+        promise: bridge.ensureSshMachine(target, { issuePairingToken: true }),
         signal,
       };
       pendingSshSetups.set(key, setup);
@@ -211,29 +211,29 @@ const ensureDesktopSshEnvironment = (bridge: DesktopBridge, target: DesktopSshEn
     catch: sshPreparationError,
   });
 
-export const provisionDesktopSshEnvironment = Effect.fn(
+export const provisionDesktopSshMachine = Effect.fn(
   "web.connectionPlatform.ssh.provisionDesktop",
 )(function* (
   bridge: DesktopBridge,
-  target: DesktopSshEnvironmentTarget,
-  expectedEnvironmentId?: EnvironmentId,
+  target: DesktopSshMachineTarget,
+  expectedMachineId?: MachineId,
 ) {
-  const bootstrap = yield* ensureDesktopSshEnvironment(bridge, target);
+  const bootstrap = yield* ensureDesktopSshMachine(bridge, target);
   const pairingToken = bootstrap.pairingToken;
   if (pairingToken === null) {
     return yield* new ConnectionBlockedError({
       reason: "authentication",
-      detail: "The SSH environment did not issue a pairing credential.",
+      detail: "The SSH machine did not issue a pairing credential.",
     });
   }
   const descriptor = yield* Effect.tryPromise({
-    try: () => bridge.fetchSshEnvironmentDescriptor(bootstrap.httpBaseUrl),
+    try: () => bridge.fetchSshMachineDescriptor(bootstrap.httpBaseUrl),
     catch: sshPreparationError,
   });
-  if (expectedEnvironmentId !== undefined && descriptor.environmentId !== expectedEnvironmentId) {
+  if (expectedMachineId !== undefined && descriptor.machineId !== expectedMachineId) {
     return yield* new ConnectionBlockedError({
       reason: "configuration",
-      detail: `That host reaches ${descriptor.label}, a different machine. Add it as its own environment instead.`,
+      detail: `That host reaches ${descriptor.label}, a different machine. Add it as its own machine instead.`,
     });
   }
   const access = yield* Effect.tryPromise({
@@ -241,7 +241,7 @@ export const provisionDesktopSshEnvironment = Effect.fn(
     catch: sshPreparationError,
   });
   return {
-    environmentId: descriptor.environmentId,
+    machineId: descriptor.machineId,
     label: descriptor.label,
     bootstrap,
     bearerToken: access.access_token,
@@ -249,35 +249,35 @@ export const provisionDesktopSshEnvironment = Effect.fn(
 });
 
 /**
- * Connects a saved SSH environment. A token from an earlier pairing is kept
+ * Connects a saved SSH machine. A token from an earlier pairing is kept
  * while the host still accepts it with every standard scope, because every
  * pairing adds a session there.
  */
-export const prepareDesktopSshEnvironment = Effect.fn("web.connectionPlatform.ssh.prepareDesktop")(
+export const prepareDesktopSshMachine = Effect.fn("web.connectionPlatform.ssh.prepareDesktop")(
   function* (
     bridge: DesktopBridge,
     input: {
-      readonly target: DesktopSshEnvironmentTarget;
-      readonly expectedEnvironmentId: EnvironmentId;
+      readonly target: DesktopSshMachineTarget;
+      readonly expectedMachineId: MachineId;
       readonly bearerToken?: string;
     },
   ) {
     const bearerToken = input.bearerToken;
     if (bearerToken !== undefined) {
       const bootstrap = yield* Effect.tryPromise({
-        try: () => bridge.ensureSshEnvironment(input.target, { issuePairingToken: false }),
+        try: () => bridge.ensureSshMachine(input.target, { issuePairingToken: false }),
         catch: sshPreparationError,
       });
       // Stop without sending the saved token, or pairing, when the forward
-      // reaches a different environment.
+      // reaches a different machine.
       const descriptor = yield* Effect.tryPromise({
-        try: () => bridge.fetchSshEnvironmentDescriptor(bootstrap.httpBaseUrl),
+        try: () => bridge.fetchSshMachineDescriptor(bootstrap.httpBaseUrl),
         catch: sshPreparationError,
       });
-      if (descriptor.environmentId !== input.expectedEnvironmentId) {
+      if (descriptor.machineId !== input.expectedMachineId) {
         return yield* new ConnectionBlockedError({
           reason: "configuration",
-          detail: `That host reaches ${descriptor.label}, a different machine. Add it as its own environment instead.`,
+          detail: `That host reaches ${descriptor.label}, a different machine. Add it as its own machine instead.`,
         });
       }
       const session = yield* Effect.tryPromise({
@@ -294,10 +294,10 @@ export const prepareDesktopSshEnvironment = Effect.fn("web.connectionPlatform.ss
         return { bootstrap, bearerToken };
       }
     }
-    const provisioned = yield* provisionDesktopSshEnvironment(
+    const provisioned = yield* provisionDesktopSshMachine(
       bridge,
       input.target,
-      input.expectedEnvironmentId,
+      input.expectedMachineId,
     );
     return { bootstrap: provisioned.bootstrap, bearerToken: provisioned.bearerToken };
   },
@@ -330,7 +330,7 @@ const layerCapabilities = Layer.effectContext(
         if (session === null) {
           return yield* new ConnectionBlockedError({
             reason: "authentication",
-            detail: "Sign in to T3 Connect to connect this environment.",
+            detail: "Sign in to T3 Connect to connect this machine.",
           });
         }
         const token = yield* session.readClerkToken().pipe(
@@ -354,7 +354,7 @@ const layerCapabilities = Layer.effectContext(
     const identity = ClientCapabilities.RelayDeviceIdentity.of({
       deviceId: Effect.succeedNone,
     });
-    const primaryAuth = ClientCapabilities.PrimaryEnvironmentAuth.of({
+    const primaryAuth = ClientCapabilities.PrimaryMachineAuth.of({
       bearerToken: Effect.tryPromise({
         try: readDesktopPrimaryBearerToken,
         catch: (cause) =>
@@ -364,17 +364,17 @@ const layerCapabilities = Layer.effectContext(
           }),
       }).pipe(Effect.map(Option.fromNullishOr)),
     });
-    const ssh = ClientCapabilities.SshEnvironmentGateway.of({
+    const ssh = ClientCapabilities.SshMachineGateway.of({
       provision: Effect.fn("web.connectionPlatform.ssh.provision")(
-        function* (target, expectedEnvironmentId) {
+        function* (target, expectedMachineId) {
           const bridge = window.desktopBridge;
           if (bridge === undefined) {
             return yield* new ConnectionBlockedError({
               reason: "unsupported",
-              detail: "SSH environments are only available in the desktop app.",
+              detail: "SSH machines are only available in the desktop app.",
             });
           }
-          return yield* provisionDesktopSshEnvironment(bridge, target, expectedEnvironmentId);
+          return yield* provisionDesktopSshMachine(bridge, target, expectedMachineId);
         },
       ),
       prepare: Effect.fn("web.connectionPlatform.ssh.prepare")(function* (input) {
@@ -382,10 +382,10 @@ const layerCapabilities = Layer.effectContext(
         if (bridge === undefined) {
           return yield* new ConnectionBlockedError({
             reason: "unsupported",
-            detail: "SSH environments are only available in the desktop app.",
+            detail: "SSH machines are only available in the desktop app.",
           });
         }
-        return yield* prepareDesktopSshEnvironment(bridge, input);
+        return yield* prepareDesktopSshMachine(bridge, input);
       }),
       disconnect: Effect.fn("web.connectionPlatform.ssh.disconnect")(function* (target) {
         const bridge = window.desktopBridge;
@@ -394,11 +394,11 @@ const layerCapabilities = Layer.effectContext(
         }
         pendingSshSetups.delete(sshTargetKey(target));
         yield* Effect.tryPromise({
-          try: () => bridge.disconnectSshEnvironment(target),
+          try: () => bridge.disconnectSshMachine(target),
           catch: (cause) =>
             new ConnectionTransientError({
               reason: "remote-unavailable",
-              detail: `Could not disconnect the SSH environment: ${String(cause)}`,
+              detail: `Could not disconnect the SSH machine: ${String(cause)}`,
             }),
         });
       }),
@@ -406,26 +406,26 @@ const layerCapabilities = Layer.effectContext(
 
     return Context.make(ClientCapabilities.CloudSession, cloudSession).pipe(
       Context.add(ClientCapabilities.AnalyticsDevice, analyticsDevice),
-      Context.add(ClientCapabilities.PrimaryEnvironmentAuth, primaryAuth),
+      Context.add(ClientCapabilities.PrimaryMachineAuth, primaryAuth),
       Context.add(ClientCapabilities.RelayDeviceIdentity, identity),
       Context.add(ClientCapabilities.ClientPresentation, presentation),
-      Context.add(ClientCapabilities.SshEnvironmentGateway, ssh),
+      Context.add(ClientCapabilities.SshMachineGateway, ssh),
     );
   }),
 );
 
 const loadPrimaryConnectionRegistration = Effect.fn(
   "web.connectionPlatform.loadPrimaryConnectionRegistration",
-)(function* (resolved: PrimaryEnvironmentTarget) {
-  const descriptor = yield* fetchRemoteEnvironmentDescriptor({
+)(function* (resolved: PrimaryMachineTarget) {
+  const descriptor = yield* fetchRemoteMachineDescriptor({
     httpBaseUrl: resolved.target.httpBaseUrl,
   }).pipe(
-    Effect.provide(PrimaryEnvironmentHttpLayer.layer),
-    Effect.mapError(mapRemoteEnvironmentError),
+    Effect.provide(PrimaryMachineHttpLayer.layer),
+    Effect.mapError(mapRemoteMachineError),
   );
   return new PrimaryConnectionRegistration({
     target: new PrimaryConnectionTarget({
-      environmentId: descriptor.environmentId,
+      machineId: descriptor.machineId,
       label: descriptor.label,
       httpBaseUrl: resolved.target.httpBaseUrl,
       wsBaseUrl: resolved.target.wsBaseUrl,
@@ -435,7 +435,7 @@ const loadPrimaryConnectionRegistration = Effect.fn(
 
 const loadSecondaryConnectionRegistration = Effect.fn(
   "web.connectionPlatform.loadSecondaryConnectionRegistration",
-)(function* (entry: DesktopEnvironmentBootstrap) {
+)(function* (entry: DesktopMachineBootstrap) {
   if (
     entry.httpBaseUrl === null ||
     entry.wsBaseUrl === null ||
@@ -448,8 +448,8 @@ const loadSecondaryConnectionRegistration = Effect.fn(
   }
   const httpBaseUrl = entry.httpBaseUrl;
   const wsBaseUrl = entry.wsBaseUrl;
-  const descriptor = yield* fetchRemoteEnvironmentDescriptor({ httpBaseUrl }).pipe(
-    Effect.mapError(mapRemoteEnvironmentError),
+  const descriptor = yield* fetchRemoteMachineDescriptor({ httpBaseUrl }).pipe(
+    Effect.mapError(mapRemoteMachineError),
   );
   const issuedAtEpochMs = yield* Clock.currentTimeMillis;
   const access = yield* bootstrapRemoteBearerSession({
@@ -457,23 +457,23 @@ const loadSecondaryConnectionRegistration = Effect.fn(
     credential: entry.bootstrapToken,
     scopes: AuthStandardClientScopes,
     clientMetadata: clientMetadata(),
-  }).pipe(Effect.mapError(mapRemoteEnvironmentError));
+  }).pipe(Effect.mapError(mapRemoteMachineError));
   // Keep the desktop pool's stable backend id in the connection id. The
-  // descriptor environment id still scopes projects and RPC state, while the
+  // descriptor machine id still scopes projects and RPC state, while the
   // backend id lets desktop-only operations (notably the WSL folder picker)
-  // route back to the instance that owns the environment.
+  // route back to the instance that owns the machine.
   const connectionId = desktopLocalConnectionId(entry.id);
   const label = entry.label || descriptor.label;
   return {
     registration: new BearerConnectionRegistration({
       target: new BearerConnectionTarget({
-        environmentId: descriptor.environmentId,
+        machineId: descriptor.machineId,
         label,
         connectionId,
       }),
       profile: new BearerConnectionProfile({
         connectionId,
-        environmentId: descriptor.environmentId,
+        machineId: descriptor.machineId,
         label,
         httpBaseUrl,
         wsBaseUrl,
@@ -517,19 +517,19 @@ interface CachedPlatformRegistration {
   readonly bootstrapToken?: string;
 }
 
-export type PrimaryEnvironmentTargetRead =
+export type PrimaryMachineTargetRead =
   | {
       readonly _tag: "Success";
-      readonly target: PrimaryEnvironmentTarget | null;
+      readonly target: PrimaryMachineTarget | null;
     }
   | {
       readonly _tag: "Failure";
       readonly cause: unknown;
     };
 
-function readPrimaryEnvironmentTargetResult(
-  readTarget: () => PrimaryEnvironmentTarget | null = readPrimaryEnvironmentTarget,
-): PrimaryEnvironmentTargetRead {
+function readPrimaryMachineTargetResult(
+  readTarget: () => PrimaryMachineTarget | null = readPrimaryMachineTarget,
+): PrimaryMachineTargetRead {
   try {
     return { _tag: "Success", target: readTarget() };
   } catch (cause) {
@@ -539,9 +539,9 @@ function readPrimaryEnvironmentTargetResult(
 
 export function primaryRegistrationToRetainAfterTopologyRead(
   previous: ReadonlyMap<string, CachedPlatformRegistration>,
-  topologyRead: PrimaryEnvironmentTargetRead,
+  topologyRead: PrimaryMachineTargetRead,
 ): CachedPlatformRegistration | undefined {
-  return topologyRead._tag === "Failure" ? previous.get(PRIMARY_LOCAL_ENVIRONMENT_ID) : undefined;
+  return topologyRead._tag === "Failure" ? previous.get(PRIMARY_LOCAL_MACHINE_ID) : undefined;
 }
 
 export function canReuseCachedPlatformRegistration(
@@ -629,7 +629,7 @@ export function secondaryRegistrationsToRetainAfterTopologyRead(
 const layerPlatformConnectionSource = Layer.effect(
   PlatformConnectionSource.PlatformConnectionSource,
   Effect.gen(function* () {
-    if (isHostedStaticApp() || isLocalEnvironmentDisabled()) {
+    if (isHostedStaticApp() || isLocalMachineDisabled()) {
       return PlatformConnectionSource.PlatformConnectionSource.of({
         registrations: Stream.empty,
       });
@@ -643,40 +643,40 @@ const layerPlatformConnectionSource = Layer.effect(
       const next = new Map<string, CachedPlatformRegistration>();
       const registrations: Array<PlatformConnectionRegistration> = [];
 
-      const primaryTopologyRead = readPrimaryEnvironmentTargetResult();
+      const primaryTopologyRead = readPrimaryMachineTargetResult();
       const retainedPrimary = primaryRegistrationToRetainAfterTopologyRead(
         previous,
         primaryTopologyRead,
       );
       if (retainedPrimary !== undefined) {
-        next.set(PRIMARY_LOCAL_ENVIRONMENT_ID, retainedPrimary);
+        next.set(PRIMARY_LOCAL_MACHINE_ID, retainedPrimary);
         registrations.push(retainedPrimary.registration);
       }
 
       if (primaryTopologyRead._tag === "Failure") {
-        yield* Effect.logWarning("Could not read the primary environment topology.", {
+        yield* Effect.logWarning("Could not read the primary machine topology.", {
           cause: primaryTopologyRead.cause,
         });
       } else if (primaryTopologyRead.target !== null) {
         const primaryTarget = primaryTopologyRead.target;
         const signature = `primary|${primaryTarget.target.httpBaseUrl}|${primaryTarget.target.wsBaseUrl}`;
-        const cached = previous.get(PRIMARY_LOCAL_ENVIRONMENT_ID);
+        const cached = previous.get(PRIMARY_LOCAL_MACHINE_ID);
         if (
           cached !== undefined &&
           canReuseCachedPlatformRegistration(cached, signature, nowEpochMs)
         ) {
-          next.set(PRIMARY_LOCAL_ENVIRONMENT_ID, cached);
+          next.set(PRIMARY_LOCAL_MACHINE_ID, cached);
           registrations.push(cached.registration);
         } else {
           const built = yield* loadPrimaryConnectionRegistration(primaryTarget).pipe(
             Effect.tapError((error) =>
-              Effect.logWarning("Could not discover the primary environment.", { error }),
+              Effect.logWarning("Could not discover the primary machine.", { error }),
             ),
             Effect.option,
           );
           if (Option.isSome(built)) {
             const cacheEntry = { signature, registration: built.value };
-            next.set(PRIMARY_LOCAL_ENVIRONMENT_ID, cacheEntry);
+            next.set(PRIMARY_LOCAL_MACHINE_ID, cacheEntry);
             registrations.push(built.value);
           }
         }
@@ -702,7 +702,7 @@ const layerPlatformConnectionSource = Layer.effect(
         for (const bootstrap of topologyRead.bootstraps) {
           // The cached bearer belongs to the endpoint, not to the bootstrap
           // token it was exchanged for: a new token must not drop a live
-          // session (its removal also clears the environment's drafts). The
+          // session (its removal also clears the machine's drafts). The
           // token only decides whether a rejected exchange is retried.
           const endpointSignature = `${bootstrap.httpBaseUrl}|${bootstrap.wsBaseUrl}`;
           const signature = `${endpointSignature}|${bootstrap.bootstrapToken ?? ""}`;
@@ -799,24 +799,24 @@ const layerPlatformConnectionSource = Layer.effect(
   }),
 );
 
-const layerEnvironmentOwnedDataCleanup = Layer.succeed(
-  Persistence.EnvironmentOwnedDataCleanup,
-  Persistence.EnvironmentOwnedDataCleanup.of({
-    clear: (environmentId) =>
+const layerMachineOwnedDataCleanup = Layer.succeed(
+  Persistence.MachineOwnedDataCleanup,
+  Persistence.MachineOwnedDataCleanup.of({
+    clear: (machineId) =>
       Effect.sync(() => {
-        clearComposerDraftsEnvironment(environmentId);
+        clearComposerDraftsMachine(machineId);
       }),
   }),
 );
 
 const layerRpcRequestObserver = Layer.succeed(
-  EnvironmentRpcRequestObserver,
-  EnvironmentRpcRequestObserver.of({
-    observe: ({ environmentId, environmentLabel, method }) =>
+  MachineRpcRequestObserver,
+  MachineRpcRequestObserver.of({
+    observe: ({ machineId, machineLabel, method }) =>
       Effect.sync(() => {
         nextObservedRpcRequestId += 1;
-        const requestId = `${environmentId}:${nextObservedRpcRequestId}`;
-        trackRpcRequestSent(requestId, method, `${method} · ${environmentLabel}`);
+        const requestId = `${machineId}:${nextObservedRpcRequestId}`;
+        trackRpcRequestSent(requestId, method, `${method} · ${machineLabel}`);
         return Effect.sync(() => {
           acknowledgeRpcRequest(requestId);
         });
@@ -830,7 +830,7 @@ type ConnectionPlatformLayerSource =
   | typeof layerWakeups
   | typeof layerCapabilities
   | typeof layerPlatformConnectionSource
-  | typeof layerEnvironmentOwnedDataCleanup
+  | typeof layerMachineOwnedDataCleanup
   | typeof layerRpcRequestObserver;
 
 export const layer: Layer.Layer<
@@ -843,6 +843,6 @@ export const layer: Layer.Layer<
   layerWakeups,
   layerCapabilities,
   layerPlatformConnectionSource,
-  layerEnvironmentOwnedDataCleanup,
+  layerMachineOwnedDataCleanup,
   layerRpcRequestObserver,
 );

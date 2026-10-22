@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { isWindowsAbsolutePath } from "@vekrel/shared/path";
 import { useState } from "react";
 
@@ -30,7 +30,7 @@ export function canPickExternalProjectFavicon(cwd: string, platform: string): bo
 
 export function ProjectFaviconPickerDialog(props: {
   readonly cwd: string;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly onOpenChange: (open: boolean) => void;
   readonly onPickExternal?: () => Promise<string | null>;
   readonly onSelect: (path: string) => void;
@@ -41,7 +41,7 @@ export function ProjectFaviconPickerDialog(props: {
   const [highlightedItemValue, setHighlightedItemValue] = useState<string | null>(null);
   const [isPickingExternal, setIsPickingExternal] = useState(false);
   const result = useProjectFilePickerQuery(
-    props.environmentId,
+    props.machineId,
     props.cwd,
     query,
     PROJECT_FILE_PICKER_RESULT_LIMIT,
@@ -65,7 +65,7 @@ export function ProjectFaviconPickerDialog(props: {
     icon: (
       <ProjectFaviconThumbnail
         cwd={props.cwd}
-        environmentId={props.environmentId}
+        machineId={props.machineId}
         fallback={<PierreEntryIcon pathValue={match.path} kind="file" theme={resolvedTheme} />}
         path={match.path}
       />

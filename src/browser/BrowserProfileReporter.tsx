@@ -3,9 +3,9 @@ import { useEffect } from "react";
 
 import { useClientSettings, useClientSettingsHydrated } from "~/hooks/useSettings";
 import { useServerConfigs } from "~/state/entities";
-import { useEnvironments } from "~/state/environments";
-import { previewEnvironment } from "~/state/preview";
-import { useEnvironmentsWithScope } from "~/state/session";
+import { useMachines } from "~/state/machines";
+import { previewMachine } from "~/state/preview";
+import { useMachinesWithScope } from "~/state/session";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 const selectProfiles = (settings: { readonly browserProfiles: ReadonlyArray<BrowserProfile> }) =>
@@ -17,16 +17,16 @@ export function BrowserProfileReporter() {
   const hydrated = useClientSettingsHydrated();
   const profiles = useClientSettings(selectProfiles);
   const defaultProfileId = useClientSettings(selectDefaultProfileId);
-  const { environments } = useEnvironments();
+  const { machines } = useMachines();
   const serverConfigs = useServerConfigs();
-  const operable = useEnvironmentsWithScope(environments, AuthPreviewOperateScope);
-  const report = useAtomCommand(previewEnvironment.reportProfiles, { reportFailure: false });
+  const operable = useMachinesWithScope(machines, AuthPreviewOperateScope);
+  const report = useAtomCommand(previewMachine.reportProfiles, { reportFailure: false });
 
   useEffect(() => {
     if (!hydrated) return;
-    for (const [environmentId, config] of serverConfigs) {
-      if (!config.environment.capabilities.serverBrowser || !operable.has(environmentId)) continue;
-      void report({ environmentId, input: { profiles, defaultProfileId } });
+    for (const [machineId, config] of serverConfigs) {
+      if (!config.machine.capabilities.serverBrowser || !operable.has(machineId)) continue;
+      void report({ machineId, input: { profiles, defaultProfileId } });
     }
   }, [defaultProfileId, hydrated, operable, profiles, report, serverConfigs]);
 

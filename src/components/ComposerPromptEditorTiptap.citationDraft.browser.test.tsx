@@ -1,4 +1,4 @@
-import { EnvironmentId, MessageId, ThreadId } from "@vekrel/contracts";
+import { MachineId, MessageId, ThreadId } from "@vekrel/contracts";
 import {
   serializeAssistantCitation,
   withAssistantCitationComment,
@@ -14,7 +14,7 @@ import { ComposerPromptEditor, type ComposerPromptEditorHandle } from "./Compose
 
 const citation = {
   version: 1 as const,
-  environmentId: EnvironmentId.make("environment"),
+  machineId: MachineId.make("machine"),
   threadId: ThreadId.make("thread"),
   messageId: MessageId.make("source"),
   text: "hello",
@@ -39,7 +39,7 @@ function Composer({
       <div data-assistant-citation-viewport="">
         <p
           data-assistant-citation-source={citation.messageId}
-          data-assistant-citation-environment={citation.environmentId}
+          data-assistant-citation-machine={citation.machineId}
           data-assistant-citation-thread={citation.threadId}
         >
           hello world

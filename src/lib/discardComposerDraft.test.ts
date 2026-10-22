@@ -1,5 +1,5 @@
-import { EnvironmentId, ProjectId, ThreadId } from "@vekrel/contracts";
-import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { MachineId, ProjectId, ThreadId } from "@vekrel/contracts";
+import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { toastManager } from "../components/ui/toast";
@@ -10,10 +10,10 @@ import { discardComposerDraft } from "./discardComposerDraft";
 
 vi.mock("./attachmentUploadQueue", () => ({ releaseDraftAttachments: vi.fn() }));
 
-const environmentId = EnvironmentId.make("environment-local");
-const projectRef = scopeProjectRef(environmentId, ProjectId.make("project-1"));
+const machineId = MachineId.make("machine-local");
+const projectRef = scopeProjectRef(machineId, ProjectId.make("project-1"));
 const draftId = DraftId.make("draft-1");
-const threadRef = scopeThreadRef(environmentId, ThreadId.make("thread-1"));
+const threadRef = scopeThreadRef(machineId, ThreadId.make("thread-1"));
 
 function undoNotice() {
   const notice = useThreadUndoNotice.getState().notice;

@@ -1,5 +1,5 @@
-import { createReviewEnvironmentAtoms } from "@vekrel/client-runtime/state/review";
+import { createReviewMachineAtoms } from "@vekrel/client-runtime/state/review";
 
 import { connectionAtomRuntime } from "../connection/runtime";
 
-export const reviewEnvironment = createReviewEnvironmentAtoms(connectionAtomRuntime);
+export const reviewMachine = createReviewMachineAtoms(connectionAtomRuntime);

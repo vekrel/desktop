@@ -5,14 +5,14 @@ import {
   v2ItemSupportEqual,
   type V2ItemSupport,
 } from "@vekrel/client-runtime/state/item-support";
-import type { EnvironmentId, ThreadId, TurnItemId } from "@vekrel/contracts";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import type { MachineId, ThreadId, TurnItemId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { Atom } from "effect/reactivity";
 
-import { environmentThreadDetails } from "./threads";
+import { machineThreadDetails } from "./threads";
 
 function supportKey(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId: ThreadId;
   readonly itemId: TurnItemId;
 }): string {
@@ -20,12 +20,12 @@ function supportKey(input: {
 }
 
 function parseSupportKey(key: string): {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId: ThreadId;
   readonly itemId: TurnItemId;
 } {
   return JSON.parse(key) as {
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly threadId: ThreadId;
     readonly itemId: TurnItemId;
   };
@@ -33,10 +33,10 @@ function parseSupportKey(key: string): {
 
 const itemSupportAtomFamily = Atom.family((key: string) => {
   const target = parseSupportKey(key);
-  const ref = scopeThreadRef(target.environmentId, target.threadId);
+  const ref = scopeThreadRef(target.machineId, target.threadId);
   let previous = EMPTY_V2_ITEM_SUPPORT;
   return Atom.make((get): V2ItemSupport => {
-    const scoped = get(environmentThreadDetails.threadAtom(ref));
+    const scoped = get(machineThreadDetails.threadAtom(ref));
     if (scoped === null) return EMPTY_V2_ITEM_SUPPORT;
     const next = resolveV2ItemSupport(scoped.projection, target.itemId);
     if (v2ItemSupportEqual(previous, next)) return previous;
@@ -46,14 +46,14 @@ const itemSupportAtomFamily = Atom.family((key: string) => {
 });
 
 export function useV2ItemSupport(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly sourceThreadId: ThreadId;
   readonly sourceItemId: TurnItemId;
 }): V2ItemSupport {
   return useAtomValue(
     itemSupportAtomFamily(
       supportKey({
-        environmentId: input.environmentId,
+        machineId: input.machineId,
         threadId: input.sourceThreadId,
         itemId: input.sourceItemId,
       }),

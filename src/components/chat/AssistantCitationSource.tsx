@@ -359,7 +359,7 @@ export function AssistantCitationSource({
     <div
       ref={rootRef}
       data-assistant-citation-source={messageId}
-      data-assistant-citation-environment={threadRef?.environmentId}
+      data-assistant-citation-machine={threadRef?.machineId}
       data-assistant-citation-thread={threadRef?.threadId}
     >
       {children}

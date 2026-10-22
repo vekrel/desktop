@@ -6,7 +6,7 @@ import { readHostedPairingRequest } from "../../hostedPairing";
 import {
   type ServerClientSessionRecord,
   type ServerPairingLinkRecord,
-} from "~/environments/primary";
+} from "~/machines/primary";
 import {
   type AdvertisedEndpoint,
   type AuthClientSession,
@@ -16,7 +16,7 @@ import {
   AuthTerminalReadScope,
   type DesktopBridge,
   type DesktopServerExposureState,
-  type DesktopSshEnvironmentTarget,
+  type DesktopSshMachineTarget,
   type DesktopUpdateState,
   type DesktopWslState,
 } from "@vekrel/contracts";
@@ -180,7 +180,7 @@ export function parseManualDesktopSshTarget(input: {
   readonly host: string;
   readonly username: string;
   readonly port: string;
-}): DesktopSshEnvironmentTarget {
+}): DesktopSshMachineTarget {
   const rawHost = input.host.trim();
   if (rawHost.length === 0) {
     throw new Error("SSH host or alias is required.");
@@ -290,7 +290,7 @@ export function formatDesktopSshConnectionError(error: unknown): string {
   const fallback = "Failed to connect SSH host.";
   const rawMessage = error instanceof Error ? error.message : fallback;
   const withoutIpcPrefix = rawMessage.replace(
-    /^Error invoking remote method 'desktop:ensure-ssh-environment':\s*/u,
+    /^Error invoking remote method 'desktop:ensure-ssh-machine':\s*/u,
     "",
   );
   const withoutTaggedErrorPrefix = withoutIpcPrefix.replace(/^Ssh[A-Za-z]+Error:\s*/u, "");

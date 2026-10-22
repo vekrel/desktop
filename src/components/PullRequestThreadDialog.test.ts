@@ -1,7 +1,7 @@
 import {
   AuthOrchestrationOperateScope,
   AuthSourceControlWriteScope,
-  EnvironmentId,
+  MachineId,
   ThreadId,
 } from "@vekrel/contracts";
 import * as Cause from "effect/Cause";
@@ -41,11 +41,11 @@ vi.mock("@tanstack/react-pacer", () => ({
   useDebouncedValue: (value: unknown) => [value, { state: { isPending: false } }],
 }));
 vi.mock("~/state/session", () => ({
-  useEnvironmentScope: (_environmentId: unknown, scope: string) =>
+  useMachineScope: (_machineId: unknown, scope: string) =>
     scope === AuthOrchestrationOperateScope
       ? state.canOperate
       : scope === AuthSourceControlWriteScope && state.canWriteSourceControl,
-  readEnvironmentScope: (_environmentId: unknown, scope: string) =>
+  readMachineScope: (_machineId: unknown, scope: string) =>
     scope === AuthOrchestrationOperateScope
       ? state.canOperate
       : scope === AuthSourceControlWriteScope && state.canWriteSourceControl,
@@ -67,9 +67,9 @@ vi.mock("~/rpc/atomRegistry", () => ({ appAtomRegistry: {} }));
 vi.mock("~/state/use-atom-command", () => ({
   useAtomCommand: (command: unknown) => command,
 }));
-vi.mock("~/state/sourceControl", () => ({ sourceControlEnvironment: {} }));
+vi.mock("~/state/sourceControl", () => ({ sourceControlMachine: {} }));
 vi.mock("~/state/git", () => ({
-  gitEnvironment: {
+  gitMachine: {
     preparePullRequestThread: async ({
       input: { mode, threadId },
     }: {
@@ -88,9 +88,9 @@ vi.mock("~/state/git", () => ({
   },
 }));
 vi.mock("~/lib/utils", () => ({ cn: () => "" }));
-vi.mock("~/state/query", () => ({ useEnvironmentQuery: () => ({ data: null }) }));
+vi.mock("~/state/query", () => ({ useMachineQuery: () => ({ data: null }) }));
 vi.mock("~/state/vcs", () => ({
-  vcsEnvironment: { status: () => null },
+  vcsMachine: { status: () => null },
   vcsActionManager: {
     stateAtom: () => "vcs-state",
     track: (_registry: unknown, _target: unknown, _input: unknown, execute: () => unknown) => {
@@ -133,7 +133,7 @@ function renderDialog() {
   state.hookIndex = 0;
   return PullRequestThreadDialog({
     open: true,
-    environmentId: EnvironmentId.make("environment"),
+    machineId: MachineId.make("machine"),
     threadId: ThreadId.make("thread"),
     cwd: "/repo",
     initialReference: "123",

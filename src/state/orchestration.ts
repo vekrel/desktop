@@ -1,5 +1,5 @@
-import { createOrchestrationEnvironmentAtoms } from "@vekrel/client-runtime/state/orchestration";
+import { createOrchestrationMachineAtoms } from "@vekrel/client-runtime/state/orchestration";
 
 import { connectionAtomRuntime } from "../connection/runtime";
 
-export const orchestrationEnvironment = createOrchestrationEnvironmentAtoms(connectionAtomRuntime);
+export const orchestrationMachine = createOrchestrationMachineAtoms(connectionAtomRuntime);

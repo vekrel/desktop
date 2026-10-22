@@ -2,7 +2,7 @@ import {
   scopedProjectKey,
   scopeProjectRef,
   scopeThreadRef,
-} from "@vekrel/client-runtime/environment";
+} from "@vekrel/client-runtime/machine";
 import { DEFAULT_SERVER_SETTINGS, type ScopedProjectRef, type ThreadId } from "@vekrel/contracts";
 import { useRouter } from "@tanstack/react-router";
 import {
@@ -36,7 +36,7 @@ import {
 } from "../lib/chatThreadActions";
 import { readT3ProjectFile } from "../lib/t3ProjectFileDefaults";
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { environmentServerConfigsAtom } from "../state/server";
+import { machineServerConfigsAtom } from "../state/server";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
 import { useClientSettings } from "./useSettings";
@@ -79,9 +79,9 @@ export function useNewThreadHandler() {
     const projects = readProjects();
     // Read at call time: every provider status push replaces the config map, and
     // subscribing would hand every sidebar row a new handler.
-    const environmentServerConfigs = appAtomRegistry.get(environmentServerConfigsAtom);
+    const machineServerConfigs = appAtomRegistry.get(machineServerConfigsAtom);
     const targetServerSettings =
-      environmentServerConfigs.get(projectRef.environmentId)?.settings ?? DEFAULT_SERVER_SETTINGS;
+      machineServerConfigs.get(projectRef.machineId)?.settings ?? DEFAULT_SERVER_SETTINGS;
     const {
       getComposerDraft,
       getDraftSessionByLogicalProjectKey,
@@ -119,7 +119,7 @@ export function useNewThreadHandler() {
     const project = projects.find(
       (candidate) =>
         candidate.id === projectRef.projectId &&
-        candidate.environmentId === projectRef.environmentId,
+        candidate.machineId === projectRef.machineId,
     );
     const abandonedSinceRequest = () =>
       routeChangedSinceRequest() || (project !== undefined && readProject(projectRef) === null);
@@ -142,7 +142,7 @@ export function useNewThreadHandler() {
       const consultProjectFile =
         project !== undefined && projectSettings.settings.defaultThreadEnvMode === null;
       const projectFile = consultProjectFile
-        ? await readT3ProjectFile(project.environmentId, project.workspaceRoot)
+        ? await readT3ProjectFile(project.machineId, project.workspaceRoot)
         : null;
       return resolveNewThreadEnvMode({
         projectSettings: resolveProjectSettings(
@@ -152,10 +152,10 @@ export function useNewThreadHandler() {
           projectFile,
         ),
         workspaceRoot: project?.workspaceRoot ?? null,
-        newProjectsRoot: environmentServerConfigs.get(projectRef.environmentId)?.newProjectsRoot,
+        newProjectsRoot: machineServerConfigs.get(projectRef.machineId)?.newProjectsRoot,
         projectHasThreads: readThreadShells().some(
           (thread) =>
-            thread.environmentId === projectRef.environmentId &&
+            thread.machineId === projectRef.machineId &&
             thread.projectId === projectRef.projectId,
         ),
       });
@@ -169,7 +169,7 @@ export function useNewThreadHandler() {
     const hasStartFromOriginOption = options?.startFromOrigin !== undefined;
     const storedDraftThread = getDraftSessionByLogicalProjectKey(logicalProjectKey);
     const storedDraftThreadRef = storedDraftThread
-      ? scopeThreadRef(storedDraftThread.environmentId, storedDraftThread.threadId)
+      ? scopeThreadRef(storedDraftThread.machineId, storedDraftThread.threadId)
       : null;
     const reusableStoredDraftThread =
       storedDraftThread !== null &&
@@ -337,7 +337,7 @@ export function useNewThreadHandler() {
       if (
         racedDraft &&
         racedDraft.draftId !== storedDraftThread?.draftId &&
-        readThreadShell(scopeThreadRef(racedDraft.environmentId, racedDraft.threadId)) === null
+        readThreadShell(scopeThreadRef(racedDraft.machineId, racedDraft.threadId)) === null
       ) {
         setLogicalProjectDraftThreadId(logicalProjectKey, projectRef, racedDraft.draftId, {
           threadId: racedDraft.threadId,
@@ -409,7 +409,7 @@ export function useHandleNewThread() {
     ],
   });
   const defaultProjectRef = defaultProject
-    ? scopeProjectRef(defaultProject.environmentId, defaultProject.id)
+    ? scopeProjectRef(defaultProject.machineId, defaultProject.id)
     : null;
 
   return {

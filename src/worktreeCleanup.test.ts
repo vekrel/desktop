@@ -1,16 +1,16 @@
-import { EnvironmentId, ProjectId, ProviderInstanceId, ThreadId } from "@vekrel/contracts";
+import { MachineId, ProjectId, ProviderInstanceId, ThreadId } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { DEFAULT_INTERACTION_MODE, DEFAULT_RUNTIME_MODE, type Thread } from "./types";
 import { makeThreadFixture } from "./test-fixtures";
 import { getOrphanedWorktreePathForThread } from "./worktreeCleanup";
 
-const localEnvironmentId = EnvironmentId.make("environment-local");
+const localMachineId = MachineId.make("machine-local");
 
 function makeThread(overrides: Partial<Thread> = {}): Thread {
   return makeThreadFixture({
     id: ThreadId.make("thread-1"),
-    environmentId: localEnvironmentId,
+    machineId: localMachineId,
     projectId: ProjectId.make("project-1"),
     title: "Thread",
     modelSelection: {

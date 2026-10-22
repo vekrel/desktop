@@ -1,5 +1,5 @@
 import type { ProjectReadFileResult } from "@vekrel/contracts";
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -20,7 +20,7 @@ vi.mock("~/rpc/atomRegistry", async () => {
 });
 
 import { appAtomRegistry } from "~/rpc/atomRegistry";
-import { projectEnvironment } from "~/state/projects";
+import { projectMachine } from "~/state/projects";
 import { FileSaveCoordinator } from "./fileSaveCoordinator";
 import {
   clearProjectFileQueryData,
@@ -31,9 +31,9 @@ import {
   setProjectFileQueryData,
 } from "./projectFilesQueryState";
 
-const environmentId = EnvironmentId.make("environment-project-files-query-test");
-const optimisticFile = projectEnvironment.optimisticFile({
-  environmentId,
+const machineId = MachineId.make("machine-project-files-query-test");
+const optimisticFile = projectMachine.optimisticFile({
+  machineId,
   cwd: "/repo",
   relativePath: "convex.json",
 });
@@ -48,7 +48,7 @@ function drainRegistryTasks(): void {
 
 describe("project files queries", () => {
   afterEach(() => {
-    clearProjectFileQueryData(environmentId, "/repo", "convex.json");
+    clearProjectFileQueryData(machineId, "/repo", "convex.json");
     drainRegistryTasks();
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -68,10 +68,10 @@ describe("project files queries", () => {
         persist,
         onPendingChange,
         onConfirmed: (contents) =>
-          confirmProjectFileQueryData(environmentId, "/repo", "convex.json", contents),
+          confirmProjectFileQueryData(machineId, "/repo", "convex.json", contents),
       });
     const initial = makeCoordinator();
-    setProjectFileQueryData(environmentId, "/repo", "convex.json", "unsaved draft");
+    setProjectFileQueryData(machineId, "/repo", "convex.json", "unsaved draft");
     initial.change("unsaved draft");
     canWrite = false;
     initial.dispose();
@@ -81,7 +81,7 @@ describe("project files queries", () => {
 
     expect(persist).not.toHaveBeenCalled();
     expect(onPendingChange).toHaveBeenLastCalledWith(true);
-    const unsaved = getUnsavedProjectFileQueryData(environmentId, "/repo", "convex.json");
+    const unsaved = getUnsavedProjectFileQueryData(machineId, "/repo", "convex.json");
     expect(unsaved?.contents).toBe("unsaved draft");
 
     canWrite = true;
@@ -92,7 +92,7 @@ describe("project files queries", () => {
     expect(persist).toHaveBeenCalledOnce();
     expect(persist).toHaveBeenCalledWith("unsaved draft");
     expect(onPendingChange).toHaveBeenLastCalledWith(false);
-    expect(getUnsavedProjectFileQueryData(environmentId, "/repo", "convex.json")).toBeNull();
+    expect(getUnsavedProjectFileQueryData(machineId, "/repo", "convex.json")).toBeNull();
     reopened.dispose();
     drainRegistryTasks();
     expect(appAtomRegistry.getNodes().has(optimisticFile)).toBe(false);
@@ -116,17 +116,17 @@ describe("project files queries", () => {
         persist,
         onPendingChange,
         onConfirmed: (contents) =>
-          confirmProjectFileQueryData(environmentId, "/repo", "convex.json", contents),
+          confirmProjectFileQueryData(machineId, "/repo", "convex.json", contents),
       });
 
     const initial = makeCoordinator();
-    setProjectFileQueryData(environmentId, "/repo", "convex.json", "first draft");
+    setProjectFileQueryData(machineId, "/repo", "convex.json", "first draft");
     initial.change("first draft");
     await vi.advanceTimersByTimeAsync(500);
     initial.dispose();
 
     const reopened = makeCoordinator();
-    setProjectFileQueryData(environmentId, "/repo", "convex.json", "newer draft");
+    setProjectFileQueryData(machineId, "/repo", "convex.json", "newer draft");
     reopened.change("newer draft");
     canWrite = false;
     finishFirstWrite(saved);
@@ -134,7 +134,7 @@ describe("project files queries", () => {
 
     expect(persist).toHaveBeenCalledOnce();
     expect(onPendingChange).toHaveBeenLastCalledWith(true);
-    expect(getUnsavedProjectFileQueryData(environmentId, "/repo", "convex.json")?.contents).toBe(
+    expect(getUnsavedProjectFileQueryData(machineId, "/repo", "convex.json")?.contents).toBe(
       "newer draft",
     );
 
@@ -143,7 +143,7 @@ describe("project files queries", () => {
     await vi.advanceTimersByTimeAsync(500);
     expect(persist).toHaveBeenLastCalledWith("newer draft");
     expect(onPendingChange).toHaveBeenLastCalledWith(false);
-    expect(getUnsavedProjectFileQueryData(environmentId, "/repo", "convex.json")).toBeNull();
+    expect(getUnsavedProjectFileQueryData(machineId, "/repo", "convex.json")).toBeNull();
     reopened.dispose();
   });
 
@@ -155,18 +155,18 @@ describe("project files queries", () => {
       byteLength: 20,
       truncated: false,
     } satisfies ProjectReadFileResult;
-    setProjectFileQueryData(environmentId, "/repo", "convex.json", '{"nodeVersion":"220"}');
-    setProjectFileQueryData(environmentId, "/repo", "convex.json", '{"nodeVersion":"22"}');
+    setProjectFileQueryData(machineId, "/repo", "convex.json", '{"nodeVersion":"220"}');
+    setProjectFileQueryData(machineId, "/repo", "convex.json", '{"nodeVersion":"22"}');
 
-    expect(getOptimisticProjectFileQueryData(environmentId, "/repo", "convex.json")?.contents).toBe(
+    expect(getOptimisticProjectFileQueryData(machineId, "/repo", "convex.json")?.contents).toBe(
       '{"nodeVersion":"22"}',
     );
 
     expect(
-      confirmProjectFileQueryData(environmentId, "/repo", "convex.json", '{"nodeVersion":"220"}'),
+      confirmProjectFileQueryData(machineId, "/repo", "convex.json", '{"nodeVersion":"220"}'),
     ).toBe(false);
 
-    expect(resolveProjectFileQueryData(environmentId, "/repo", "convex.json", initial)).toEqual({
+    expect(resolveProjectFileQueryData(machineId, "/repo", "convex.json", initial)).toEqual({
       relativePath: "convex.json",
       contents: '{"nodeVersion":"22"}',
       byteLength: 20,
@@ -174,7 +174,7 @@ describe("project files queries", () => {
     });
 
     expect(
-      confirmProjectFileQueryData(environmentId, "/repo", "convex.json", '{"nodeVersion":"22"}'),
+      confirmProjectFileQueryData(machineId, "/repo", "convex.json", '{"nodeVersion":"22"}'),
     ).toBe(true);
   });
 });

@@ -5,8 +5,8 @@ import * as Socket from "effect/socket/Socket";
 
 import { layerRemoteHttpClient } from "@vekrel/client-runtime/rpc";
 import * as RelayTracing from "@vekrel/shared/relayTracing";
-import * as PrimaryEnvironmentHttpClient from "../environments/primary/httpClient";
-import * as PrimaryEnvironmentHttpLayer from "../environments/primary/httpLayer";
+import * as PrimaryMachineHttpClient from "../machines/primary/httpClient";
+import * as PrimaryMachineHttpLayer from "../machines/primary/httpLayer";
 
 import * as Dpop from "../cloud/dpop";
 import * as ManagedRelayLayer from "../cloud/managedRelayLayer";
@@ -34,11 +34,11 @@ type RuntimeLayerSource =
   | ReturnType<typeof ManagedRelayLayer.layer>;
 
 const primaryHttpRuntime = ManagedRuntime.make(
-  PrimaryEnvironmentHttpClient.layer.pipe(Layer.provide(PrimaryEnvironmentHttpLayer.layer)),
+  PrimaryMachineHttpClient.layer.pipe(Layer.provide(PrimaryMachineHttpLayer.layer)),
 );
 
 export type PrimaryHttpEffectRunner = <A, E>(
-  effect: Effect.Effect<A, E, PrimaryEnvironmentHttpClient.PrimaryEnvironmentHttpClient>,
+  effect: Effect.Effect<A, E, PrimaryMachineHttpClient.PrimaryMachineHttpClient>,
 ) => Promise<A>;
 
 const livePrimaryHttpRunner: PrimaryHttpEffectRunner = (effect) =>
@@ -47,7 +47,7 @@ const livePrimaryHttpRunner: PrimaryHttpEffectRunner = (effect) =>
 let primaryHttpRunner = livePrimaryHttpRunner;
 
 export const runPrimaryHttp = <A, E>(
-  effect: Effect.Effect<A, E, PrimaryEnvironmentHttpClient.PrimaryEnvironmentHttpClient>,
+  effect: Effect.Effect<A, E, PrimaryMachineHttpClient.PrimaryMachineHttpClient>,
 ) => primaryHttpRunner(effect);
 
 export function __setPrimaryHttpRunnerForTests(runner?: PrimaryHttpEffectRunner): void {

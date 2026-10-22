@@ -1,5 +1,5 @@
-import { createMcpAppEnvironmentAtoms } from "@vekrel/client-runtime/state/mcp-apps";
+import { createMcpAppMachineAtoms } from "@vekrel/client-runtime/state/mcp-apps";
 
 import { connectionAtomRuntime } from "../connection/runtime";
 
-export const mcpAppEnvironment = createMcpAppEnvironmentAtoms(connectionAtomRuntime);
+export const mcpAppMachine = createMcpAppMachineAtoms(connectionAtomRuntime);

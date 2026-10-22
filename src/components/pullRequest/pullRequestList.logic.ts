@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 
 import {
-  EnvironmentId,
+  MachineId,
   PullRequestListEntry,
   PullRequestListProjectError,
   PullRequestListResult,
@@ -28,16 +28,16 @@ import { sourceControlRepositorySelector } from "@vekrel/shared/sourceControl";
 import { toSortableTimestamp } from "../../lib/threadSort";
 import type { PullRequestListSort } from "./pullRequestListPreferences";
 
-export interface EnvironmentPullRequestEntry extends PullRequestListEntry {
-  readonly environmentId: EnvironmentId;
+export interface MachinePullRequestEntry extends PullRequestListEntry {
+  readonly machineId: MachineId;
 }
 
-export interface EnvironmentPullRequestStat extends PullRequestDiffStat {
-  readonly environmentId: EnvironmentId;
+export interface MachinePullRequestStat extends PullRequestDiffStat {
+  readonly machineId: MachineId;
 }
 
-export interface EnvironmentPullRequestError extends PullRequestListProjectError {
-  readonly environmentId: EnvironmentId;
+export interface MachinePullRequestError extends PullRequestListProjectError {
+  readonly machineId: MachineId;
 }
 
 export type PullRequestGroupKey = "reviewRequested" | "authored" | "others";
@@ -60,10 +60,10 @@ export interface PullRequestLabelFacet extends PullRequestLabel {
 
 export type PullRequestViewers = PullRequestListResult["viewers"];
 
-type ScopedEntry = PullRequestListEntry & { readonly environmentId?: string };
+type ScopedEntry = PullRequestListEntry & { readonly machineId?: string };
 
 const pullRequestViewerKey = (entry: ScopedEntry): string =>
-  `${entry.environmentId ?? ""} ${entry.host}`;
+  `${entry.machineId ?? ""} ${entry.host}`;
 
 const GROUP_LABELS: Record<PullRequestGroupKey, string> = {
   reviewRequested: "Review requested",
@@ -224,12 +224,12 @@ export function groupPullRequestsByInvolvement<Entry extends ScopedEntry>(
 }
 
 export function pullRequestEntryKey(entry: ScopedEntry): string {
-  const scope = entry.environmentId === undefined ? "" : `${entry.environmentId}:`;
+  const scope = entry.machineId === undefined ? "" : `${entry.machineId}:`;
   return `${scope}${entry.host}:${entry.repository}#${entry.number}`;
 }
 
 export interface PullRequestStatsTarget {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly input: {
     readonly refs: ReadonlyArray<{
       readonly projectId: ProjectId;
@@ -253,7 +253,7 @@ export interface PullRequestStatsScope {
 const MAX_PULL_REQUEST_STATS_REFS = 500;
 
 export function pullRequestStatsKeysToRequest(
-  entriesByKey: ReadonlyMap<string, EnvironmentPullRequestEntry>,
+  entriesByKey: ReadonlyMap<string, MachinePullRequestEntry>,
   enteredKeys: ReadonlySet<string>,
   batches: ReadonlyArray<PullRequestStatsBatch>,
   statsByRow: ReadonlyMap<string, unknown>,
@@ -274,11 +274,11 @@ export function pullRequestStatsKeysToRequest(
 }
 
 export function pullRequestStatsBatches(
-  entriesByKey: ReadonlyMap<string, EnvironmentPullRequestEntry>,
+  entriesByKey: ReadonlyMap<string, MachinePullRequestEntry>,
   keys: ReadonlySet<string>,
 ): ReadonlyArray<PullRequestStatsBatch> {
-  const byEnvironment = new Map<
-    EnvironmentId,
+  const byMachine = new Map<
+    MachineId,
     Array<{
       readonly key: string;
       readonly ref: PullRequestStatsTarget["input"]["refs"][number];
@@ -287,7 +287,7 @@ export function pullRequestStatsBatches(
   for (const key of keys) {
     const entry = entriesByKey.get(key);
     if (entry === undefined) continue;
-    const rows = byEnvironment.get(entry.environmentId) ?? [];
+    const rows = byMachine.get(entry.machineId) ?? [];
     rows.push({
       key,
       ref: {
@@ -296,14 +296,14 @@ export function pullRequestStatsBatches(
         number: entry.number,
       },
     });
-    byEnvironment.set(entry.environmentId, rows);
+    byMachine.set(entry.machineId, rows);
   }
-  return [...byEnvironment].flatMap(([environmentId, rows]) => {
+  return [...byMachine].flatMap(([machineId, rows]) => {
     const batches: PullRequestStatsBatch[] = [];
     for (let index = 0; index < rows.length; index += MAX_PULL_REQUEST_STATS_REFS) {
       const batch = rows.slice(index, index + MAX_PULL_REQUEST_STATS_REFS);
       batches.push({
-        environmentId,
+        machineId,
         input: { refs: batch.map((row) => row.ref) },
         keys: new Set(batch.map((row) => row.key)),
       });
@@ -324,7 +324,7 @@ export function pullRequestStatsRequestBatches({
   statsByRow,
   refresh = false,
 }: {
-  readonly entriesByKey: ReadonlyMap<string, EnvironmentPullRequestEntry>;
+  readonly entriesByKey: ReadonlyMap<string, MachinePullRequestEntry>;
   readonly candidateKeys: ReadonlySet<string>;
   readonly policy: PullRequestStatsPolicy;
   readonly activeBatches: ReadonlyArray<PullRequestStatsBatch>;
@@ -347,7 +347,7 @@ export function pullRequestStatsRefreshBatches({
 }: {
   readonly requestedScope: PullRequestStatsScope;
   readonly currentScope: PullRequestStatsScope;
-  readonly entriesByKey: ReadonlyMap<string, EnvironmentPullRequestEntry>;
+  readonly entriesByKey: ReadonlyMap<string, MachinePullRequestEntry>;
   readonly candidateKeys: ReadonlySet<string>;
   readonly statsByRow: ReadonlyMap<string, unknown>;
 }): ReadonlyArray<PullRequestStatsBatch> | null {
@@ -429,7 +429,7 @@ export type PullRequestDiffStats = ReadonlyMap<
 export function mergePullRequestDiffStats(
   previous: PullRequestDiffStats,
   stats: ReadonlyArray<{
-    readonly environmentId: string;
+    readonly machineId: string;
     readonly projectId: string;
     readonly number: number;
     readonly additions: number;
@@ -448,35 +448,35 @@ export function mergePullRequestDiffStats(
 }
 
 export const pullRequestDiffStatKey = (row: {
-  readonly environmentId: string;
+  readonly machineId: string;
   readonly projectId: string;
   readonly number: number;
-}) => `${row.environmentId} ${row.projectId} ${row.number}`;
+}) => `${row.machineId} ${row.projectId} ${row.number}`;
 
 export interface MergedPullRequestList {
   readonly viewers: PullRequestViewers;
   readonly providers: PullRequestListResult["providers"];
-  readonly entries: ReadonlyArray<EnvironmentPullRequestEntry>;
-  readonly errors: ReadonlyArray<EnvironmentPullRequestError>;
+  readonly entries: ReadonlyArray<MachinePullRequestEntry>;
+  readonly errors: ReadonlyArray<MachinePullRequestError>;
   readonly truncated: boolean;
   readonly nextCursors: Readonly<Record<string, PullRequestListCursors>>;
-  readonly truncatedEnvironments: ReadonlyArray<string>;
+  readonly truncatedMachines: ReadonlyArray<string>;
 }
 
 export function mergePullRequestLists(
-  answers: ReadonlyArray<readonly [EnvironmentId, PullRequestListResult]>,
+  answers: ReadonlyArray<readonly [MachineId, PullRequestListResult]>,
 ): MergedPullRequestList | null {
   if (answers.length === 0) return null;
   const viewers: Record<string, string> = {};
-  const truncatedEnvironments: string[] = [];
+  const truncatedMachines: string[] = [];
   const providers = new Map<string, PullRequestListResult["providers"][number]>();
-  const entries: EnvironmentPullRequestEntry[] = [];
-  const errors: EnvironmentPullRequestError[] = [];
+  const entries: MachinePullRequestEntry[] = [];
+  const errors: MachinePullRequestError[] = [];
   const nextCursors: Record<string, PullRequestListCursors> = {};
   let truncated = false;
-  for (const [environmentId, answer] of answers) {
+  for (const [machineId, answer] of answers) {
     for (const [host, login] of Object.entries(answer.viewers)) {
-      viewers[`${environmentId} ${host}`] = login;
+      viewers[`${machineId} ${host}`] = login;
     }
     for (const provider of answer.providers) {
       const held = providers.get(provider.host);
@@ -492,12 +492,12 @@ export function mergePullRequestLists(
             },
       );
     }
-    entries.push(...answer.entries.map((entry) => ({ ...entry, environmentId })));
-    errors.push(...answer.errors.map((error) => ({ ...error, environmentId })));
+    entries.push(...answer.entries.map((entry) => ({ ...entry, machineId })));
+    errors.push(...answer.errors.map((error) => ({ ...error, machineId })));
     truncated ||= answer.truncated;
-    if (answer.truncated) truncatedEnvironments.push(environmentId);
+    if (answer.truncated) truncatedMachines.push(machineId);
     if (Object.keys(answer.nextCursors).length > 0) {
-      nextCursors[environmentId] = answer.nextCursors;
+      nextCursors[machineId] = answer.nextCursors;
     }
   }
   return {
@@ -507,7 +507,7 @@ export function mergePullRequestLists(
     errors,
     truncated,
     nextCursors,
-    truncatedEnvironments,
+    truncatedMachines,
   };
 }
 
@@ -515,15 +515,15 @@ const SNAPSHOT_MAX_ENTRIES = 99;
 
 type SnapshotStorage = Pick<Storage, "getItem" | "setItem">;
 
-export const pullRequestEnvironmentSetKey = (environmentIds: ReadonlyArray<string>): string =>
-  [...environmentIds].sort((left, right) => left.localeCompare(right)).join(",");
+export const pullRequestMachineSetKey = (machineIds: ReadonlyArray<string>): string =>
+  [...machineIds].sort((left, right) => left.localeCompare(right)).join(",");
 
-const snapshotStorageKey = (environmentSetKey: string) =>
-  `t3.pullRequests.list:${environmentSetKey}`;
+const snapshotStorageKey = (machineSetKey: string) =>
+  `t3.pullRequests.list:${machineSetKey}`;
 
 export interface PullRequestPartitionsSnapshot {
-  readonly authored: ReadonlyArray<EnvironmentPullRequestEntry>;
-  readonly reviewing: ReadonlyArray<EnvironmentPullRequestEntry>;
+  readonly authored: ReadonlyArray<MachinePullRequestEntry>;
+  readonly reviewing: ReadonlyArray<MachinePullRequestEntry>;
 }
 
 export interface PullRequestListSnapshot {
@@ -532,14 +532,14 @@ export interface PullRequestListSnapshot {
   readonly partitions?: PullRequestPartitionsSnapshot | undefined;
 }
 
-const EnvironmentPullRequestEntrySchema = Schema.Struct({
+const MachinePullRequestEntrySchema = Schema.Struct({
   ...PullRequestListEntry.fields,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
 });
 
-const EnvironmentPullRequestErrorSchema = Schema.Struct({
+const MachinePullRequestErrorSchema = Schema.Struct({
   ...PullRequestListProjectError.fields,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
 });
 
 const decodeSnapshot = Schema.decodeUnknownOption(
@@ -547,15 +547,15 @@ const decodeSnapshot = Schema.decodeUnknownOption(
     scope: Schema.String,
     data: Schema.Struct({
       ...PullRequestListResult.fields,
-      entries: Schema.Array(EnvironmentPullRequestEntrySchema),
-      errors: Schema.Array(EnvironmentPullRequestErrorSchema),
+      entries: Schema.Array(MachinePullRequestEntrySchema),
+      errors: Schema.Array(MachinePullRequestErrorSchema),
       nextCursors: Schema.Record(Schema.String, PullRequestListResult.fields.nextCursors),
-      truncatedEnvironments: Schema.Array(Schema.String),
+      truncatedMachines: Schema.Array(Schema.String),
     }),
     partitions: Schema.optional(
       Schema.Struct({
-        authored: Schema.Array(EnvironmentPullRequestEntrySchema),
-        reviewing: Schema.Array(EnvironmentPullRequestEntrySchema),
+        authored: Schema.Array(MachinePullRequestEntrySchema),
+        reviewing: Schema.Array(MachinePullRequestEntrySchema),
       }),
     ),
   }),
@@ -563,10 +563,10 @@ const decodeSnapshot = Schema.decodeUnknownOption(
 
 export function readPullRequestListSnapshot(
   storage: SnapshotStorage | undefined,
-  environmentSetKey: string,
+  machineSetKey: string,
 ): PullRequestListSnapshot | null {
   try {
-    const raw = storage?.getItem(snapshotStorageKey(environmentSetKey));
+    const raw = storage?.getItem(snapshotStorageKey(machineSetKey));
     if (!raw) return null;
     const decoded = decodeSnapshot(JSON.parse(raw));
     return decoded._tag === "Some" ? decoded.value : null;
@@ -577,12 +577,12 @@ export function readPullRequestListSnapshot(
 
 export function writePullRequestListSnapshot(
   storage: SnapshotStorage | undefined,
-  environmentSetKey: string,
+  machineSetKey: string,
   snapshot: PullRequestListSnapshot,
 ): void {
   try {
     storage?.setItem(
-      snapshotStorageKey(environmentSetKey),
+      snapshotStorageKey(machineSetKey),
       JSON.stringify({
         scope: snapshot.scope,
         data: {
@@ -590,7 +590,7 @@ export function writePullRequestListSnapshot(
           entries: snapshot.data.entries.slice(0, SNAPSHOT_MAX_ENTRIES),
           errors: [],
           nextCursors: {},
-          truncatedEnvironments: [],
+          truncatedMachines: [],
         },
         ...(snapshot.partitions === undefined
           ? {}
@@ -606,7 +606,7 @@ export function writePullRequestListSnapshot(
 }
 
 /**
- * Until `projectsKnown`, the id is kept rather than dropped: an environment that has not
+ * Until `projectsKnown`, the id is kept rather than dropped: a machine that has not
  * reported yet is not the same as one without the project, and dropping first would show every
  * project's pull requests for a moment before narrowing back down.
  */
@@ -620,37 +620,37 @@ export function resolveProjectScope<Id extends string>(
 }
 
 export function findScopedProject<
-  Project extends { readonly id: string; readonly environmentId: string },
+  Project extends { readonly id: string; readonly machineId: string },
 >(
   projects: ReadonlyArray<Project>,
-  environmentId: string | null | undefined,
+  machineId: string | null | undefined,
   projectId: string | undefined,
 ): Project | undefined {
   if (projectId === undefined) return undefined;
   const matches = projects.filter((project) => project.id === projectId);
-  if (environmentId === null || environmentId === undefined) {
+  if (machineId === null || machineId === undefined) {
     return matches.length === 1 ? matches[0] : undefined;
   }
-  return matches.find((project) => project.environmentId === environmentId);
+  return matches.find((project) => project.machineId === machineId);
 }
 
-export function resolveQueryEnvironmentIds<Id extends string>(
-  environmentIds: ReadonlyArray<Id>,
-  projects: ReadonlyArray<{ readonly id: string; readonly environmentId: Id }>,
-  scopedProject: { readonly environmentId: Id } | undefined,
+export function resolveQueryMachineIds<Id extends string>(
+  machineIds: ReadonlyArray<Id>,
+  projects: ReadonlyArray<{ readonly id: string; readonly machineId: Id }>,
+  scopedProject: { readonly machineId: Id } | undefined,
   scopedProjectId: string | undefined,
   projectsKnown: boolean,
 ): ReadonlyArray<Id> {
   if (scopedProject !== undefined) {
-    return environmentIds.filter((environmentId) => environmentId === scopedProject.environmentId);
+    return machineIds.filter((machineId) => machineId === scopedProject.machineId);
   }
-  if (scopedProjectId === undefined || !projectsKnown) return environmentIds;
+  if (scopedProjectId === undefined || !projectsKnown) return machineIds;
   const holders = new Set(
     projects
       .filter((project) => project.id === scopedProjectId)
-      .map((project) => project.environmentId),
+      .map((project) => project.machineId),
   );
-  return environmentIds.filter((environmentId) => holders.has(environmentId));
+  return machineIds.filter((machineId) => holders.has(machineId));
 }
 
 /**
@@ -658,13 +658,13 @@ export function resolveQueryEnvironmentIds<Id extends string>(
  * named here even while it has nothing to answer with yet, so the lookup that follows finds
  * nothing under it rather than falling through to a different server's project of the same id.
  */
-export function resolveSelectedEnvironmentId<Id extends string>(
-  namedEnvironmentId: Id | undefined,
-  knownEnvironmentIds: ReadonlySet<Id>,
-  fallbackEnvironmentId: Id | null,
+export function resolveSelectedMachineId<Id extends string>(
+  namedMachineId: Id | undefined,
+  knownMachineIds: ReadonlySet<Id>,
+  fallbackMachineId: Id | null,
 ): Id | null {
-  if (namedEnvironmentId === undefined) return fallbackEnvironmentId;
-  return knownEnvironmentIds.has(namedEnvironmentId) ? namedEnvironmentId : fallbackEnvironmentId;
+  if (namedMachineId === undefined) return fallbackMachineId;
+  return knownMachineIds.has(namedMachineId) ? namedMachineId : fallbackMachineId;
 }
 
 /**
@@ -813,7 +813,7 @@ export function sortPullRequestGroups<Entry extends PullRequestListEntry>(
 }
 
 export function withDiffStat<
-  Entry extends PullRequestListEntry & { readonly environmentId: string },
+  Entry extends PullRequestListEntry & { readonly machineId: string },
 >(
   entry: Entry,
   statsByRow: ReadonlyMap<string, { readonly additions: number; readonly deletions: number }>,
@@ -931,7 +931,7 @@ export type PullRequestQuickAction = "close" | "merge" | "ready" | "reopen";
 export function pullRequestHostActions(
   providers: ReadonlyArray<PullRequestListResult["providers"][number]>,
 ): (
-  entry: Pick<EnvironmentPullRequestEntry, "host" | "provider">,
+  entry: Pick<MachinePullRequestEntry, "host" | "provider">,
 ) => ReadonlySet<PullRequestAction> {
   const byHost = new Map(
     providers.flatMap((provider) =>
@@ -947,7 +947,7 @@ export function pullRequestHostActions(
 }
 
 export function pullRequestQuickActions(
-  entry: Pick<EnvironmentPullRequestEntry, "state" | "isDraft">,
+  entry: Pick<MachinePullRequestEntry, "state" | "isDraft">,
   hostActions: ReadonlySet<PullRequestAction>,
 ): ReadonlyArray<PullRequestQuickAction> {
   const forState: ReadonlyArray<PullRequestQuickAction> =
@@ -962,11 +962,11 @@ export function pullRequestQuickActions(
 }
 
 export function largestPullRequestReadCount(
-  entries: ReadonlyArray<EnvironmentPullRequestEntry>,
+  entries: ReadonlyArray<MachinePullRequestEntry>,
 ): number {
   const counts = new Map<string, number>();
   for (const entry of entries) {
-    const read = `${entry.environmentId} ${entry.host.toLowerCase()} ${
+    const read = `${entry.machineId} ${entry.host.toLowerCase()} ${
       entry.provider === "github" ? "" : entry.repository.toLowerCase()
     }`;
     counts.set(read, (counts.get(read) ?? 0) + 1);
@@ -977,7 +977,7 @@ export function largestPullRequestReadCount(
 export function findProjectForRepository<
   Project extends {
     readonly id: string;
-    readonly environmentId: string;
+    readonly machineId: string;
     readonly repositoryIdentity?: RepositoryIdentity | null | undefined;
   },
 >(
@@ -985,17 +985,17 @@ export function findProjectForRepository<
   input: {
     readonly repository: string;
     readonly host?: string | undefined;
-    readonly selectedEnvironmentId?: string | null | undefined;
+    readonly selectedMachineId?: string | null | undefined;
     readonly scopedProjectId?: string | undefined;
-    readonly scopedEnvironmentId?: string | null | undefined;
+    readonly scopedMachineId?: string | null | undefined;
   },
 ): Project | undefined {
   const repository = input.repository.toLowerCase();
   const host = input.host?.toLowerCase();
   const candidates = projects.filter((project) => {
     if (
-      input.selectedEnvironmentId != null &&
-      project.environmentId !== input.selectedEnvironmentId
+      input.selectedMachineId != null &&
+      project.machineId !== input.selectedMachineId
     ) {
       return false;
     }
@@ -1009,6 +1009,6 @@ export function findProjectForRepository<
     );
   });
   // Azure repository names can collide across projects on the same host.
-  const scoped = findScopedProject(candidates, input.scopedEnvironmentId, input.scopedProjectId);
+  const scoped = findScopedProject(candidates, input.scopedMachineId, input.scopedProjectId);
   return scoped ?? candidates[0];
 }

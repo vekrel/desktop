@@ -1,5 +1,5 @@
 import { findProjectByPath } from "@vekrel/client-runtime/state/projects";
-import type { AgentSessionProjectCandidate, EnvironmentId, ProjectId } from "@vekrel/contracts";
+import type { AgentSessionProjectCandidate, MachineId, ProjectId } from "@vekrel/contracts";
 
 const RECENT_PROJECT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_SELECTION_MIN_THREADS = 3;
@@ -91,15 +91,15 @@ export function groupOnboardingProjects<
 export function resolveOnboardingProjectId(
   projects: ReadonlyArray<{
     readonly id: ProjectId;
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly workspaceRoot: string;
   }>,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   candidate: Pick<AgentSessionProjectCandidate, "path" | "projectId">,
 ): ProjectId | null {
   if (candidate.projectId !== undefined) return candidate.projectId;
-  const environmentProjects = projects.filter((project) => project.environmentId === environmentId);
-  const currentRootMatch = findProjectByPath(environmentProjects, candidate.path);
+  const machineProjects = projects.filter((project) => project.machineId === machineId);
+  const currentRootMatch = findProjectByPath(machineProjects, candidate.path);
   if (currentRootMatch !== undefined) return currentRootMatch.id;
   return null;
 }
@@ -134,6 +134,6 @@ export function splitOnboardingProjectPath(path: string): {
   return { name: trimmed.slice(separatorIndex + 1), parent: trimmed.slice(0, separatorIndex + 1) };
 }
 
-export function onboardingProjectKey(environmentId: EnvironmentId, path: string): string {
-  return JSON.stringify([environmentId, path]);
+export function onboardingProjectKey(machineId: MachineId, path: string): string {
+  return JSON.stringify([machineId, path]);
 }

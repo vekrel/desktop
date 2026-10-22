@@ -1,10 +1,10 @@
 import type { CSSProperties } from "react";
 import { useState } from "react";
 import {
-  DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
+  DEFAULT_MACHINE_IDENTIFICATION_MODE,
   DEFAULT_UNIFIED_SETTINGS,
   type ChatWidth,
-  type EnvironmentIdentificationMode,
+  type MachineIdentificationMode,
   MAX_APPEARANCE_CONTRAST,
   MAX_GLASS_OPACITY,
   MAX_PANEL_ANIMATION_DURATION_MS,
@@ -13,8 +13,8 @@ import {
   MIN_PANEL_ANIMATION_DURATION_MS,
 } from "@vekrel/contracts/settings";
 import {
-  resolveEnvironmentIdentificationPillLabel,
-  useEnvironmentStageLabel,
+  resolveMachineIdentificationPillLabel,
+  useMachineStageLabel,
 } from "../SidebarStageBackdrop";
 import { useCustomThemes } from "../../hooks/useCustomThemes";
 import { useTheme } from "../../hooks/useTheme";
@@ -32,7 +32,7 @@ import { searchableSetting } from "./settingsSearch";
 import { PanelAnimationsPreview } from "./PanelAnimationsPreview";
 import { TypographySection } from "./TypographySettings";
 
-const ENVIRONMENT_IDENTIFICATION_LABELS: Record<EnvironmentIdentificationMode, string> = {
+const MACHINE_IDENTIFICATION_LABELS: Record<MachineIdentificationMode, string> = {
   artwork: "Artwork",
   pill: "Version pill",
   none: "None",
@@ -59,9 +59,9 @@ export function AppearanceSettingsPanel() {
   const [isImportThemeOpen, setIsImportThemeOpen] = useState(false);
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
-  const environmentStageLabel = useEnvironmentStageLabel();
-  const showEnvironmentIdentification =
-    resolveEnvironmentIdentificationPillLabel(environmentStageLabel) !== null;
+  const machineStageLabel = useMachineStageLabel();
+  const showMachineIdentification =
+    resolveMachineIdentificationPillLabel(machineStageLabel) !== null;
   const glassOpacityRatio =
     (settings.glassOpacity - MIN_GLASS_OPACITY) / (MAX_GLASS_OPACITY - MIN_GLASS_OPACITY);
   const glassOpacitySliderStyle = {
@@ -198,17 +198,17 @@ export function AppearanceSettingsPanel() {
           }
         />
 
-        {showEnvironmentIdentification ? (
+        {showMachineIdentification ? (
           <SettingsRow
-            {...searchableSetting("environment-identification")}
-            description="Choose how Dev and Nightly environments are identified."
+            {...searchableSetting("machine-identification")}
+            description="Choose how Dev and Nightly machines are identified."
             resetAction={
-              settings.environmentIdentificationMode !== DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE ? (
+              settings.machineIdentificationMode !== DEFAULT_MACHINE_IDENTIFICATION_MODE ? (
                 <SettingResetButton
-                  label="environment identification"
+                  label="machine identification"
                   onClick={() =>
                     updateSettings({
-                      environmentIdentificationMode: DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
+                      machineIdentificationMode: DEFAULT_MACHINE_IDENTIFICATION_MODE,
                     })
                   }
                 />
@@ -216,24 +216,24 @@ export function AppearanceSettingsPanel() {
             }
             control={
               <Select
-                value={settings.environmentIdentificationMode}
+                value={settings.machineIdentificationMode}
                 onValueChange={(value) => {
                   if (value === "artwork" || value === "pill" || value === "none") {
-                    updateSettings({ environmentIdentificationMode: value });
+                    updateSettings({ machineIdentificationMode: value });
                   }
                 }}
               >
                 <SelectTrigger
                   size="sm"
                   className="w-full sm:w-40"
-                  aria-label="Environment identification"
+                  aria-label="Machine identification"
                 >
                   <SelectValue>
-                    {ENVIRONMENT_IDENTIFICATION_LABELS[settings.environmentIdentificationMode]}
+                    {MACHINE_IDENTIFICATION_LABELS[settings.machineIdentificationMode]}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectPopup align="end" alignItemWithTrigger={false}>
-                  {Object.entries(ENVIRONMENT_IDENTIFICATION_LABELS).map(([value, label]) => (
+                  {Object.entries(MACHINE_IDENTIFICATION_LABELS).map(([value, label]) => (
                     <SelectItem hideIndicator key={value} value={value}>
                       {label}
                     </SelectItem>

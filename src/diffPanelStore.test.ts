@@ -12,7 +12,7 @@ describe("diffPanelStore", () => {
   });
 
   it("retains fold choices when a panel consumer returns with fresh defaults", () => {
-    const scopeKey = "environment-1:thread-1:branch";
+    const scopeKey = "machine-1:thread-1:branch";
     const defaults = new Set(["src/app.ts", "src/index.ts"]);
     useDiffPanelSessionStore.getState().updateCollapsedFileKeys(scopeKey, defaults, (current) => {
       const next = new Set(current);

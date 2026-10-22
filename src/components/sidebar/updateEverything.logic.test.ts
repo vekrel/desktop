@@ -1,4 +1,4 @@
-import { EnvironmentId, type ServerSelfUpdateCapability } from "@vekrel/contracts";
+import { MachineId, type ServerSelfUpdateCapability } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -15,11 +15,11 @@ function machine(
   overrides: Partial<UpdateEverythingMachine> = {},
 ): UpdateEverythingMachine {
   return {
-    environmentId: EnvironmentId.make(id),
+    machineId: MachineId.make(id),
     label: id,
     serverConfig: {
-      environment: {
-        environmentId: EnvironmentId.make(id),
+      machine: {
+        machineId: MachineId.make(id),
         label: id,
         platform: { os: "linux", arch: "x64" },
         serverVersion,
@@ -91,10 +91,10 @@ describe("collectRestartingMachines", () => {
       return {
         ...base,
         serverConfig: {
-          environment: {
-            ...base.serverConfig!.environment,
+          machine: {
+            ...base.serverConfig!.machine,
             capabilities: {
-              ...base.serverConfig!.environment.capabilities,
+              ...base.serverConfig!.machine.capabilities,
               threadRestartContinuation: true,
             },
           },
@@ -110,17 +110,17 @@ describe("collectRestartingMachines", () => {
       withContinuation("providers-only"),
     ];
     const servers = ["alvin", "opted-out", "old"].map((id) => ({
-      environmentId: EnvironmentId.make(id),
+      machineId: MachineId.make(id),
     }));
 
     expect(collectRestartingMachines(machines, servers, true)).toEqual([
-      { environmentId: "this-app", continuesThreads: true },
-      { environmentId: "alvin", continuesThreads: true },
-      { environmentId: "opted-out", continuesThreads: false },
-      { environmentId: "old", continuesThreads: false },
+      { machineId: "this-app", continuesThreads: true },
+      { machineId: "alvin", continuesThreads: true },
+      { machineId: "opted-out", continuesThreads: false },
+      { machineId: "old", continuesThreads: false },
     ]);
     expect(
-      collectRestartingMachines(machines, servers, false).map((entry) => entry.environmentId),
+      collectRestartingMachines(machines, servers, false).map((entry) => entry.machineId),
     ).toEqual(["alvin", "opted-out", "old"]);
   });
 });

@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react";
-import { AuthSessionState, type EnvironmentId } from "@vekrel/contracts";
+import { AuthSessionState, type MachineId } from "@vekrel/contracts";
 import * as Cause from "effect/Cause";
 import * as Schema from "effect/Schema";
 import { AsyncResult, Atom } from "effect/reactivity";
@@ -29,8 +29,8 @@ vi.mock(import("~/hooks/useCopyToClipboard"), async (original) => ({
 }));
 vi.mock(import("~/hooks/useSettings"), async (original) => ({
   ...(await original()),
-  useEnvironmentSettings: ((
-    _environmentId: EnvironmentId,
+  useMachineSettings: ((
+    _machineId: MachineId,
     selector: (settings: { continueThreadsAfterServerUpdate: boolean }) => unknown,
   ) =>
     selector({
@@ -41,8 +41,8 @@ vi.mock(import("~/state/session"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    environmentSession: {
-      ...actual.environmentSession,
+    machineSession: {
+      ...actual.machineSession,
       sessionStateAtom: (() => testState.sessionAtom) as never,
     },
   };
@@ -75,10 +75,10 @@ const legacyAuth = {
 
 const currentSession = {
   authenticated: true,
-  scopes: ["environment:maintain"],
+  scopes: ["machine:maintain"],
   auth: {
     ...legacyAuth,
-    serverUpdateScope: "environment:maintain",
+    serverUpdateScope: "machine:maintain",
   },
 } as const satisfies AuthSessionState;
 
@@ -122,7 +122,7 @@ async function click(screen: Screen, name?: string) {
 function renderAction(props: Partial<Parameters<typeof ServerUpdateAction>[0]> = {}) {
   return renderUpdate(
     <ServerUpdateAction
-      environmentId={"env-test" as EnvironmentId}
+      machineId={"env-test" as MachineId}
       serverLabel="Test server"
       selfUpdate="boot-service"
       targetVersion="0.0.31"
@@ -136,13 +136,13 @@ describe("ServerUpdateAction", () => {
     { serverUpdateScope: undefined, scopes: ["orchestration:operate"], allowed: true },
     { serverUpdateScope: undefined, scopes: ["orchestration:read"], allowed: false },
     {
-      serverUpdateScope: "environment:maintain",
+      serverUpdateScope: "machine:maintain",
       scopes: ["orchestration:operate"],
       allowed: false,
     },
     {
-      serverUpdateScope: "environment:maintain",
-      scopes: ["environment:maintain"],
+      serverUpdateScope: "machine:maintain",
+      scopes: ["machine:maintain"],
       allowed: true,
     },
   ] as const)(
@@ -184,7 +184,7 @@ describe("ServerUpdateAction", () => {
 describe("ServerUpdatesAction", () => {
   const targets: ReadonlyArray<ServerUpdateTarget> = [
     {
-      environmentId: "batch-a" as EnvironmentId,
+      machineId: "batch-a" as MachineId,
       serverLabel: "Laptop",
       selfUpdate: "boot-service",
       targetVersion: "0.0.31",
@@ -192,7 +192,7 @@ describe("ServerUpdatesAction", () => {
       continueThreadsAfterServerUpdate: true,
     },
     {
-      environmentId: "batch-b" as EnvironmentId,
+      machineId: "batch-b" as MachineId,
       serverLabel: "Office",
       selfUpdate: "respawn",
       targetVersion: "0.0.31",
@@ -200,7 +200,7 @@ describe("ServerUpdatesAction", () => {
       continueThreadsAfterServerUpdate: false,
     },
     {
-      environmentId: "batch-c" as EnvironmentId,
+      machineId: "batch-c" as MachineId,
       serverLabel: "Manual",
       selfUpdate: null,
       targetVersion: "0.0.31",

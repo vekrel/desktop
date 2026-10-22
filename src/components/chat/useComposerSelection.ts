@@ -1,10 +1,10 @@
-import type { EnvironmentThreadShell } from "@vekrel/client-runtime/state/shell";
+import type { MachineThreadShell } from "@vekrel/client-runtime/state/shell";
 import type { UnifiedSettings } from "@vekrel/contracts";
 import type { Dispatch } from "react";
 import type { ComposerThreadTarget, DraftSessionState } from "../../composerDraftStore";
 import { useStableCallback } from "../../hooks/useStableCallback";
 import {
-  type EnvironmentId,
+  type MachineId,
   type ModelSelection,
   ProviderInstanceId,
   type ServerProvider,
@@ -13,7 +13,7 @@ import {
   RuntimeMode,
 } from "@vekrel/contracts";
 import type { deriveThreadStructureRuntime } from "@vekrel/client-runtime/state/thread-execution";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { type SetStateAction } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toastManager } from "../ui/toast";
@@ -26,10 +26,10 @@ import {
   makeModelDisabledReason,
 } from "../ChatView.logic";
 interface ComposerSelectionInput {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly composerDraftTarget: ComposerThreadTarget;
   readonly draftThread: DraftSessionState | null;
-  readonly activeThread: EnvironmentThreadShell | undefined;
+  readonly activeThread: MachineThreadShell | undefined;
   readonly activeRuntime: ReturnType<typeof deriveThreadStructureRuntime>;
   readonly activeProjectSettings: {
     readonly settings: { readonly newWorktreesStartFromOrigin: boolean };
@@ -59,7 +59,7 @@ interface ComposerSelectionInput {
  */
 export function useComposerSelection(input: ComposerSelectionInput) {
   const {
-    environmentId,
+    machineId,
     composerDraftTarget,
     draftThread,
     activeThread,
@@ -118,7 +118,7 @@ export function useComposerSelection(input: ComposerSelectionInput) {
   const openProviderSetup = (instanceId: ProviderInstanceId) => {
     void navigate({
       to: "/settings/providers",
-      search: { environmentId, instanceId },
+      search: { machineId, instanceId },
     });
   };
   const openProviderSetupStable = useStableCallback(openProviderSetup);
@@ -208,7 +208,7 @@ export function useComposerSelection(input: ComposerSelectionInput) {
       return;
     }
     setComposerDraftModelSelection(
-      scopeThreadRef(activeThread.environmentId, activeThread.id),
+      scopeThreadRef(activeThread.machineId, activeThread.id),
       nextModelSelection,
       { explicit: true, replaceOptions: true },
     );

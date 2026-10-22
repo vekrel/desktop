@@ -1,5 +1,5 @@
 import { ACP_REGISTRY_MAX_AGENTS, AuthProvidersManageScope } from "@vekrel/contracts";
-import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { readMachineScope, useMachineScope } from "../../state/session";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -7,14 +7,14 @@ import {
 import type {
   AcpRegistryPrepareResult,
   AcpRegistrySearchAgent,
-  EnvironmentId,
+  MachineId,
   ProviderInstanceConfig,
 } from "@vekrel/contracts";
 import { ExternalLinkIcon, SearchIcon } from "lucide-react";
 import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { serverEnvironment } from "../../state/server";
-import { useEnvironmentQuery } from "../../state/query";
+import { serverMachine } from "../../state/server";
+import { useMachineQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
@@ -32,7 +32,7 @@ function errorMessage(error: unknown): string {
 }
 
 interface AcpRegistrySearchStepProps {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly providerInstances: Readonly<Record<string, ProviderInstanceConfig>>;
   readonly onPrepared: (agent: AcpRegistrySearchAgent) => void;
   readonly onManualConfiguration: () => void;
@@ -54,7 +54,7 @@ function applyAcpRegistryPrepareResult(
 }
 
 export function AcpRegistrySearchStep({
-  environmentId,
+  machineId,
   providerInstances,
   onPrepared,
   onManualConfiguration,
@@ -64,20 +64,20 @@ export function AcpRegistrySearchStep({
 }: AcpRegistrySearchStepProps) {
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
-  const canManageProviders = useEnvironmentScope(environmentId, AuthProvidersManageScope);
+  const canManageProviders = useMachineScope(machineId, AuthProvidersManageScope);
   const [preparingId, setPreparingId] = useState<string | null>(null);
   const [prepareError, setPrepareError] = useState<string | null>(null);
   const prepareGeneration = useRef(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const search = useEnvironmentQuery(
-    serverEnvironment.searchAcpRegistry({
-      environmentId,
+  const search = useMachineQuery(
+    serverMachine.searchAcpRegistry({
+      machineId,
       input: submittedQuery
         ? { query: submittedQuery }
         : { query: "", limit: ACP_REGISTRY_MAX_AGENTS },
     }),
   );
-  const prepareAgent = useAtomCommand(serverEnvironment.prepareAcpRegistryAgent, {
+  const prepareAgent = useAtomCommand(serverMachine.prepareAcpRegistryAgent, {
     reportFailure: false,
   });
 
@@ -108,12 +108,12 @@ export function AcpRegistrySearchStep({
   };
 
   const handlePrepare = async (agent: AcpRegistrySearchAgent) => {
-    if (!readEnvironmentScope(environmentId, AuthProvidersManageScope)) return;
+    if (!readMachineScope(machineId, AuthProvidersManageScope)) return;
     const generation = ++prepareGeneration.current;
     setPrepareError(null);
     setPreparingId(agent.id);
     onPreparingChange?.(true);
-    const result = await prepareAgent({ environmentId, input: { agentId: agent.id } });
+    const result = await prepareAgent({ machineId, input: { agentId: agent.id } });
     if (prepareGeneration.current !== generation) return;
     setPreparingId(null);
     onPreparingChange?.(false);

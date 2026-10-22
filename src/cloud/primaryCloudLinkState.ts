@@ -1,8 +1,8 @@
 import { useAtomValue } from "@effect/atom-react";
 import {
   AuthRelayReadScope,
-  EnvironmentId,
-  type EnvironmentCloudLinkStateResult,
+  MachineId,
+  type MachineCloudLinkStateResult,
 } from "@vekrel/contracts";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
@@ -12,11 +12,11 @@ import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { HttpClient } from "effect/http";
 
-import { usePrimaryEnvironment } from "../state/environments";
+import { usePrimaryMachine } from "../state/machines";
 import { runtime } from "../lib/runtime";
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
-import { readPrimaryCloudLinkState, type CloudLinkTarget } from "./linkEnvironment";
+import { readMachineScope, useMachineScope } from "../state/session";
+import { readPrimaryCloudLinkState, type CloudLinkTarget } from "./linkMachine";
 import { hasCloudPublicConfig } from "./publicConfig";
 
 const primaryCloudLinkAtomRuntime = Atom.runtime(
@@ -35,12 +35,12 @@ const primaryCloudLinkStateAtom = Atom.family((key: string) => {
     .pipe(
       Atom.swr({ staleTime: 5_000, revalidateOnMount: true }),
       Atom.setIdleTTL(5 * 60_000),
-      Atom.withLabel(`primary-cloud-link:${target.environmentId}`),
+      Atom.withLabel(`primary-cloud-link:${target.machineId}`),
     );
 });
 
 const EMPTY_PRIMARY_CLOUD_LINK_STATE_ATOM = Atom.make(
-  AsyncResult.success<EnvironmentCloudLinkStateResult | null>(null),
+  AsyncResult.success<MachineCloudLinkStateResult | null>(null),
 ).pipe(Atom.keepAlive, Atom.withLabel("primary-cloud-link:null"));
 
 function targetKey(target: CloudLinkTarget): string {
@@ -50,26 +50,26 @@ function targetKey(target: CloudLinkTarget): string {
 function refreshPrimaryCloudLinkState(target: CloudLinkTarget | null): void {
   if (
     target &&
-    readEnvironmentScope(EnvironmentId.make(target.environmentId), AuthRelayReadScope)
+    readMachineScope(MachineId.make(target.machineId), AuthRelayReadScope)
   ) {
     appAtomRegistry.refresh(primaryCloudLinkStateAtom(targetKey(target)));
   }
 }
 
 export function readCachedPrimaryCloudLinkState(target: CloudLinkTarget) {
-  if (!readEnvironmentScope(EnvironmentId.make(target.environmentId), AuthRelayReadScope))
+  if (!readMachineScope(MachineId.make(target.machineId), AuthRelayReadScope))
     return null;
   const result = appAtomRegistry.get(primaryCloudLinkStateAtom(targetKey(target)));
   return result._tag === "Success" ? result.value : null;
 }
 
 export function usePrimaryCloudLinkState() {
-  const primary = usePrimaryEnvironment();
-  const canReadRelay = useEnvironmentScope(primary?.environmentId ?? null, AuthRelayReadScope);
+  const primary = usePrimaryMachine();
+  const canReadRelay = useMachineScope(primary?.machineId ?? null, AuthRelayReadScope);
   const target =
     primary?.entry.target._tag === "PrimaryConnectionTarget"
       ? {
-          environmentId: primary.environmentId,
+          machineId: primary.machineId,
           label: primary.label,
           httpBaseUrl: primary.entry.target.httpBaseUrl,
           wsBaseUrl: primary.entry.target.wsBaseUrl,

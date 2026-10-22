@@ -1,5 +1,5 @@
 import { filePreviewDelimiter } from "@vekrel/shared/delimitedPreview";
-import type { EnvironmentId, ScopedThreadRef } from "@vekrel/contracts";
+import type { MachineId, ScopedThreadRef } from "@vekrel/contracts";
 import { formatAttachmentSize } from "@vekrel/client-runtime/state/attachments";
 import { readFilePreviewResponse } from "@vekrel/client-runtime/file-preview";
 import { settlePromise } from "@vekrel/client-runtime/state/runtime";
@@ -53,7 +53,7 @@ export function AttachmentFilePreview(props: {
   mimeType: string;
   sizeBytes: number;
   file?: Blob | null;
-  asset?: { environmentId: EnvironmentId; attachmentId: string };
+  asset?: { machineId: MachineId; attachmentId: string };
   htmlRender?: boolean;
   threadRef?: ScopedThreadRef;
   origin?: string;
@@ -78,10 +78,10 @@ export function AttachmentFilePreview(props: {
     : null;
   const downloadResource = resource ? { ...resource, disposition: "attachment" as const } : null;
   const refresh = useAssetUrlRefresh(
-    props.file ? null : (props.asset?.environmentId ?? null),
+    props.file ? null : (props.asset?.machineId ?? null),
     props.file ? null : resource,
   );
-  const prepareDownload = useAssetUrlRefresh(props.asset?.environmentId ?? null, downloadResource);
+  const prepareDownload = useAssetUrlRefresh(props.asset?.machineId ?? null, downloadResource);
   const [saving, setSaving] = useState(false);
   const [localUrl, setLocalUrl] = useState<string | null>(null);
   const [remoteUrl, setRemoteUrl] = useState<string | null>(null);
@@ -107,7 +107,7 @@ export function AttachmentFilePreview(props: {
     void refresh()
       .then((url) => {
         if (cancelled) return;
-        if (!url) throw new Error("Reconnect to the environment and try again.");
+        if (!url) throw new Error("Reconnect to the machine and try again.");
         authorizedAt.current = Date.now();
         setRemoteUrl(url);
       })
@@ -133,7 +133,7 @@ export function AttachmentFilePreview(props: {
       if (!file && Date.now() - authorizedAt.current > STALE_URL_MS) {
         const target = await refresh();
         if (controller.signal.aborted) return;
-        if (!target) throw new Error("Reconnect to the environment and try again.");
+        if (!target) throw new Error("Reconnect to the machine and try again.");
         authorizedAt.current = Date.now();
         if (target !== url) {
           setRemoteUrl(target);
@@ -172,7 +172,7 @@ export function AttachmentFilePreview(props: {
       let file = props.file;
       if (!file) {
         const target = await prepareDownload();
-        if (!target) throw new Error("Reconnect to the environment and try again.");
+        if (!target) throw new Error("Reconnect to the machine and try again.");
         const response = await fetch(target);
         if (!response.ok) throw new Error("The file could not be loaded. Try again.");
         file = await response.blob();

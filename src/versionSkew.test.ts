@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import type { ServerUpdateState } from "@vekrel/client-runtime/state/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -41,7 +41,7 @@ describe("versionSkew", () => {
       message: "Download failed.",
     } as const satisfies ServerUpdateState;
     const retryFailure = { ...failure };
-    const otherEnvironmentFailure = { ...failure };
+    const otherMachineFailure = { ...failure };
 
     dismissServerUpdateFailure(failure);
 
@@ -49,7 +49,7 @@ describe("versionSkew", () => {
     expect(failure.status).toBe("failed");
     expect(failure.message).toBe("Download failed.");
     expect(isServerUpdateFailureDismissed(retryFailure)).toBe(false);
-    expect(isServerUpdateFailureDismissed(otherEnvironmentFailure)).toBe(false);
+    expect(isServerUpdateFailureDismissed(otherMachineFailure)).toBe(false);
   });
 
   it("returns a mismatch when the server is behind the client", () => {
@@ -112,9 +112,9 @@ describe("versionSkew", () => {
     expect(resolveVersionMismatch("0.0.34")).toMatchObject({ serverVersion: "0.0.34" });
   });
 
-  it("keys dismissals by environment, client version, and server version", () => {
-    const environmentId = EnvironmentId.make("environment-dismissal");
-    const key = buildVersionMismatchDismissalKey(environmentId, {
+  it("keys dismissals by machine, client version, and server version", () => {
+    const machineId = MachineId.make("machine-dismissal");
+    const key = buildVersionMismatchDismissalKey(machineId, {
       clientVersion: APP_VERSION,
       serverVersion: "9.9.9",
     });
@@ -126,7 +126,7 @@ describe("versionSkew", () => {
     expect(isVersionMismatchDismissed(key)).toBe(true);
     expect(
       isVersionMismatchDismissed(
-        buildVersionMismatchDismissalKey(environmentId, {
+        buildVersionMismatchDismissalKey(machineId, {
           clientVersion: APP_VERSION,
           serverVersion: "9.9.10",
         }),

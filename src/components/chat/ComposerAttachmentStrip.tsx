@@ -1,7 +1,7 @@
 import type {
   ChatAttachment,
   ChatFileAttachment,
-  EnvironmentId,
+  MachineId,
   ScopedThreadRef,
   SnapShotSource,
 } from "@vekrel/contracts";
@@ -117,7 +117,7 @@ export function ComposerAttachmentMediaRow({
   snapShotAnimations,
   supportsAttachmentUploads,
   maxFileAttachmentBytes,
-  environmentId,
+  machineId,
   attachmentDraftTarget,
   canOperateThread,
   onExpandImage,
@@ -135,7 +135,7 @@ export function ComposerAttachmentMediaRow({
   readonly snapShotAnimations: boolean;
   readonly supportsAttachmentUploads: boolean;
   readonly maxFileAttachmentBytes: number | null;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly attachmentDraftTarget: ScopedThreadRef | DraftId;
   readonly canOperateThread: boolean;
   readonly onExpandImage: (preview: ExpandedImagePreview) => void;
@@ -261,7 +261,7 @@ export function ComposerAttachmentMediaRow({
                         className="absolute bottom-1 left-1"
                         onClick={() =>
                           retryAttachmentUpload({
-                            environmentId,
+                            machineId,
                             image,
                             draftTarget: attachmentDraftTarget,
                           })
@@ -359,7 +359,7 @@ export function ComposerAttachmentMediaRow({
                       className="absolute bottom-1 left-1"
                       onClick={() =>
                         retryAttachmentUpload({
-                          environmentId,
+                          machineId,
                           image: file,
                           draftTarget: attachmentDraftTarget,
                         })
@@ -397,7 +397,7 @@ export function ComposerAttachmentFileList({
   supportsAttachmentUploads,
   maxFileAttachmentBytes,
   fileStagingLimit,
-  environmentId,
+  machineId,
   attachmentDraftTarget,
   canOperateThread,
   onPreviewFile,
@@ -408,7 +408,7 @@ export function ComposerAttachmentFileList({
   readonly supportsAttachmentUploads: boolean;
   readonly maxFileAttachmentBytes: number | null;
   readonly fileStagingLimit: number | null;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly attachmentDraftTarget: ScopedThreadRef | DraftId;
   readonly canOperateThread: boolean;
   readonly onPreviewFile: (fileId: string) => void;
@@ -457,7 +457,7 @@ export function ComposerAttachmentFileList({
                       size="icon-xs"
                       onClick={() =>
                         retryAttachmentUpload({
-                          environmentId,
+                          machineId,
                           image: file,
                           draftTarget: attachmentDraftTarget,
                         })
@@ -517,10 +517,10 @@ export function ComposerFilePreviewDialog({
           sizeBytes={file.sizeBytes}
           file={file.file}
           origin="Draft"
-          {...(file.uploadedAttachmentId && file.uploadEnvironmentId
+          {...(file.uploadedAttachmentId && file.uploadMachineId
             ? {
                 asset: {
-                  environmentId: file.uploadEnvironmentId,
+                  machineId: file.uploadMachineId,
                   attachmentId: file.uploadedAttachmentId,
                 },
               }

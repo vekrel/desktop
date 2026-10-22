@@ -1,4 +1,4 @@
-import type { EnvironmentId, UsageLimitsReport } from "@vekrel/contracts";
+import type { MachineId, UsageLimitsReport } from "@vekrel/contracts";
 import { limitsNotice } from "@vekrel/shared/usageLimits";
 import { GaugeIcon } from "lucide-react";
 
@@ -45,7 +45,7 @@ function AccountSummary({ account }: { readonly account: UsageLimitsReport["acco
 export function usageLimitsBannerItem(
   id: string,
   report: UsageLimitsReport,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   onDismiss: () => void,
 ): ComposerBannerStackItem {
   const [first] = report.accounts;
@@ -64,16 +64,16 @@ export function usageLimitsBannerItem(
     description: summary,
     dismissLabel: "Dismiss usage limits",
     onDismiss,
-    children: <UsageLimitsBannerBody report={report} environmentId={environmentId} />,
+    children: <UsageLimitsBannerBody report={report} machineId={machineId} />,
   };
 }
 
 function UsageLimitsBannerBody({
   report,
-  environmentId,
+  machineId,
 }: {
   readonly report: UsageLimitsReport;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
 }) {
   const now = Date.parse(report.createdAt);
   return (
@@ -114,7 +114,7 @@ function UsageLimitsBannerBody({
               ) : null}
               {resetCreditInput && account.limits.resetCredits ? (
                 <ResetCredits
-                  environmentId={environmentId}
+                  machineId={machineId}
                   input={resetCreditInput}
                   credits={account.limits.resetCredits}
                   now={now}

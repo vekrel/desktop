@@ -18,7 +18,7 @@ function formatFaviconHost(host: string): string {
   return host.includes(":") ? `[${host}]` : host;
 }
 
-export function canCanonicalizeFaviconWithoutEnvironment(url: string): boolean {
+export function canCanonicalizeFaviconWithoutMachine(url: string): boolean {
   try {
     const parsed = new URL(url);
     const host = normalizeHostname(parsed.hostname);
@@ -81,7 +81,7 @@ function persistedFaviconAlias(value: unknown): string | null {
 export function faviconKey(
   projectRefKey: string,
   url: string,
-  environmentHostname: string | null,
+  machineHostname: string | null,
 ): string | null {
   if (projectRefKey.length === 0) return null;
   try {
@@ -91,7 +91,7 @@ export function faviconKey(
     const canonicalHost =
       isLocalLoopbackHost(host) ||
       host === "0.0.0.0" ||
-      (environmentHostname !== null && host === normalizeHostname(environmentHostname))
+      (machineHostname !== null && host === normalizeHostname(machineHostname))
         ? "localhost"
         : host;
     const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
@@ -104,27 +104,27 @@ export function faviconKey(
 export function faviconStorageLocation(
   projectRefKey: string,
   url: string,
-  environmentHostname: string | null,
+  machineHostname: string | null,
 ): { readonly aliases: ReadonlyArray<string>; readonly key: string } | null {
-  const canonicalKey = faviconKey(projectRefKey, url, environmentHostname);
+  const canonicalKey = faviconKey(projectRefKey, url, machineHostname);
   if (!canonicalKey) return null;
-  if (environmentHostname === null) return { aliases: [], key: canonicalKey };
+  if (machineHostname === null) return { aliases: [], key: canonicalKey };
   try {
     const parsed = new URL(url);
     const host = normalizeHostname(parsed.hostname);
-    const normalizedEnvironmentHostname = normalizeHostname(environmentHostname);
+    const normalizedMachineHostname = normalizeHostname(machineHostname);
     if (
-      normalizedEnvironmentHostname.length === 0 ||
-      (!isLocalLoopbackHost(host) && host !== "0.0.0.0" && host !== normalizedEnvironmentHostname)
+      normalizedMachineHostname.length === 0 ||
+      (!isLocalLoopbackHost(host) && host !== "0.0.0.0" && host !== normalizedMachineHostname)
     ) {
       return { aliases: [], key: canonicalKey };
     }
     return {
       aliases:
-        isLocalLoopbackHost(normalizedEnvironmentHostname) ||
-        normalizedEnvironmentHostname === "0.0.0.0"
+        isLocalLoopbackHost(normalizedMachineHostname) ||
+        normalizedMachineHostname === "0.0.0.0"
           ? []
-          : [normalizedEnvironmentHostname],
+          : [normalizedMachineHostname],
       key: canonicalKey,
     };
   } catch {

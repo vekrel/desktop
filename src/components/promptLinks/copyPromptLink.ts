@@ -1,4 +1,4 @@
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 import {
   type ModelSelection,
   repositoryGroupingKeyOf,
@@ -32,7 +32,7 @@ export function promptLinkFor(
 }
 
 export function promptLinkRepositoryOf(
-  project: Pick<EnvironmentProject, "repositoryIdentity"> | undefined,
+  project: Pick<MachineProject, "repositoryIdentity"> | undefined,
 ): PromptLinkRepository | null {
   const identity = project?.repositoryIdentity;
   if (identity == null) return null;
@@ -44,7 +44,7 @@ export function promptLinkRepositoryOf(
 
 export function composerPromptLink(input: {
   readonly target: ComposerThreadTarget;
-  readonly project: EnvironmentProject | undefined;
+  readonly project: MachineProject | undefined;
   readonly providers: ReadonlyArray<ServerProvider>;
   readonly threadModelSelection: ModelSelection | null;
   readonly withContext: boolean;

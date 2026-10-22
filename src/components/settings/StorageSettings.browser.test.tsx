@@ -17,11 +17,11 @@ vi.mock(import("../../state/server"), async (original) => {
   const allowed = Atom.make(true);
   return {
     ...actual,
-    serverEnvironment: {
-      ...actual.serverEnvironment,
+    serverMachine: {
+      ...actual.serverMachine,
       storageCleanupReport: (() => report) as never,
       runStorageCleanup: {
-        ...actual.serverEnvironment.runStorageCleanup,
+        ...actual.serverMachine.runStorageCleanup,
         permissionAtom: () => allowed,
       },
     },
@@ -34,12 +34,12 @@ vi.mock(import("../../state/use-atom-command"), async (original) => ({
 vi.mock(import("./SettingsScopeContext"), async (original) => ({
   ...(await original()),
   useSettingsScope: (() => {
-    const environment = {
-      environmentId: "env",
+    const machine = {
+      machineId: "env",
       label: "Build workstation",
       serverConfig: {
         settings: state.settings,
-        environment: {
+        machine: {
           capabilities: {
             storageCleanup: true,
             storageCleanupRun: true,
@@ -49,9 +49,9 @@ vi.mock(import("./SettingsScopeContext"), async (original) => ({
       },
     };
     return {
-      scope: { kind: "environment" },
-      environments: [environment],
-      connectedEnvironments: [environment],
+      scope: { kind: "machine" },
+      machines: [machine],
+      connectedMachines: [machine],
       targets: [],
       target: null,
     };
@@ -65,7 +65,7 @@ vi.mock(import("./useScopedSettings"), async (original) => ({
   useClearScopedSettings: () => vi.fn(),
 }));
 // The real page container needs a router and the real row reads write permission and
-// overrides from live environment state; this suite is about the cleanup panel.
+// overrides from live machine state; this suite is about the cleanup panel.
 vi.mock(import("./settingsLayout"), async (original) => ({
   ...(await original()),
   SettingsPageContainer: (({ children }: { children: ReactNode }) => children) as never,

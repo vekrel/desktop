@@ -2,16 +2,16 @@ import { useAtomValue } from "@effect/atom-react";
 import {
   type ArchivedSnapshotEntry,
   createArchivedThreadSnapshotsAtomFamily,
-  makeArchivedThreadsEnvironmentKey,
+  makeArchivedThreadsMachineKey,
 } from "@vekrel/client-runtime/state/threads";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 
-import { orchestrationEnvironment } from "../state/orchestration";
+import { orchestrationMachine } from "../state/orchestration";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 
-function archivedSnapshotAtom(environmentId: EnvironmentId) {
-  return orchestrationEnvironment.archivedShellSnapshot({
-    environmentId,
+function archivedSnapshotAtom(machineId: MachineId) {
+  return orchestrationMachine.archivedShellSnapshot({
+    machineId,
     input: {},
   });
 }
@@ -21,21 +21,21 @@ const archivedSnapshotsAtom = createArchivedThreadSnapshotsAtomFamily({
   labelPrefix: "web:archived-thread-snapshots",
 });
 
-export function refreshArchivedThreadsForEnvironment(environmentId: EnvironmentId): void {
-  appAtomRegistry.refresh(archivedSnapshotAtom(environmentId));
+export function refreshArchivedThreadsForMachine(machineId: MachineId): void {
+  appAtomRegistry.refresh(archivedSnapshotAtom(machineId));
 }
 
-export function useArchivedThreadSnapshots(environmentIds: ReadonlyArray<EnvironmentId>): {
+export function useArchivedThreadSnapshots(machineIds: ReadonlyArray<MachineId>): {
   readonly snapshots: ReadonlyArray<ArchivedSnapshotEntry>;
   readonly error: string | null;
   readonly isLoading: boolean;
   readonly refresh: () => void;
 } {
-  const environmentKey = makeArchivedThreadsEnvironmentKey(environmentIds);
-  const result = useAtomValue(archivedSnapshotsAtom(environmentKey));
+  const machineKey = makeArchivedThreadsMachineKey(machineIds);
+  const result = useAtomValue(archivedSnapshotsAtom(machineKey));
   const refresh = () => {
-    for (const environmentId of environmentIds) {
-      appAtomRegistry.refresh(archivedSnapshotAtom(environmentId));
+    for (const machineId of machineIds) {
+      appAtomRegistry.refresh(archivedSnapshotAtom(machineId));
     }
   };
 

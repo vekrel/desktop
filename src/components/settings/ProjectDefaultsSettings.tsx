@@ -8,7 +8,7 @@ import { createModelSelection } from "@vekrel/shared/model";
 import { resolveProjectSettings } from "@vekrel/shared/projectSettings";
 import { useNavigate } from "@tanstack/react-router";
 
-import { mergeEnvironmentSettings } from "../../hooks/useSettings";
+import { mergeMachineSettings } from "../../hooks/useSettings";
 import {
   getCustomModelOptionsByInstance,
   resolveEffectiveDefaultModelSelection,
@@ -19,7 +19,7 @@ import {
   resolveDefaultProviderModelSelection,
   sortProviderInstanceEntries,
 } from "../../providerInstances";
-import { useEnvironmentProviders, useEnvironments } from "../../state/environments";
+import { useMachineProviders, useMachines } from "../../state/machines";
 import { EMPTY_SERVER_PROVIDERS } from "../../state/server";
 import { resolveEnvModeLabel, WORKTREE_SUBMODULES_LABELS } from "../BranchToolbar.logic";
 import { ProviderModelPicker } from "../chat/ProviderModelPicker";
@@ -51,18 +51,18 @@ function isWorktreeSubmodules(value: string | null): value is WorktreeSubmodules
 }
 
 export function ProjectDefaultsSettings({ category }: { category: ProjectSettingsCategory }) {
-  const { scope, target, targets, connectedEnvironments } = useSettingsScope();
+  const { scope, target, targets, connectedMachines } = useSettingsScope();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const navigate = useNavigate();
-  const { environments } = useEnvironments();
-  const providersByEnvironment = useEnvironmentProviders();
+  const { machines } = useMachines();
+  const providersByMachine = useMachineProviders();
   const representative = target
-    ? environments.find((environment) => environment.environmentId === target.environmentId)
+    ? machines.find((machine) => machine.machineId === target.machineId)
     : undefined;
   const providers =
     (representative?.serverConfig
-      ? providersByEnvironment.get(representative.environmentId)
+      ? providersByMachine.get(representative.machineId)
       : undefined) ?? EMPTY_SERVER_PROVIDERS;
   const storedSelection = resolveDefaultProviderModelSelection(
     providers,
@@ -95,7 +95,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
   const mixedMergeMethod = useScopedSettingsMixed(["pullRequestMergeMethod"]);
   const modelSource = useScopedSettingSource(["defaultModelSelection"]);
   const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
-  const unavailable = connectedEnvironments.length === 0;
+  const unavailable = connectedMachines.length === 0;
   const effective = target
     ? resolveProjectSettings(target.settings, null, null, null).settings
     : null;
@@ -103,18 +103,18 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
   function modelDisabledReason(instanceId: ProviderInstanceId, model: string): string | null {
     const sourceEntry = entries.find((entry) => entry.instanceId === instanceId);
     for (const candidate of targets) {
-      const environment = environments.find(
-        (entry) => entry.environmentId === candidate.environmentId,
+      const machine = machines.find(
+        (entry) => entry.machineId === candidate.machineId,
       );
-      const providers = providersByEnvironment.get(candidate.environmentId);
-      if (!environment?.serverConfig || !providers) continue;
+      const providers = providersByMachine.get(candidate.machineId);
+      if (!machine?.serverConfig || !providers) continue;
       const entry = applyProviderInstanceSettings(
         deriveProviderInstanceEntries(providers),
         candidate.settings,
         candidate.projectId,
       ).find((option) => option.instanceId === instanceId);
       const options = getCustomModelOptionsByInstance(
-        mergeEnvironmentSettings(candidate.settings, settings),
+        mergeMachineSettings(candidate.settings, settings),
         providers,
       ).get(instanceId);
       if (
@@ -123,7 +123,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
         entry.driverKind !== sourceEntry?.driverKind ||
         !options?.some((option) => option.slug === model && !option.isUnavailable)
       ) {
-        return `This model is unavailable on ${environment?.label ?? "a selected environment"}. Select that environment to choose its model separately.`;
+        return `This model is unavailable on ${machine?.label ?? "a selected machine"}. Select that machine to choose its model separately.`;
       }
     }
     return null;
@@ -166,7 +166,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
         selection && activeEntry ? (
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
             <ProviderModelPicker
-              environmentId={representative?.environmentId ?? null}
+              machineId={representative?.machineId ?? null}
               activeInstanceId={selection.instanceId}
               model={selection.model}
               lockedProvider={null}
@@ -179,7 +179,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
                 if (representative)
                   void navigate({
                     to: "/settings/providers",
-                    search: { environmentId: representative.environmentId, instanceId },
+                    search: { machineId: representative.machineId, instanceId },
                   });
               }}
               onInstanceModelChange={(instanceId, model) =>

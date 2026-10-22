@@ -10,7 +10,7 @@ import {
   UploadIcon,
 } from "lucide-react";
 import { useState, type ReactElement } from "react";
-import { useEnvironmentThemeDefinitions } from "../../hooks/useEnvironmentTheme";
+import { useMachineThemeDefinitions } from "../../hooks/useMachineTheme";
 import { readThemeHalvesRaw } from "../../hooks/useTheme";
 import { cn } from "../../lib/utils";
 import {
@@ -521,7 +521,7 @@ export function ThemeLibrary({
   setThemeHalf: (appearance: ThemeAppearance, themeId: string | null) => boolean;
 }) {
   const openThemeEditor = useThemeEditorStore((store) => store.openThemeEditor);
-  const environmentThemes = useEnvironmentThemeDefinitions();
+  const machineThemes = useMachineThemeDefinitions();
   const [themeRemovalTarget, setThemeRemovalTarget] = useState<{
     theme: ThemeDefinition;
     collectionThemes: ReadonlyArray<ThemeDefinition>;
@@ -766,32 +766,32 @@ export function ThemeLibrary({
             />
           );
         })}
-        {environmentThemes
+        {machineThemes
           .filter(
             // A saved theme with the same id wins resolution, so its card is
             // the one that must show; rendering both would also collide keys.
-            (environmentTheme) => !customThemes.some((theme) => theme.id === environmentTheme.id),
+            (machineTheme) => !customThemes.some((theme) => theme.id === machineTheme.id),
           )
-          .map((environmentTheme) => (
+          .map((machineTheme) => (
             <ThemeLibraryCard
-              activeModes={pickedModesFor(environmentTheme.id)}
+              activeModes={pickedModesFor(machineTheme.id)}
               isActive={false}
-              key={environmentTheme.id}
+              key={machineTheme.id}
               onDuplicate={() =>
                 openThemeEditor({
                   editingThemeId: null,
-                  seedThemeId: environmentTheme.id,
-                  seedName: `${environmentTheme.label} copy`,
+                  seedThemeId: machineTheme.id,
+                  seedName: `${machineTheme.label} copy`,
                   initialAppearance,
                 })
               }
               onUse={() => {
-                const half = singleAppearanceOf(environmentTheme);
-                if (half === null) persistTheme(environmentTheme.id);
-                else assignHalf(half, environmentTheme.id);
+                const half = singleAppearanceOf(machineTheme);
+                if (half === null) persistTheme(machineTheme.id);
+                else assignHalf(half, machineTheme.id);
               }}
-              onUseMode={handlePairPick(environmentTheme.id)}
-              theme={getThemeCardDefinition(environmentTheme)}
+              onUseMode={handlePairPick(machineTheme.id)}
+              theme={getThemeCardDefinition(machineTheme)}
             />
           ))}
         {customThemeCollections.map(([collectionId, themes]) => (

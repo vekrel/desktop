@@ -1,7 +1,7 @@
 import {
   AuthOrchestrationOperateScope,
   AuthSourceControlWriteScope,
-  EnvironmentId,
+  MachineId,
   ProjectId,
   ThreadId,
   type ScopedThreadRef,
@@ -21,7 +21,7 @@ function deferred<T>() {
 const state = vi.hoisted(() => ({
   scopes: new Map<string, Set<string>>(),
   threads: [] as {
-    environmentId: EnvironmentId;
+    machineId: MachineId;
     id: ThreadId;
     projectId: ProjectId;
     title: string;
@@ -29,7 +29,7 @@ const state = vi.hoisted(() => ({
     session: { status: "ready" | "stopped" } | null;
     latestTurn: null;
   }[],
-  requests: [] as { action: string; environmentId: string; input: { threadId?: string } }[],
+  requests: [] as { action: string; machineId: string; input: { threadId?: string } }[],
   localEffects: [] as string[],
   confirm: vi.fn<(message: string) => Promise<boolean>>(),
   toasts: [] as string[],
@@ -46,18 +46,18 @@ vi.mock("@tanstack/react-router", () => ({
   useRouter: () => ({ state: { matches: [] }, navigate: async () => {} }),
 }));
 vi.mock("../state/session", () => ({
-  environmentSession: { sessionStateAtom: "session" },
-  readEnvironmentScope: (environmentId: string, scope: string) =>
-    state.scopes.get(environmentId)?.has(scope) === true,
+  machineSession: { sessionStateAtom: "session" },
+  readMachineScope: (machineId: string, scope: string) =>
+    state.scopes.get(machineId)?.has(scope) === true,
 }));
 vi.mock("../state/use-atom-command", () => ({
   useAtomCommand:
     (action: string) =>
-    async (request: { environmentId: string; input: { threadId?: string } }) => {
+    async (request: { machineId: string; input: { threadId?: string } }) => {
       state.requests.push({ action, ...request });
       const scope =
         action === "removeWorktree" ? AuthSourceControlWriteScope : AuthOrchestrationOperateScope;
-      if (!state.scopes.get(request.environmentId)?.has(scope)) {
+      if (!state.scopes.get(request.machineId)?.has(scope)) {
         return AsyncResult.failure(Cause.fail(new Error("Server denied the request")));
       }
       state.afterRequest?.(action);
@@ -65,17 +65,17 @@ vi.mock("../state/use-atom-command", () => ({
     },
 }));
 vi.mock("../state/use-atom-query-runner", () => ({
-  useAtomQueryRunner: () => async (environmentId: string) =>
+  useAtomQueryRunner: () => async (machineId: string) =>
     state.sessionLookupFails
       ? AsyncResult.failure(Cause.fail(new Error("Session lookup failed")))
       : AsyncResult.success({
           authenticated: true,
-          scopes: [...(state.scopes.get(environmentId) ?? [])],
-          auth: { serverUpdateScope: "environment:maintain" },
+          scopes: [...(state.scopes.get(machineId) ?? [])],
+          auth: { serverUpdateScope: "machine:maintain" },
         }),
 }));
 vi.mock("../state/threads", () => ({
-  threadEnvironment: Object.fromEntries(
+  threadMachine: Object.fromEntries(
     [
       "archive",
       "unarchive",
@@ -92,22 +92,22 @@ vi.mock("../state/threads", () => ({
   ),
 }));
 vi.mock("../state/vcs", () => ({
-  vcsEnvironment: { removeWorktree: "removeWorktree", refreshStatus: "refreshStatus" },
+  vcsMachine: { removeWorktree: "removeWorktree", refreshStatus: "refreshStatus" },
 }));
 vi.mock("../state/entities", () => ({
-  readEnvironmentSupportsPinning: () => true,
-  readEnvironmentSupportsPinReorder: () => true,
-  readEnvironmentSupportsSettlement: () => true,
-  readEnvironmentSupportsSnooze: () => true,
+  readMachineSupportsPinning: () => true,
+  readMachineSupportsPinReorder: () => true,
+  readMachineSupportsSettlement: () => true,
+  readMachineSupportsSnooze: () => true,
   readThreadShell: (ref: ScopedThreadRef) =>
     state.threads.find(
-      (thread) => thread.environmentId === ref.environmentId && thread.id === ref.threadId,
+      (thread) => thread.machineId === ref.machineId && thread.id === ref.threadId,
     ) ?? null,
   readThreadShells: () => state.threads,
-  readEnvironmentThreadRefs: (environmentId: EnvironmentId) =>
+  readMachineThreadRefs: (machineId: MachineId) =>
     state.threads
-      .filter((thread) => thread.environmentId === environmentId)
-      .map((thread) => ({ environmentId, threadId: thread.id })),
+      .filter((thread) => thread.machineId === machineId)
+      .map((thread) => ({ machineId, threadId: thread.id })),
   readProject: () => ({ workspaceRoot: "/project" }),
 }));
 vi.mock("../components/Sidebar.logic", () => ({
@@ -134,7 +134,7 @@ vi.mock("../uiStateStore", () => ({
     }),
 }));
 vi.mock("../lib/archivedThreadsState", () => ({
-  refreshArchivedThreadsForEnvironment: () => state.localEffects.push("refresh-archive"),
+  refreshArchivedThreadsForMachine: () => state.localEffects.push("refresh-archive"),
 }));
 vi.mock("../lib/composerDraftUploads", () => ({
   releaseComposerDraftUploads: () => state.localEffects.push("release-uploads"),
@@ -166,9 +166,9 @@ vi.mock("./useSettings", () => ({
 
 import { useThreadActions } from "./useThreadActions";
 
-const primary = EnvironmentId.make("primary");
-const secondary = EnvironmentId.make("secondary");
-const target = { environmentId: secondary, threadId: ThreadId.make("thread") };
+const primary = MachineId.make("primary");
+const secondary = MachineId.make("secondary");
+const target = { machineId: secondary, threadId: ThreadId.make("thread") };
 type ThreadActions = ReturnType<typeof useThreadActions>;
 const operations = [
   {
@@ -214,7 +214,7 @@ beforeEach(() => {
   ]);
   state.threads = [
     {
-      environmentId: secondary,
+      machineId: secondary,
       id: target.threadId,
       projectId: ProjectId.make("project"),
       title: "Thread",
@@ -232,7 +232,7 @@ beforeEach(() => {
 });
 
 describe("thread action permissions", () => {
-  it.each(operations)("$name requires the target environment's grant", async ({ run }) => {
+  it.each(operations)("$name requires the target machine's grant", async ({ run }) => {
     const result = await run(useThreadActions(), target);
     expect(result._tag).toBe("Failure");
     expect(state.requests).toEqual([]);
@@ -255,7 +255,7 @@ describe("thread action permissions", () => {
       state.scopes.get(secondary)!.add(AuthOrchestrationOperateScope);
       expect((await run(actions, target))._tag).toBe("Success");
       expect(state.requests).toEqual([
-        expect.objectContaining({ action: name, environmentId: secondary }),
+        expect.objectContaining({ action: name, machineId: secondary }),
       ]);
     },
   );
@@ -285,7 +285,7 @@ describe("thread action permissions", () => {
     },
   );
 
-  it("deletes an archived thread only with its own environment's grant", async () => {
+  it("deletes an archived thread only with its own machine's grant", async () => {
     state.threads = [];
     const actions = useThreadActions();
     await actions.deleteThread(target);
@@ -293,7 +293,7 @@ describe("thread action permissions", () => {
     state.scopes.get(secondary)!.add(AuthOrchestrationOperateScope);
     expect((await actions.deleteThread(target))._tag).toBe("Success");
     expect(state.requests).toEqual([
-      expect.objectContaining({ action: "delete", environmentId: secondary }),
+      expect.objectContaining({ action: "delete", machineId: secondary }),
     ]);
   });
 

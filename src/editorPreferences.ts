@@ -2,8 +2,8 @@ import {
   AuthOrchestrationOperateScope,
   EDITORS,
   EditorId,
-  EnvironmentAuthorizationError,
-  EnvironmentId,
+  MachineAuthorizationError,
+  MachineId,
 } from "@vekrel/contracts";
 import {
   mapAtomCommandResult,
@@ -14,33 +14,33 @@ import * as Cause from "effect/Cause";
 import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/reactivity";
 import { getLocalStorageItem, setLocalStorageItem, useLocalStorage } from "./hooks/useLocalStorage";
-import { shellEnvironment } from "./state/shell";
+import { shellMachine } from "./state/shell";
 import { useAtomCommand } from "./state/use-atom-command";
-import { readEnvironmentScope } from "./state/session";
+import { readMachineScope } from "./state/session";
 
 const LAST_EDITOR_KEY = "t3code:last-editor";
 
-export class PreferredEditorEnvironmentRequiredError extends Schema.TaggedError<PreferredEditorEnvironmentRequiredError>()(
-  "PreferredEditorEnvironmentRequiredError",
+export class PreferredEditorMachineRequiredError extends Schema.TaggedError<PreferredEditorMachineRequiredError>()(
+  "PreferredEditorMachineRequiredError",
   {
     targetPath: Schema.String,
   },
 ) {
   override get message(): string {
-    return `Cannot open ${this.targetPath} because no environment is selected.`;
+    return `Cannot open ${this.targetPath} because no machine is selected.`;
   }
 }
 
 export class PreferredEditorUnavailableError extends Schema.TaggedError<PreferredEditorUnavailableError>()(
   "PreferredEditorUnavailableError",
   {
-    environmentId: EnvironmentId,
+    machineId: MachineId,
     targetPath: Schema.String,
     availableEditorIds: Schema.Array(EditorId),
   },
 ) {
   override get message(): string {
-    return `No available editor can open ${this.targetPath} in environment ${this.environmentId}.`;
+    return `No available editor can open ${this.targetPath} in machine ${this.machineId}.`;
   }
 }
 
@@ -65,10 +65,10 @@ function resolveAndPersistPreferredEditor(availableEditors: readonly EditorId[])
 }
 
 export function useOpenInPreferredEditor(
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   availableEditors: readonly EditorId[],
 ) {
-  const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
+  const openInEditor = useAtomCommand(shellMachine.openInEditor, {
     reportFailure: false,
   });
   type OpenInEditorError = AtomCommandFailure<Awaited<ReturnType<typeof openInEditor>>>;
@@ -79,26 +79,26 @@ export function useOpenInPreferredEditor(
     AtomCommandResult<
       EditorId,
       | OpenInEditorError
-      | PreferredEditorEnvironmentRequiredError
+      | PreferredEditorMachineRequiredError
       | PreferredEditorUnavailableError
-      | EnvironmentAuthorizationError
+      | MachineAuthorizationError
     >
   > => {
-    if (environmentId === null) {
+    if (machineId === null) {
       return AsyncResult.failure(
         Cause.fail(
-          new PreferredEditorEnvironmentRequiredError({
+          new PreferredEditorMachineRequiredError({
             targetPath,
           }),
         ),
       );
     }
-    if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
+    if (!readMachineScope(machineId, AuthOrchestrationOperateScope)) {
       return AsyncResult.failure(
         Cause.fail(
-          new EnvironmentAuthorizationError({
+          new MachineAuthorizationError({
             requiredScope: AuthOrchestrationOperateScope,
-            message: "This connection cannot open an editor on this environment.",
+            message: "This connection cannot open an editor on this machine.",
           }),
         ),
       );
@@ -108,7 +108,7 @@ export function useOpenInPreferredEditor(
       return AsyncResult.failure(
         Cause.fail(
           new PreferredEditorUnavailableError({
-            environmentId,
+            machineId,
             targetPath,
             availableEditorIds: availableEditors,
           }),
@@ -116,7 +116,7 @@ export function useOpenInPreferredEditor(
       );
     }
     const result = await openInEditor({
-      environmentId,
+      machineId,
       input: {
         cwd: targetPath,
         editor,

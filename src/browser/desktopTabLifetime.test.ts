@@ -2,7 +2,7 @@ import {
   DEFAULT_PREVIEW_APPEARANCE,
   DEFAULT_PREVIEW_ZOOM_FACTOR,
   DEFAULT_CLIENT_SETTINGS,
-  EnvironmentId,
+  MachineId,
   ThreadId,
 } from "@vekrel/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -45,12 +45,12 @@ describe("desktopTabLifetime", () => {
     vi.restoreAllMocks();
   });
 
-  it("keeps identical server tab ids from two environments in separate desktop slots", async () => {
+  it("keeps identical server tab ids from two machines in separate desktop slots", async () => {
     vi.useFakeTimers();
     createTab.mockResolvedValue(undefined);
     const tabA = previewRuntimeTabId(
       {
-        environmentId: EnvironmentId.make("environment-a"),
+        machineId: MachineId.make("machine-a"),
         threadId: ThreadId.make("thread-a"),
       },
       "epoch-a",
@@ -58,7 +58,7 @@ describe("desktopTabLifetime", () => {
     );
     const tabB = previewRuntimeTabId(
       {
-        environmentId: EnvironmentId.make("environment-b"),
+        machineId: MachineId.make("machine-b"),
         threadId: ThreadId.make("thread-b"),
       },
       "epoch-b",

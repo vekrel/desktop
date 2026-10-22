@@ -21,7 +21,7 @@ import {
 import { makeStreamingTimelineFixture } from "../../test-fixtures";
 import type { TurnDiffSummary } from "../../types";
 import { describe, expect, it } from "vite-plus/test";
-import { EnvironmentId, MessageId, RunId } from "@vekrel/contracts";
+import { MachineId, MessageId, RunId } from "@vekrel/contracts";
 import { serializeAssistantCitation } from "@vekrel/shared/assistantCitations";
 import {
   computeStableMessagesTimelineRows,
@@ -3116,7 +3116,7 @@ describe("linked timeline resources", () => {
               runId,
               type: "dynamic_tool",
               status: failed ? "failed" : status,
-              toolName: "t3-code.delegate_task",
+              toolName: "vekrel.delegate_task",
               input: { task: taskId === "b" ? "a" : taskId, role },
               ...(status === "completed"
                 ? {
@@ -3911,7 +3911,7 @@ describe("shouldCollapseUserMessage", () => {
     const quote = "A long assistant paragraph that the user quoted. ".repeat(40);
     const citation = serializeAssistantCitation({
       version: 1,
-      environmentId: EnvironmentId.make("environment"),
+      machineId: MachineId.make("machine"),
       threadId: ThreadId.make("thread"),
       messageId: MessageId.make("source"),
       text: quote,

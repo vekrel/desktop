@@ -3,7 +3,7 @@ import {
   AuthOrchestrationOperateScope,
   buildRemoteOpenUrl,
   EditorId,
-  type EnvironmentId,
+  type MachineId,
   type ResolvedKeybindingsConfig,
 } from "@vekrel/contracts";
 import { memo, useEffect, useRef } from "react";
@@ -16,7 +16,7 @@ import {
   useRemoteOpenHint,
   useRemoteOpenState,
 } from "../../remoteOpen";
-import { useEnvironment } from "../../state/environments";
+import { useMachine } from "../../state/machines";
 import { ChevronDownIcon, FolderClosedIcon, SquareArrowOutUpRightIcon } from "lucide-react";
 
 import { Group, GroupSeparator } from "../ui/group";
@@ -59,7 +59,7 @@ import {
   WebStormIcon,
 } from "../JetBrainsIcons";
 import { cn, isMacPlatform, isWindowsPlatform } from "~/lib/utils";
-import { shellEnvironment } from "~/state/shell";
+import { shellMachine } from "~/state/shell";
 import { useAtomCommand } from "~/state/use-atom-command";
 import {
   THREAD_DETAILS_PANEL_CHEVRON_CLASS,
@@ -68,7 +68,7 @@ import {
   THREAD_DETAILS_PANEL_SPLIT_GROUP_CLASS,
   THREAD_DETAILS_PANEL_SPLIT_SEPARATOR_CLASS,
 } from "./threadDetailsPanelStyles";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import { readMachineScope, useMachineScope } from "~/state/session";
 import { useComposerMenuState } from "./useComposerMenuState";
 
 type OpenInOption = {
@@ -201,7 +201,7 @@ function getOpenInIconClass(kind: OpenInOption["kind"]) {
 }
 
 export const OpenInPicker = memo(function OpenInPicker({
-  environmentId,
+  machineId,
   keybindings,
   availableEditors,
   openInCwd,
@@ -212,7 +212,7 @@ export const OpenInPicker = memo(function OpenInPicker({
   displayMode = "toolbar",
   revealFileManager = false,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   keybindings: ResolvedKeybindingsConfig;
   availableEditors: ReadonlyArray<EditorId>;
   openInCwd: string | null;
@@ -226,15 +226,15 @@ export const OpenInPicker = memo(function OpenInPicker({
   const isPanel = displayMode === "panel";
   const ActionGroup = isPanel ? "div" : Group;
   const panelAnchorRef = useRef<HTMLDivElement | null>(null);
-  const openInEditorMutation = useAtomCommand(shellEnvironment.openInEditor, "open in editor");
-  const remote = useRemoteOpenState(environmentId);
-  const canOperateHost = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
+  const openInEditorMutation = useAtomCommand(shellMachine.openInEditor, "open in editor");
+  const remote = useRemoteOpenState(machineId);
+  const canOperateHost = useMachineScope(machineId, AuthOrchestrationOperateScope);
   const isHostEditorDenied = remote.mode === "local-exec" && !canOperateHost;
   const canOpenEditor = remote.mode !== "remote-unavailable" && !isHostEditorDenied;
   const [menuOpen, setMenuOpen] = useComposerMenuState(isHostEditorDenied);
   const remoteCapableEditors = useRemoteCapableEditors();
   const [remoteHintSeen, markRemoteHintSeen] = useRemoteOpenHint();
-  const environmentLabel = useEnvironment(environmentId)?.label ?? "this machine";
+  const machineLabel = useMachine(machineId)?.label ?? "this machine";
   // Remote mode ignores the server's PATH probe: what matters is what runs on
   // the viewing machine, which only the desktop app can probe.
   const effectiveEditors = remote.mode === "local-exec" ? availableEditors : remoteCapableEditors;
@@ -262,9 +262,9 @@ export const OpenInPicker = memo(function OpenInPicker({
       });
       return;
     }
-    if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return;
+    if (!readMachineScope(machineId, AuthOrchestrationOperateScope)) return;
     const result = openInEditorMutation({
-      environmentId,
+      machineId,
       input: {
         cwd: openInCwd,
         editor,
@@ -288,7 +288,7 @@ export const OpenInPicker = memo(function OpenInPicker({
       if (!preferredEditor) return;
       if (
         remote.mode === "local-exec" &&
-        !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)
+        !readMachineScope(machineId, AuthOrchestrationOperateScope)
       )
         return;
 
@@ -300,7 +300,7 @@ export const OpenInPicker = memo(function OpenInPicker({
   }, [
     canOpenEditor,
     enableShortcut,
-    environmentId,
+    machineId,
     keybindings,
     openInCwd,
     openInEditor,
@@ -316,7 +316,7 @@ export const OpenInPicker = memo(function OpenInPicker({
     <>
       {remote.mode === "remote-unavailable" ? (
         <MenuItem density={presentation === "menu" ? "touch" : "default"} disabled>
-          No SSH route to {environmentLabel}
+          No SSH route to {machineLabel}
         </MenuItem>
       ) : (
         <>
@@ -347,7 +347,7 @@ export const OpenInPicker = memo(function OpenInPicker({
           ))}
           {remote.mode === "remote-links" && !remoteHintSeen && (
             <MenuItem density={presentation === "menu" ? "touch" : "default"} disabled>
-              Opens over SSH. Needs your key on {environmentLabel}
+              Opens over SSH. Needs your key on {machineLabel}
             </MenuItem>
           )}
         </>

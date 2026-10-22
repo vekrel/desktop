@@ -4,7 +4,7 @@ import { resolveWorkspaceFilePath } from "@vekrel/shared/path";
 import { Atom } from "effect/reactivity";
 import { createContext, useEffect, useRef, type ReactNode } from "react";
 
-import { projectEnvironment } from "../state/projects";
+import { projectMachine } from "../state/projects";
 import { useAtomCommand } from "../state/use-atom-command";
 
 export const FileMetadataThreadContext = createContext<ScopedThreadRef | null>(null);
@@ -19,12 +19,12 @@ export function FileMetadataThreadProvider(props: {
   children?: ReactNode;
 }) {
   const { threadRef, cwd, checkpoints, children } = props;
-  useAtomValue(threadRef ? projectEnvironment.fileMetadataThread(threadRef) : EMPTY_RETENTION);
-  const invalidate = useAtomCommand(projectEnvironment.invalidateFileMetadata, {
+  useAtomValue(threadRef ? projectMachine.fileMetadataThread(threadRef) : EMPTY_RETENTION);
+  const invalidate = useAtomCommand(projectMachine.invalidateFileMetadata, {
     reportFailure: false,
   });
   const previous = useRef<{
-    environmentId: ScopedThreadRef["environmentId"];
+    machineId: ScopedThreadRef["machineId"];
     threadId: ScopedThreadRef["threadId"];
     cwd: string;
     checkpoints: OrchestrationV2ThreadProjection["checkpoints"];
@@ -39,7 +39,7 @@ export function FileMetadataThreadProvider(props: {
     previous.current = { ...threadRef, cwd, checkpoints };
     if (
       !before ||
-      before.environmentId !== threadRef.environmentId ||
+      before.machineId !== threadRef.machineId ||
       before.threadId !== threadRef.threadId ||
       before.cwd !== cwd
     )
@@ -56,7 +56,7 @@ export function FileMetadataThreadProvider(props: {
     for (const checkpoint of oldById.values())
       for (const file of checkpoint.files) paths.add(resolveWorkspaceFilePath(file.path, cwd));
     if (paths.size > 0)
-      void invalidate({ environmentId: threadRef.environmentId, input: { paths: [...paths] } });
+      void invalidate({ machineId: threadRef.machineId, input: { paths: [...paths] } });
   }, [threadRef, cwd, checkpoints, invalidate]);
 
   return <FileMetadataThreadContext value={threadRef}>{children}</FileMetadataThreadContext>;

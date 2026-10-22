@@ -1,28 +1,28 @@
-import type { EditorId, EnvironmentId, ResolvedKeybindingsConfig } from "@vekrel/contracts";
+import type { EditorId, MachineId, ResolvedKeybindingsConfig } from "@vekrel/contracts";
 import { useEffect } from "react";
 
 import { usePreferredEditor } from "../../editorPreferences";
 import { isOpenFavoriteEditorShortcut } from "../../keybindings";
 import { useRemoteOpenState } from "../../remoteOpen";
-import { shellEnvironment } from "../../state/shell";
+import { shellMachine } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 
 export function useOpenFavoriteEditorShortcut({
   enabled,
-  environmentId,
+  machineId,
   keybindings,
   availableEditors,
   openInCwd,
 }: {
   enabled: boolean;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   keybindings: ResolvedKeybindingsConfig;
   availableEditors: ReadonlyArray<EditorId>;
   openInCwd: string | null;
 }) {
-  const openInEditorMutation = useAtomCommand(shellEnvironment.openInEditor, "open in editor");
+  const openInEditorMutation = useAtomCommand(shellMachine.openInEditor, "open in editor");
   const [preferredEditor] = usePreferredEditor(availableEditors);
-  const remote = useRemoteOpenState(environmentId);
+  const remote = useRemoteOpenState(machineId);
 
   useEffect(() => {
     if (!enabled || remote.mode !== "local-exec") return;
@@ -32,7 +32,7 @@ export function useOpenFavoriteEditorShortcut({
 
       event.preventDefault();
       void openInEditorMutation({
-        environmentId,
+        machineId,
         input: {
           cwd: openInCwd,
           editor: preferredEditor,
@@ -43,7 +43,7 @@ export function useOpenFavoriteEditorShortcut({
     return () => window.removeEventListener("keydown", handler);
   }, [
     enabled,
-    environmentId,
+    machineId,
     keybindings,
     openInCwd,
     openInEditorMutation,

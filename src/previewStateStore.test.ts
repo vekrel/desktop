@@ -1,6 +1,6 @@
-import { scopedThreadKey, scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey, scopeThreadRef } from "@vekrel/client-runtime/machine";
 import {
-  type EnvironmentId,
+  type MachineId,
   type PreviewEvent,
   type PreviewSessionSnapshot,
   ThreadId,
@@ -22,8 +22,8 @@ import {
 } from "./previewStateStore";
 import { appAtomRegistry } from "./rpc/atomRegistry";
 
-const environmentId = "env-1" as EnvironmentId;
-const ref = scopeThreadRef(environmentId, ThreadId.make("thread-1"));
+const machineId = "env-1" as MachineId;
+const ref = scopeThreadRef(machineId, ThreadId.make("thread-1"));
 
 const makeSnapshot = (overrides: Partial<PreviewSessionSnapshot> = {}): PreviewSessionSnapshot => ({
   threadId: "thread-1",

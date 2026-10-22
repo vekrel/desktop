@@ -1,5 +1,5 @@
 import {
-  EnvironmentId,
+  MachineId,
   ProjectId,
   DEFAULT_SERVER_SETTINGS,
   type ServerConfig,
@@ -23,22 +23,22 @@ import {
   taskToDraft,
 } from "./scheduledTasksSettings.logic";
 
-const laptopId = EnvironmentId.make("laptop");
-const serverId = EnvironmentId.make("server");
-const environments = [
-  { environmentId: laptopId, label: "Laptop" },
-  { environmentId: serverId, label: "Server" },
+const laptopId = MachineId.make("laptop");
+const serverId = MachineId.make("server");
+const machines = [
+  { machineId: laptopId, label: "Laptop" },
+  { machineId: serverId, label: "Server" },
 ];
 
-function member(id: string, environmentId: EnvironmentId): SidebarProjectGroupMember {
+function member(id: string, machineId: MachineId): SidebarProjectGroupMember {
   return {
     id: ProjectId.make(id),
-    environmentId,
+    machineId,
     title: "Vekrel",
     workspaceRoot: `/repos/${id}`,
-    physicalProjectKey: `${environmentId}:/repos/${id}`,
-    environmentLabel:
-      environments.find((environment) => environment.environmentId === environmentId)?.label ??
+    physicalProjectKey: `${machineId}:/repos/${id}`,
+    machineLabel:
+      machines.find((machine) => machine.machineId === machineId)?.label ??
       null,
     defaultModelSelection: null,
     scripts: [],
@@ -62,14 +62,14 @@ function group(
     displayName: projectKey,
     memberProjects: members,
     memberProjectRefs: members.map((project) => ({
-      environmentId: project.environmentId,
+      machineId: project.machineId,
       projectId: project.id,
     })),
     groupedProjectCount: members.length,
-    environmentPresence: "mixed",
+    machinePresence: "mixed",
     allRemoteMembersAreDesktopLocal: false,
     allRemoteMembersAreWsl: false,
-    remoteEnvironmentLabels: [],
+    remoteMachineLabels: [],
   };
 }
 
@@ -77,7 +77,7 @@ const sameIdElsewhere = member("first", serverId);
 const groups = [group("t3code", [first, second, third]), group("other", [other, sameIdElsewhere])];
 const tasks = [first, second, third, other, sameIdElsewhere].map((project, index) => ({
   id: `task-${index}`,
-  environmentId: project.environmentId,
+  machineId: project.machineId,
   projectId: project.id,
 }));
 
@@ -93,26 +93,26 @@ describe("scheduled task settings scope", () => {
     { search: { project: "t3code", checkout: "removed" }, expected: [] },
     { search: { project: "other", machine: laptopId }, expected: [] },
   ])("lists only matching tasks for $search", ({ search, expected }) => {
-    const scope = resolveSettingsScope(search, groups, environments);
+    const scope = resolveSettingsScope(search, groups, machines);
     expect(
       tasks
-        .filter((task) => matchesScheduledTaskScope(scope, task.environmentId, task.projectId))
+        .filter((task) => matchesScheduledTaskScope(scope, task.machineId, task.projectId))
         .map((task) => task.id),
     ).toEqual(expected);
   });
 
-  it("keeps tasks with removed projects manageable at environment scope", () => {
+  it("keeps tasks with removed projects manageable at machine scope", () => {
     const removedProject = ProjectId.make("removed");
     expect(
       matchesScheduledTaskScope(
-        resolveSettingsScope({}, groups, environments),
+        resolveSettingsScope({}, groups, machines),
         laptopId,
         removedProject,
       ),
     ).toBe(true);
     expect(
       matchesScheduledTaskScope(
-        resolveSettingsScope({ project: "t3code" }, groups, environments),
+        resolveSettingsScope({ project: "t3code" }, groups, machines),
         laptopId,
         removedProject,
       ),
@@ -261,14 +261,14 @@ describe("webhook scheduled tasks", () => {
 describe("scheduled task model defaults", () => {
   const instanceId = ProviderInstanceId.make("codex");
   const projectId = ProjectId.make("project");
-  const environmentSelection = {
+  const machineSelection = {
     instanceId,
-    model: "environment-model",
+    model: "machine-model",
     options: [{ id: "reasoning", value: "high" }],
   };
   const projectSelection = { instanceId, model: "project-model" };
   const config = {
-    settings: { ...DEFAULT_SERVER_SETTINGS, defaultModelSelection: environmentSelection },
+    settings: { ...DEFAULT_SERVER_SETTINGS, defaultModelSelection: machineSelection },
     providers: [
       {
         instanceId,
@@ -287,7 +287,7 @@ describe("scheduled task model defaults", () => {
             isCustom: false,
             capabilities: null,
           },
-          { slug: "environment-model", name: "Environment", isCustom: false, capabilities: null },
+          { slug: "machine-model", name: "Machine", isCustom: false, capabilities: null },
           { slug: "project-model", name: "Project", isCustom: false, capabilities: null },
         ],
       },
@@ -307,7 +307,7 @@ describe("scheduled task model defaults", () => {
       resolve({ ...config, settings: { ...config.settings, defaultModelSelection: null } }, null),
     ).toEqual({ instanceId, model: "catalog-default" });
   });
-  it("falls back to the environment default when the project provider is unavailable", () => {
+  it("falls back to the machine default when the project provider is unavailable", () => {
     expect(
       resolve(config, {
         id: projectId,
@@ -316,7 +316,7 @@ describe("scheduled task model defaults", () => {
           model: "missing",
         },
       }),
-    ).toEqual(environmentSelection);
+    ).toEqual(machineSelection);
   });
 });
 

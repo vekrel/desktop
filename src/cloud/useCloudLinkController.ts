@@ -2,10 +2,10 @@ import { useAtomValue } from "@effect/atom-react";
 import { useAuth } from "@clerk/react";
 import { findErrorTraceId } from "@vekrel/client-runtime/errors";
 import {
-  EnvironmentId,
+  MachineId,
   AuthRelayReadScope,
   AuthRelayWriteScope,
-  type EnvironmentCloudLinkStateResult,
+  type MachineCloudLinkStateResult,
 } from "@vekrel/contracts";
 import type { RelayManagedEndpointProviderKind } from "@vekrel/contracts/relay";
 import {
@@ -16,14 +16,14 @@ import {
 import { useState } from "react";
 
 import { toastManager } from "../components/ui/toast";
-import { relayEnvironmentDiscovery } from "../state/relay";
-import { readEnvironmentScope } from "../state/session";
+import { relayMachineDiscovery } from "../state/relay";
+import { readMachineScope } from "../state/session";
 import { useAtomCommand } from "../state/use-atom-command";
 import {
-  linkPrimaryEnvironment as linkPrimaryEnvironmentAtom,
-  unlinkPrimaryEnvironment as unlinkPrimaryEnvironmentAtom,
-  updatePrimaryEnvironmentPreferences as updatePrimaryEnvironmentPreferencesAtom,
-} from "./linkEnvironmentAtoms";
+  linkPrimaryMachine as linkPrimaryMachineAtom,
+  unlinkPrimaryMachine as unlinkPrimaryMachineAtom,
+  updatePrimaryMachinePreferences as updatePrimaryMachinePreferencesAtom,
+} from "./linkMachineAtoms";
 import { readCachedPrimaryCloudLinkState, usePrimaryCloudLinkState } from "./primaryCloudLinkState";
 import { resolveRelayClerkTokenOptions } from "./publicConfig";
 
@@ -36,10 +36,10 @@ export interface CloudLinkDesiredState {
 /**
  * The local tunnel config can outlive a relay link that drifted to
  * publish-only, and clients then get `endpoint_provider_not_managed`. So when
- * relay discovery has this environment's record, it must also say managed.
+ * relay discovery has this machine's record, it must also say managed.
  */
 function isManagedTunnelActive(
-  linkState: EnvironmentCloudLinkStateResult,
+  linkState: MachineCloudLinkStateResult,
   relayProviderKind: RelayManagedEndpointProviderKind | undefined,
 ) {
   const localManagedTunnel = linkState.managedTunnelActive ?? linkState.linked;
@@ -52,24 +52,24 @@ function isManagedTunnelActive(
 
 export function useCloudLinkController() {
   const { getToken, isSignedIn } = useAuth();
-  const refreshRelayEnvironments = useAtomCommand(relayEnvironmentDiscovery.refresh, {
+  const refreshRelayMachines = useAtomCommand(relayMachineDiscovery.refresh, {
     reportFailure: false,
   });
-  const linkPrimaryEnvironment = useAtomCommand(linkPrimaryEnvironmentAtom, {
+  const linkPrimaryMachine = useAtomCommand(linkPrimaryMachineAtom, {
     reportFailure: false,
   });
-  const unlinkPrimaryEnvironment = useAtomCommand(unlinkPrimaryEnvironmentAtom, {
+  const unlinkPrimaryMachine = useAtomCommand(unlinkPrimaryMachineAtom, {
     reportFailure: false,
   });
-  const updatePrimaryEnvironmentPreferences = useAtomCommand(
-    updatePrimaryEnvironmentPreferencesAtom,
+  const updatePrimaryMachinePreferences = useAtomCommand(
+    updatePrimaryMachinePreferencesAtom,
     { reportFailure: false },
   );
   const primaryCloudLinkState = usePrimaryCloudLinkState();
-  const relayEnvironments = useAtomValue(relayEnvironmentDiscovery.stateValueAtom).environments;
-  const primaryEnvironmentId = primaryCloudLinkState.target?.environmentId;
-  const relayProviderKind = primaryEnvironmentId
-    ? relayEnvironments.get(primaryEnvironmentId)?.environment.endpoint.providerKind
+  const relayMachines = useAtomValue(relayMachineDiscovery.stateValueAtom).machines;
+  const primaryMachineId = primaryCloudLinkState.target?.machineId;
+  const relayProviderKind = primaryMachineId
+    ? relayMachines.get(primaryMachineId)?.machine.endpoint.providerKind
     : undefined;
   const [operationError, setOperationError] = useState<string | null>(null);
 
@@ -106,14 +106,14 @@ export function useCloudLinkController() {
     setOperationError(null);
     const target = primaryCloudLinkState.target;
     if (!target) {
-      reportUpdateFailure(new Error("Local environment is not ready yet."));
+      reportUpdateFailure(new Error("Local machine is not ready yet."));
       return false;
     }
-    const environmentId = EnvironmentId.make(target.environmentId);
+    const machineId = MachineId.make(target.machineId);
     const canManageLink = () => {
       if (
-        !readEnvironmentScope(environmentId, AuthRelayReadScope) ||
-        !readEnvironmentScope(environmentId, AuthRelayWriteScope)
+        !readMachineScope(machineId, AuthRelayReadScope) ||
+        !readMachineScope(machineId, AuthRelayWriteScope)
       ) {
         reportUpdateFailure(
           new Error("This connection needs permission to view and manage T3 Connect settings."),
@@ -142,7 +142,7 @@ export function useCloudLinkController() {
     if (!wantsLink) {
       // Unlink works without a relay token — a failed token read must not
       // leave the user unable to turn T3 Connect off.
-      const unlinkResult = await unlinkPrimaryEnvironment({
+      const unlinkResult = await unlinkPrimaryMachine({
         target,
         clerkToken: tokenResult._tag === "Success" ? (tokenResult.value ?? null) : null,
       });
@@ -171,7 +171,7 @@ export function useCloudLinkController() {
         currentLinkState.linkRevoked === true ||
         currentManagedTunnel !== desired.managedTunnel
       ) {
-        const linkResult = await linkPrimaryEnvironment({
+        const linkResult = await linkPrimaryMachine({
           target,
           clerkToken,
           mode: desired.managedTunnel ? "managed" : "publish_only",
@@ -188,7 +188,7 @@ export function useCloudLinkController() {
         primaryCloudLinkState.refresh();
         return false;
       }
-      const prefResult = await updatePrimaryEnvironmentPreferences({
+      const prefResult = await updatePrimaryMachinePreferences({
         target,
         publishAgentActivity: desired.publish,
         ...(desired.holdWebhooksWhileOffline === undefined
@@ -205,7 +205,7 @@ export function useCloudLinkController() {
     }
 
     primaryCloudLinkState.refresh();
-    const refreshResult = await refreshRelayEnvironments();
+    const refreshResult = await refreshRelayMachines();
     if (refreshResult._tag === "Failure" && !isAtomCommandInterrupted(refreshResult)) {
       reportUpdateFailure(squashAtomCommandFailure(refreshResult));
       return false;

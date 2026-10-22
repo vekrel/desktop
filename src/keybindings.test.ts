@@ -516,7 +516,7 @@ describe("cross-command precedence", () => {
 });
 
 describe("resolveChatShortcutCommand", () => {
-  it("runs the active environment's script shortcut instead of the primary environment's", () => {
+  it("runs the active machine's script shortcut instead of the primary machine's", () => {
     const primary = compile([{ shortcut: modShortcut("r"), command: "script.setup.run" }]);
     const active = compile([{ shortcut: modShortcut("t"), command: "script.setup.run" }]);
 
@@ -533,7 +533,7 @@ describe("resolveChatShortcutCommand", () => {
     );
   });
 
-  it("does not run primary scripts before the active environment's bindings arrive", () => {
+  it("does not run primary scripts before the active machine's bindings arrive", () => {
     const primary = compile([{ shortcut: modShortcut("r"), command: "script.setup.run" }]);
 
     assert.isNull(
@@ -555,7 +555,7 @@ describe("resolveChatShortcutCommand", () => {
     );
   });
 
-  it("keeps app shortcuts on the primary environment when the active environment remaps them", () => {
+  it("keeps app shortcuts on the primary machine when the active machine remaps them", () => {
     const primary = compile([{ shortcut: modShortcut("j"), command: "terminal.toggle" }]);
     const active = compile([{ shortcut: modShortcut("t"), command: "terminal.toggle" }]);
 

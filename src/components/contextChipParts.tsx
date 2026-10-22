@@ -1,4 +1,4 @@
-import type { EnvironmentId, PullRequestContextMetadata } from "@vekrel/contracts";
+import type { MachineId, PullRequestContextMetadata } from "@vekrel/contracts";
 import { CircleDashedIcon, FilmIcon, ImageIcon } from "lucide-react";
 import {
   useState,
@@ -91,14 +91,14 @@ export function ContextChipPopover(props: {
 
 export function PullRequestChip(props: {
   metadata: PullRequestContextMetadata;
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   label: string;
   kindLabel: string;
   kind: ContextChipKind;
   copyMarkdown?: string;
   onOpen: (event: MouseEvent<HTMLElement>, url: string) => void;
 }) {
-  const previewTarget = usePullRequestPreviewTarget(props.environmentId, props.metadata.url);
+  const previewTarget = usePullRequestPreviewTarget(props.machineId, props.metadata.url);
   const displayState =
     props.metadata.state === "open" && props.metadata.isDraft ? "draft" : props.metadata.state;
   const StateIcon = PULL_REQUEST_STATE_PRESENTATION[displayState].Icon;

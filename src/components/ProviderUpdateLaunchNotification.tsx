@@ -3,32 +3,32 @@ import { DownloadIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useStableCallback } from "~/hooks/useStableCallback";
-import { useEnvironments } from "~/state/environments";
+import { useMachines } from "~/state/machines";
 import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
 import { useDismissedProviderUpdateNotificationKeys } from "../providerUpdateDismissal";
-import { ProviderUpdateEnvironmentRows } from "./ProviderUpdateEnvironmentRows";
-import { useLocalEnvironmentUpdateGroups } from "./ProviderUpdateLaunchNotification.environments";
+import { ProviderUpdateMachineRows } from "./ProviderUpdateMachineRows";
+import { useLocalMachineUpdateGroups } from "./ProviderUpdateLaunchNotification.machines";
 import {
   collectProviderUpdateCandidates,
-  environmentGroupsWithUpdates,
+  machineGroupsWithUpdates,
   getProviderUpdateInitialToastView,
-  localEnvironmentUpdateNotificationKey,
+  localMachineUpdateNotificationKey,
 } from "./ProviderUpdateLaunchNotification.logic";
 import { ProviderUpdatePrimaryNotification } from "./ProviderUpdatePrimaryNotification";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 
-function useHasLocalSecondaryEnvironment(): boolean {
-  const { environments } = useEnvironments();
-  return environments.some((environment) =>
-    isDesktopLocalConnectionTarget(environment.entry.target),
+function useHasLocalSecondaryMachine(): boolean {
+  const { machines } = useMachines();
+  return machines.some((machine) =>
+    isDesktopLocalConnectionTarget(machine.entry.target),
   );
 }
 
 export function ProviderUpdateLaunchNotification() {
-  const hasLocalSecondary = useHasLocalSecondaryEnvironment();
+  const hasLocalSecondary = useHasLocalSecondaryMachine();
 
   return hasLocalSecondary ? (
-    <ProviderUpdateEnvironmentsNotification />
+    <ProviderUpdateMachinesNotification />
   ) : (
     <ProviderUpdatePrimaryNotification />
   );
@@ -38,13 +38,13 @@ const seenProviderUpdateNotificationKeys = new Set<string>();
 type ProviderUpdateToastId = ReturnType<typeof toastManager.add>;
 
 // While a local backend (e.g. WSL) is still connecting, defer the popover so it
-// reflects every environment. Cap the wait so a stuck or failed backend can't
+// reflects every machine. Cap the wait so a stuck or failed backend can't
 // suppress the primary's updates indefinitely.
 const SETTLING_GRACE_MS = 30_000;
 
-function ProviderUpdateEnvironmentsNotification() {
+function ProviderUpdateMachinesNotification() {
   const navigate = useNavigate();
-  const { groups, isAnySettling } = useLocalEnvironmentUpdateGroups();
+  const { groups, isAnySettling } = useLocalMachineUpdateGroups();
   const { dismissedNotificationKeys, dismissNotificationKey } =
     useDismissedProviderUpdateNotificationKeys();
 
@@ -66,8 +66,8 @@ function ProviderUpdateEnvironmentsNotification() {
     };
   }, []);
 
-  const updateGroups = environmentGroupsWithUpdates(groups);
-  const notificationKey = localEnvironmentUpdateNotificationKey(groups);
+  const updateGroups = machineGroupsWithUpdates(groups);
+  const notificationKey = localMachineUpdateNotificationKey(groups);
   const candidateUnion = collectProviderUpdateCandidates(
     updateGroups.flatMap((group) => group.candidates),
   );
@@ -135,7 +135,7 @@ function ProviderUpdateEnvironmentsNotification() {
           oneClickProviders: candidateUnion,
         }).title,
         description: (
-          <ProviderUpdateEnvironmentRows
+          <ProviderUpdateMachineRows
             onInteract={() => {
               hasInteractedRef.current = true;
             }}

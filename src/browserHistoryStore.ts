@@ -1,4 +1,4 @@
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import type { ScopedThreadRef } from "@vekrel/contracts";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -35,18 +35,18 @@ export function normalizeHistoryUrl(raw: string): string | null {
   return parsed.href.length > BROWSER_HISTORY_MAX_URL_LENGTH ? null : parsed.href;
 }
 
-function titleLookupKey(normalized: string, environmentHostname?: string | null): string {
-  const parsed = new URL(visitLookupKey(normalized, environmentHostname));
+function titleLookupKey(normalized: string, machineHostname?: string | null): string {
+  const parsed = new URL(visitLookupKey(normalized, machineHostname));
   if (parsed.pathname !== "/" && parsed.pathname.endsWith("/"))
     parsed.pathname = parsed.pathname.slice(0, -1);
   return parsed.href;
 }
 
-function visitLookupKey(normalized: string, environmentHostname?: string | null): string {
+function visitLookupKey(normalized: string, machineHostname?: string | null): string {
   const parsed = new URL(normalized);
   const host = normalizeHostname(parsed.hostname);
-  const environmentHost = environmentHostname && normalizeHostname(environmentHostname);
-  if (isLocalLoopbackHost(host) || host === "0.0.0.0" || host === environmentHost)
+  const machineHost = machineHostname && normalizeHostname(machineHostname);
+  if (isLocalLoopbackHost(host) || host === "0.0.0.0" || host === machineHost)
     parsed.hostname = "local";
   return parsed.href;
 }
@@ -60,14 +60,14 @@ export function upsertHistoryEntry(
   entries: ReadonlyArray<BrowserHistoryEntry>,
   url: string,
   at: number,
-  options?: { insertOrdered?: boolean; environmentHostname?: string | null },
+  options?: { insertOrdered?: boolean; machineHostname?: string | null },
 ): BrowserHistoryEntry[] {
-  const key = visitLookupKey(url, options?.environmentHostname);
+  const key = visitLookupKey(url, options?.machineHostname);
   const existing = entries.find(
-    (candidate) => visitLookupKey(candidate.url, options?.environmentHostname) === key,
+    (candidate) => visitLookupKey(candidate.url, options?.machineHostname) === key,
   );
   const rest = entries.filter(
-    (candidate) => visitLookupKey(candidate.url, options?.environmentHostname) !== key,
+    (candidate) => visitLookupKey(candidate.url, options?.machineHostname) !== key,
   );
   const visitedAt =
     options?.insertOrdered && existing && existing.lastVisitedAt > at ? existing.lastVisitedAt : at;
@@ -143,8 +143,8 @@ const BROWSER_HISTORY_STORAGE_KEY = "t3code:browser-history:v1";
 const PENDING_MAX_PER_THREAD = 10;
 const PENDING_MAX_THREADS = 20;
 
-type PendingVisit = { url: string; at: number; environmentHostname: string | null };
-type PendingTitle = { url: string; title: string; environmentHostname: string | null | undefined };
+type PendingVisit = { url: string; at: number; machineHostname: string | null };
+type PendingTitle = { url: string; title: string; machineHostname: string | null | undefined };
 
 interface BrowserHistoryStoreState {
   byProjectKey: Record<string, BrowserHistoryEntry[]>;
@@ -155,13 +155,13 @@ interface BrowserHistoryStoreState {
     projectKey: string,
     url: string,
     at: number,
-    options?: { insertOrdered?: boolean; environmentHostname?: string | null },
+    options?: { insertOrdered?: boolean; machineHostname?: string | null },
   ) => void;
   setTitleForUrl: (
     projectKey: string,
     url: string,
     title: string,
-    environmentHostname?: string | null,
+    machineHostname?: string | null,
   ) => void;
   removeUrl: (projectKey: string, url: string) => void;
   registerThreadProject: (ref: ScopedThreadRef, projectKey: string) => void;
@@ -207,15 +207,15 @@ export const useBrowserHistoryStore = create<BrowserHistoryStoreState>()(
           };
         });
       },
-      setTitleForUrl: (projectKey, url, title, environmentHostname) => {
+      setTitleForUrl: (projectKey, url, title, machineHostname) => {
         const normalized = normalizeHistoryUrl(url);
         const state = get();
         const entries = state.byProjectKey[projectKey];
         const trimmed = title.trim().slice(0, BROWSER_HISTORY_MAX_TITLE_LENGTH);
         if (!normalized || !entries || trimmed.length === 0) return;
-        const key = titleLookupKey(normalized, environmentHostname);
+        const key = titleLookupKey(normalized, machineHostname);
         const index = entries.findIndex(
-          (candidate) => titleLookupKey(candidate.url, environmentHostname) === key,
+          (candidate) => titleLookupKey(candidate.url, machineHostname) === key,
         );
         if (index === -1 || entries[index]?.title === trimmed) return;
         set({
@@ -265,14 +265,14 @@ export const useBrowserHistoryStore = create<BrowserHistoryStoreState>()(
         for (const visit of pendingVisits ?? [])
           get().recordVisit(projectKey, visit.url, visit.at, {
             insertOrdered: true,
-            environmentHostname: visit.environmentHostname,
+            machineHostname: visit.machineHostname,
           });
         for (const pendingTitle of pendingTitles ?? [])
           get().setTitleForUrl(
             projectKey,
             pendingTitle.url,
             pendingTitle.title,
-            pendingTitle.environmentHostname,
+            pendingTitle.machineHostname,
           );
       },
     }),
@@ -328,26 +328,26 @@ export function recordVisitForThread(ref: ScopedThreadRef, url: string, at?: num
   const state = useBrowserHistoryStore.getState();
   const projectKey = state.projectKeyByThreadKey[threadKey];
   const visitAt = at ?? Date.now();
-  const connection = readPreparedConnection(ref.environmentId);
-  const environmentHostname = connection ? new URL(connection.httpBaseUrl).hostname : null;
+  const connection = readPreparedConnection(ref.machineId);
+  const machineHostname = connection ? new URL(connection.httpBaseUrl).hostname : null;
   if (!projectKey) {
     useBrowserHistoryStore.setState({
       pendingVisitsByThreadKey: addPendingByThread(state.pendingVisitsByThreadKey, threadKey, {
         url,
         at: visitAt,
-        environmentHostname,
+        machineHostname,
       }),
     });
     return;
   }
-  state.recordVisit(projectKey, url, visitAt, { environmentHostname });
+  state.recordVisit(projectKey, url, visitAt, { machineHostname });
 }
 
 export function setTitleForThreadUrl(
   ref: ScopedThreadRef,
   url: string,
   title: string,
-  environmentHostname?: string | null,
+  machineHostname?: string | null,
 ): void {
   const threadKey = scopedThreadKey(ref);
   const state = useBrowserHistoryStore.getState();
@@ -357,12 +357,12 @@ export function setTitleForThreadUrl(
       pendingTitlesByThreadKey: addPendingByThread(state.pendingTitlesByThreadKey, threadKey, {
         url,
         title,
-        environmentHostname,
+        machineHostname,
       }),
     });
     return;
   }
-  state.setTitleForUrl(projectKey, url, title, environmentHostname);
+  state.setTitleForUrl(projectKey, url, title, machineHostname);
 }
 
 export function removeUrlForThread(ref: ScopedThreadRef, url: string): void {

@@ -1,6 +1,6 @@
 import { useAtomCommand } from "~/state/use-atom-command";
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestActor,
   PullRequestComment,
   PullRequestDetailView,
@@ -19,7 +19,7 @@ import { useState, type ReactNode } from "react";
 
 import { cn } from "~/lib/utils";
 import { readLocalApi } from "~/localApi";
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 import { RelativeTime } from "~/components/RelativeTime";
 
 import { Button } from "../ui/button";
@@ -55,7 +55,7 @@ import { PullRequestGlyph } from "./pullRequestIcons";
 
 interface ReactionSurface {
   readonly canReact: boolean;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadRef: ScopedThreadRef | null;
   readonly reference: PullRequestRef;
   readonly onRefresh: () => void;
@@ -65,13 +65,13 @@ function TimelineBody({
   body,
   markdown,
   cwd,
-  environmentId,
+  machineId,
   threadRef,
 }: {
   body: string;
   markdown: boolean;
   cwd: string;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   threadRef: ScopedThreadRef | null;
 }) {
   return (
@@ -80,7 +80,7 @@ function TimelineBody({
         <PullRequestMarkdown
           text={body}
           cwd={cwd}
-          environmentId={environmentId}
+          machineId={machineId}
           threadRef={threadRef}
         />
       ) : (
@@ -192,7 +192,7 @@ function ConversationCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const updateComment = useAtomCommand(pullRequestEnvironment.updateComment, {
+  const updateComment = useAtomCommand(pullRequestMachine.updateComment, {
     reportFailure: false,
   });
 
@@ -202,7 +202,7 @@ function ConversationCard({
     if (editable === null || saving || editable.kind === "review") return;
     setSaving(true);
     const result = await updateComment({
-      environmentId: reactions.environmentId,
+      machineId: reactions.machineId,
       input: { ...reactions.reference, commentId: editable.id, kind: editable.kind, body },
     });
     setSaving(false);
@@ -249,7 +249,7 @@ function ConversationCard({
               reactions={event.reactions}
               canReact={reactions.canReact}
               subjectId={event.id}
-              environmentId={reactions.environmentId}
+              machineId={reactions.machineId}
               reference={reactions.reference}
               onRefresh={reactions.onRefresh}
             />
@@ -262,7 +262,7 @@ function ConversationCard({
           <PullRequestMarkdownEditor
             value={editable.body}
             cwd={cwd}
-            environmentId={reactions.environmentId}
+            machineId={reactions.machineId}
             threadRef={reactions.threadRef}
             label="Edit comment"
             saving={saving}
@@ -276,7 +276,7 @@ function ConversationCard({
             body={event.body}
             markdown={event.markdown}
             cwd={cwd}
-            environmentId={reactions.environmentId}
+            machineId={reactions.machineId}
             threadRef={reactions.threadRef}
           />
         </div>
@@ -607,7 +607,7 @@ function ReviewVerdictEvent({
             reactions={event.reactions}
             canReact={reactions.canReact}
             subjectId={event.id}
-            environmentId={reactions.environmentId}
+            machineId={reactions.machineId}
             reference={reactions.reference}
             onRefresh={reactions.onRefresh}
           />
@@ -619,7 +619,7 @@ function ReviewVerdictEvent({
           body={event.body}
           markdown={event.markdown}
           cwd={cwd}
-          environmentId={reactions.environmentId}
+          machineId={reactions.machineId}
           threadRef={reactions.threadRef}
         />
       ) : null}
@@ -630,7 +630,7 @@ function ReviewVerdictEvent({
 export function PullRequestTimelineTab({
   scrollerRef,
   detail,
-  environmentId,
+  machineId,
   threadRef = null,
   reference,
   order,
@@ -639,7 +639,7 @@ export function PullRequestTimelineTab({
 }: {
   scrollerRef: (node: HTMLDivElement | null) => void;
   detail: PullRequestDetailView;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   threadRef?: ScopedThreadRef | null;
   reference: PullRequestRef;
   order: "newest" | "oldest";
@@ -650,7 +650,7 @@ export function PullRequestTimelineTab({
   const newestCommitAt = newestPullRequestCommitAt(detail.commits);
   const reactions: ReactionSurface = {
     canReact: detail.capabilities.reactions === true,
-    environmentId,
+    machineId,
     threadRef,
     reference,
     onRefresh,

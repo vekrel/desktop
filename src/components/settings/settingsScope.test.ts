@@ -1,4 +1,4 @@
-import { EnvironmentId, ProjectId } from "@vekrel/contracts";
+import { MachineId, ProjectId } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import type {
@@ -7,22 +7,22 @@ import type {
 } from "../../sidebarProjectGrouping";
 import { resolveSettingsScope, validateSettingsScopeSearch } from "./settingsScope";
 
-const laptopId = EnvironmentId.make("laptop");
-const serverId = EnvironmentId.make("server");
-const environments = [
-  { environmentId: laptopId, label: "Laptop" },
-  { environmentId: serverId, label: "Server" },
+const laptopId = MachineId.make("laptop");
+const serverId = MachineId.make("server");
+const machines = [
+  { machineId: laptopId, label: "Laptop" },
+  { machineId: serverId, label: "Server" },
 ];
 
-function member(id: string, environmentId: EnvironmentId): SidebarProjectGroupMember {
+function member(id: string, machineId: MachineId): SidebarProjectGroupMember {
   return {
     id: ProjectId.make(id),
-    environmentId,
+    machineId,
     title: "Vekrel",
     workspaceRoot: `/repos/${id}`,
-    physicalProjectKey: `${environmentId}:/repos/${id}`,
-    environmentLabel:
-      environments.find((environment) => environment.environmentId === environmentId)?.label ??
+    physicalProjectKey: `${machineId}:/repos/${id}`,
+    machineLabel:
+      machines.find((machine) => machine.machineId === machineId)?.label ??
       null,
     defaultModelSelection: null,
     scripts: [],
@@ -46,56 +46,56 @@ function group(
     displayName: projectKey,
     memberProjects: members,
     memberProjectRefs: members.map((project) => ({
-      environmentId: project.environmentId,
+      machineId: project.machineId,
       projectId: project.id,
     })),
     groupedProjectCount: members.length,
-    environmentPresence: "mixed",
+    machinePresence: "mixed",
     allRemoteMembersAreDesktopLocal: false,
     allRemoteMembersAreWsl: false,
-    remoteEnvironmentLabels: [],
+    remoteMachineLabels: [],
   };
 }
 
 const groups = [group("t3code", [first, second, third]), group("other", [other])];
 
 describe("settings scope search", () => {
-  it("retains an orphan checkout so it cannot turn into all environments", () => {
+  it("retains an orphan checkout so it cannot turn into all machines", () => {
     const search = validateSettingsScopeSearch({ checkout: first.physicalProjectKey });
     expect(search).toEqual({ checkout: first.physicalProjectKey });
-    expect(resolveSettingsScope(search, groups, environments)).toMatchObject({
+    expect(resolveSettingsScope(search, groups, machines)).toMatchObject({
       kind: "unavailable",
       reason: "project-required",
       members: [],
-      environmentIds: [],
+      machineIds: [],
     });
   });
 });
 
 describe("settings scope resolution", () => {
-  it("keeps all physical members in a project aggregate, including several on one environment", () => {
-    expect(resolveSettingsScope({ project: "t3code" }, groups, environments)).toMatchObject({
+  it("keeps all physical members in a project aggregate, including several on one machine", () => {
+    expect(resolveSettingsScope({ project: "t3code" }, groups, machines)).toMatchObject({
       kind: "project",
-      environmentId: null,
+      machineId: null,
       members: [first, second, third],
-      environmentIds: [laptopId, serverId],
+      machineIds: [laptopId, serverId],
     });
   });
 
-  it("narrows a checkout target to exactly one member, deriving its environment when omitted", () => {
+  it("narrows a checkout target to exactly one member, deriving its machine when omitted", () => {
     expect(
       resolveSettingsScope(
         { project: "t3code", checkout: second.physicalProjectKey },
         groups,
-        environments,
+        machines,
       ),
     ).toMatchObject({
       kind: "checkout",
       checkout: second,
-      environmentId: laptopId,
+      machineId: laptopId,
       label: "t3code / Laptop · /repos/second",
       members: [second],
-      environmentIds: [laptopId],
+      machineIds: [laptopId],
     });
   });
 
@@ -108,10 +108,10 @@ describe("settings scope resolution", () => {
     { project: "other", checkout: first.physicalProjectKey },
     { project: "t3code", machine: serverId, checkout: first.physicalProjectKey },
   ])("never widens an invalid or stale target: %j", (search) => {
-    expect(resolveSettingsScope(search, groups, environments)).toMatchObject({
+    expect(resolveSettingsScope(search, groups, machines)).toMatchObject({
       kind: "unavailable",
       members: [],
-      environmentIds: [],
+      machineIds: [],
     });
   });
 
@@ -121,40 +121,40 @@ describe("settings scope resolution", () => {
       machine: laptopId,
       checkout: first.physicalProjectKey,
     };
-    expect(resolveSettingsScope(search, groups, environments)).toMatchObject({
+    expect(resolveSettingsScope(search, groups, machines)).toMatchObject({
       kind: "checkout",
       members: [first],
     });
     expect(
-      resolveSettingsScope(search, [group("t3code", [second, third])], environments),
-    ).toMatchObject({ kind: "unavailable", members: [], environmentIds: [] });
+      resolveSettingsScope(search, [group("t3code", [second, third])], machines),
+    ).toMatchObject({ kind: "unavailable", members: [], machineIds: [] });
   });
 
-  it("does not select another environment after removing a project's last local checkout", () => {
+  it("does not select another machine after removing a project's last local checkout", () => {
     const search = { project: "t3code", machine: laptopId };
-    expect(resolveSettingsScope(search, groups, environments)).toMatchObject({
+    expect(resolveSettingsScope(search, groups, machines)).toMatchObject({
       kind: "project",
       members: [first, second],
     });
-    expect(resolveSettingsScope(search, [group("t3code", [third])], environments)).toMatchObject({
+    expect(resolveSettingsScope(search, [group("t3code", [third])], machines)).toMatchObject({
       kind: "unavailable",
       members: [],
-      environmentIds: [],
+      machineIds: [],
     });
   });
 
-  it("rejects a cached checkout whose environment was removed", () => {
+  it("rejects a cached checkout whose machine was removed", () => {
     expect(
       resolveSettingsScope(
         { project: "t3code", checkout: third.physicalProjectKey },
         groups,
-        environments.slice(0, 1),
+        machines.slice(0, 1),
       ),
     ).toMatchObject({
       kind: "unavailable",
-      reason: "environment-missing",
+      reason: "machine-missing",
       members: [],
-      environmentIds: [],
+      machineIds: [],
     });
   });
 });

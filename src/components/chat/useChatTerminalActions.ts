@@ -1,6 +1,6 @@
 import type {
-  EnvironmentProject,
-  EnvironmentThreadShell,
+  MachineProject,
+  MachineThreadShell,
 } from "@vekrel/client-runtime/state/shell";
 import type { Dispatch } from "react";
 import type { ComposerHandleRef } from "../../composerHandleContext";
@@ -11,7 +11,7 @@ import { getTerminalLabel } from "@vekrel/shared/terminalLabels";
 import {
   AuthTerminalReadScope,
   AuthTerminalOperateScope,
-  type EnvironmentId,
+  type MachineId,
   type ProjectScript,
   type ScopedThreadRef,
   type ThreadId,
@@ -38,8 +38,8 @@ import {
   makeThreadErrorSetter,
 } from "../ChatView.logic";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
-import { previewEnvironment } from "../../state/preview";
-import { readEnvironmentScope } from "../../state/session";
+import { previewMachine } from "../../state/preview";
+import { readMachineScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
 import type { ChatShortcutCommands } from "./useChatShortcuts";
 const SCRIPT_TERMINAL_COLS = 120;
@@ -52,13 +52,13 @@ export interface TerminalLaunchContext {
 }
 
 interface ChatTerminalActionsInput {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly composerRef: ComposerHandleRef;
   readonly terminalUiState: ReturnType<typeof selectThreadTerminalUiState>;
-  readonly activeThread: EnvironmentThreadShell | undefined;
+  readonly activeThread: MachineThreadShell | undefined;
   readonly activeThreadId: ThreadId | null;
   readonly activeThreadRef: ScopedThreadRef | null;
-  readonly activeProject: EnvironmentProject | null;
+  readonly activeProject: MachineProject | null;
   readonly activeRightPanelSurface: RightPanelSurface | null;
   readonly runningTerminalIds: ReadonlyArray<string>;
   readonly activeServerOrderedTerminalIds: ReadonlyArray<string>;
@@ -77,7 +77,7 @@ interface ChatTerminalActionsInput {
  */
 export function useChatTerminalActions(input: ChatTerminalActionsInput) {
   const {
-    environmentId,
+    machineId,
     composerRef,
     terminalUiState,
     activeThread,
@@ -95,10 +95,10 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     setTerminalUiLaunchContext,
     setThreadError,
   } = input;
-  const openPreview = useAtomCommand(previewEnvironment.open, { reportFailure: false });
+  const openPreview = useAtomCommand(previewMachine.open, { reportFailure: false });
 
   const hasTerminalWriteAccess = () =>
-    readEnvironmentScope(environmentId, AuthTerminalOperateScope);
+    readMachineScope(machineId, AuthTerminalOperateScope);
   const [lastInvokedScriptByProjectId, setLastInvokedScriptByProjectId] = useLocalStorage(
     LAST_INVOKED_SCRIPT_BY_PROJECT_KEY,
     {},
@@ -137,7 +137,7 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     const nextOpen = !terminalUiState.terminalOpen;
     if (
       nextOpen &&
-      !readEnvironmentScope(environmentId, AuthTerminalReadScope) &&
+      !readMachineScope(machineId, AuthTerminalReadScope) &&
       !hasTerminalWriteAccess()
     )
       return;
@@ -210,7 +210,7 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     const reusableTerminalId =
       options?.preferNewTerminal ||
       !canReuseTerminal ||
-      !readEnvironmentScope(environmentId, AuthTerminalReadScope)
+      !readMachineScope(machineId, AuthTerminalReadScope)
         ? null
         : findReusableProjectScriptTerminal({
             // Server sessions cover drawer terminals this client has not opened yet, such as a
@@ -281,7 +281,7 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     if (script.autoOpenPreview && script.previewUrl && isPreviewSupportedInRuntime()) {
       const previewResult = await openUrlInPreview({
         threadRef: activeThreadRef,
-        url: resolveDiscoveredServerUrl(activeThreadRef.environmentId, script.previewUrl),
+        url: resolveDiscoveredServerUrl(activeThreadRef.machineId, script.previewUrl),
         openPreview,
       });
       if (previewResult._tag === "Failure" && !isAtomCommandInterrupted(previewResult)) {
@@ -373,7 +373,7 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     if (!hasTerminalWriteAccess()) return;
     const label = activeTerminalLabelsById.get(terminalId) ?? getTerminalLabel(terminalId);
     void confirmTerminalClose([label]).then((confirmed) => {
-      if (confirmed && readEnvironmentScope(environmentId, AuthTerminalOperateScope)) {
+      if (confirmed && readMachineScope(machineId, AuthTerminalOperateScope)) {
         closeTerminal(terminalId);
       }
     });
@@ -383,7 +383,7 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     if (!hasTerminalWriteAccess()) return;
     const label = activeTerminalLabelsById.get(terminalId) ?? getTerminalLabel(terminalId);
     void confirmTerminalClose([label]).then((confirmed) => {
-      if (confirmed && readEnvironmentScope(environmentId, AuthTerminalOperateScope)) {
+      if (confirmed && readMachineScope(machineId, AuthTerminalOperateScope)) {
         closePanelTerminal(terminalId);
       }
     });
@@ -397,7 +397,7 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     "terminal.toggle": () => {
       if (
         !terminalUiState.terminalOpen &&
-        !readEnvironmentScope(environmentId, AuthTerminalReadScope) &&
+        !readMachineScope(machineId, AuthTerminalReadScope) &&
         !hasTerminalWriteAccess()
       )
         return false;

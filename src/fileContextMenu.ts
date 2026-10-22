@@ -2,7 +2,7 @@ import {
   EDITORS,
   type ContextMenuItem,
   type EditorId,
-  type EnvironmentId,
+  type MachineId,
 } from "@vekrel/contracts";
 
 import { resolveDiffPathForWorkspace } from "./diffFileActions";
@@ -11,8 +11,8 @@ import {
   revealInFileExplorerLabelForOs,
 } from "~/components/preview/fileExplorerLabel";
 import { readLocalApi } from "./localApi";
-import { serverEnvironment } from "./state/server";
-import { shellEnvironment } from "./state/shell";
+import { serverMachine } from "./state/server";
+import { shellMachine } from "./state/shell";
 import { useAtomCommand } from "./state/use-atom-command";
 import { resolvePathLinkTarget } from "@vekrel/shared/fileLinks";
 import { toastManager } from "./components/ui/toast";
@@ -26,7 +26,7 @@ export type FileContextMenuAction =
   | `editor:${EditorId}`;
 
 export interface FileContextMenuTarget {
-  readonly environmentId: EnvironmentId | null;
+  readonly machineId: MachineId | null;
   /** Repo- or workspace-relative file path, as shown in diffs. */
   readonly filePath: string;
   readonly workspaceRoot: string | undefined;
@@ -86,20 +86,20 @@ function buildFileContextMenuItems(input: {
   return items;
 }
 
-export function useFileContextMenu(environmentId: EnvironmentId | null) {
-  const openInEditor = useAtomCommand(shellEnvironment.openInEditor, { reportFailure: false });
-  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
+export function useFileContextMenu(machineId: MachineId | null) {
+  const openInEditor = useAtomCommand(shellMachine.openInEditor, { reportFailure: false });
+  const serverConfig = useAtomValue(serverMachine.configValueAtom(machineId));
 
   const availableEditors = serverConfig?.availableEditors ?? [];
   const capabilities: FileContextMenuCapabilities = {
     // The reveal wording comes from the server because on WSL the reveal can
     // run through Windows File Explorer even though the host reports Linux.
     revealLabel:
-      environmentId !== null &&
+      machineId !== null &&
       serverConfig?.shellRevealInFileManager === true &&
       serverConfig.availableEditors.includes("file-manager")
         ? serverConfig.shellRevealInFileManagerKind === undefined
-          ? revealInFileExplorerLabelForOs(serverConfig.environment.platform.os)
+          ? revealInFileExplorerLabelForOs(serverConfig.machine.platform.os)
           : revealInFileExplorerLabelForKind(serverConfig.shellRevealInFileManagerKind)
         : undefined,
     canOpenDefault: availableEditors.includes("file-manager"),
@@ -111,7 +111,7 @@ export function useFileContextMenu(environmentId: EnvironmentId | null) {
     target: FileContextMenuTarget,
   ): Promise<void> => {
     const absolutePath = resolveFileContextMenuAbsolutePath(target);
-    if (absolutePath === null || environmentId === null) return;
+    if (absolutePath === null || machineId === null) return;
 
     const reveal = action === "reveal-in-folder";
     const editor =
@@ -121,7 +121,7 @@ export function useFileContextMenu(environmentId: EnvironmentId | null) {
     if (action !== "open" && !reveal && !capabilities.editorIds.includes(editor)) return;
 
     const result = await openInEditor({
-      environmentId,
+      machineId,
       input: { cwd: absolutePath, editor, ...(reveal ? { reveal: true } : {}) },
     });
     if (result._tag !== "Failure") return;
@@ -164,8 +164,8 @@ export function useFileContextMenu(environmentId: EnvironmentId | null) {
   };
 }
 
-export function useFileContextMenuHandler(environmentId: EnvironmentId | null) {
-  const contextMenu = useFileContextMenu(environmentId);
+export function useFileContextMenuHandler(machineId: MachineId | null) {
+  const contextMenu = useFileContextMenu(machineId);
   return (target: FileContextMenuTarget, event?: { clientX: number; clientY: number }) => {
     void contextMenu.show(target, event ? { x: event.clientX, y: event.clientY } : undefined);
   };

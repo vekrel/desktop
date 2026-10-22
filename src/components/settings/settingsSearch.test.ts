@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 
 import {
   filterAvailableSettingsSearchItems,
@@ -74,7 +74,7 @@ describe("searchSettings", () => {
       searchSettings("remote pairing")
         .slice(0, 2)
         .map((item) => item.id),
-    ).toEqual(["network-access", "connections-environment"]);
+    ).toEqual(["network-access", "connections-machine"]);
   });
 
   it("hides desktop-only settings from browser search", () => {
@@ -87,9 +87,9 @@ describe("searchSettings", () => {
   it("hides settings whose controls are unavailable", () => {
     const available = filterAvailableSettingsSearchItems({
       hasCloudPublicConfig: false,
-      hasEnvironment: false,
-      hasProviderSettingsEnvironment: false,
-      hasMacProviderSettingsEnvironment: false,
+      hasMachine: false,
+      hasProviderSettingsMachine: false,
+      hasMacProviderSettingsMachine: false,
       canManageLocalBackend: false,
       isWslSettingsRowVisible: false,
       hasThreadAutoSettlement: false,
@@ -142,20 +142,20 @@ describe("searchSettings", () => {
 });
 
 describe("settings search targets", () => {
-  it("requires an environment for the resolved telemetry export destination", () => {
+  it("requires a machine for the resolved telemetry export destination", () => {
     const result = searchSettings("OpenTelemetry export").find(
       (item) => item.id === "telemetry-export",
     )!;
     const target = getSettingsSearchTargetScope(result.targetId ?? result.id)!;
     expect(isSettingsSearchScopeAvailable(target.scope, "all")).toBe(false);
     expect(isSettingsSearchScopeAvailable(target.scope, "project")).toBe(false);
-    expect(isSettingsSearchScopeAvailable(target.scope, "environment")).toBe(true);
+    expect(isSettingsSearchScopeAvailable(target.scope, "machine")).toBe(true);
   });
 
-  it("keeps environment-wide settings out of project scopes", () => {
+  it("keeps machine-wide settings out of project scopes", () => {
     const updates = getSettingsSearchTargetScope("provider-update-checks")!;
-    expect(updates.scope).toBe("environment-defaults");
-    expect(isSettingsSearchScopeAvailable(updates.scope, "environment")).toBe(true);
+    expect(updates.scope).toBe("machine-defaults");
+    expect(isSettingsSearchScopeAvailable(updates.scope, "machine")).toBe(true);
     expect(isSettingsSearchScopeAvailable(updates.scope, "all")).toBe(true);
     expect(isSettingsSearchScopeAvailable(updates.scope, "project")).toBe(false);
     const streaming = getSettingsSearchTargetScope("response-streaming")!;
@@ -168,33 +168,33 @@ describe("settings search targets", () => {
 });
 
 describe("auto-settlement search availability", () => {
-  function environment(id: string, { connected = true, loaded = true, supported = true } = {}) {
+  function machine(id: string, { connected = true, loaded = true, supported = true } = {}) {
     return {
-      environmentId: EnvironmentId.make(id),
+      machineId: MachineId.make(id),
       connection: { phase: connected ? ("connected" as const) : ("offline" as const) },
       serverConfig: loaded
-        ? { environment: { capabilities: { threadAutoSettlement: supported } } }
+        ? { machine: { capabilities: { threadAutoSettlement: supported } } }
         : null,
     };
   }
 
-  const capable = environment("capable");
-  const unsupported = environment("unsupported", { supported: false });
-  const offline = environment("offline", { connected: false });
-  const loading = environment("loading", { loaded: false });
-  const environments = [capable, unsupported, offline, loading];
+  const capable = machine("capable");
+  const unsupported = machine("unsupported", { supported: false });
+  const offline = machine("offline", { connected: false });
+  const loading = machine("loading", { loaded: false });
+  const machines = [capable, unsupported, offline, loading];
 
-  it("keeps results discoverable when one connected environment supports them", () => {
-    const availability = getThreadAutoSettlementSearchAvailability(environments);
-    expect(availability.eligibleEnvironmentIds).toEqual([capable.environmentId]);
+  it("keeps results discoverable when one connected machine supports them", () => {
+    const availability = getThreadAutoSettlementSearchAvailability(machines);
+    expect(availability.eligibleMachineIds).toEqual([capable.machineId]);
     const items = filterAvailableSettingsSearchItems({
       hasCloudPublicConfig: false,
-      hasEnvironment: true,
-      hasProviderSettingsEnvironment: true,
-      hasMacProviderSettingsEnvironment: false,
+      hasMachine: true,
+      hasProviderSettingsMachine: true,
+      hasMacProviderSettingsMachine: false,
       canManageLocalBackend: false,
       isWslSettingsRowVisible: false,
-      hasThreadAutoSettlement: availability.eligibleEnvironmentIds.length > 0,
+      hasThreadAutoSettlement: availability.eligibleMachineIds.length > 0,
     });
     expect(searchSettings("auto-settle", items).map((item) => item.id)).toEqual([
       "auto-settle-inactive-threads",
@@ -203,24 +203,24 @@ describe("auto-settlement search availability", () => {
     ]);
   });
 
-  it("offers only capable environments when an aggregate has mixed capabilities", () => {
+  it("offers only capable machines when an aggregate has mixed capabilities", () => {
     expect(
-      getThreadAutoSettlementSearchAvailability(environments, {
+      getThreadAutoSettlementSearchAvailability(machines, {
         kind: "all",
-        environmentIds: environments.map((entry) => entry.environmentId),
+        machineIds: machines.map((entry) => entry.machineId),
       }),
-    ).toEqual({ eligibleEnvironmentIds: [capable.environmentId], isTargetAvailable: false });
+    ).toEqual({ eligibleMachineIds: [capable.machineId], isTargetAvailable: false });
   });
 
   it.each([unsupported, offline, loading])(
-    "does not render the target on $environmentId or silently fall back",
+    "does not render the target on $machineId or silently fall back",
     (selected) => {
       expect(
-        getThreadAutoSettlementSearchAvailability(environments, {
-          kind: "environment",
-          environmentIds: [selected.environmentId],
+        getThreadAutoSettlementSearchAvailability(machines, {
+          kind: "machine",
+          machineIds: [selected.machineId],
         }),
-      ).toEqual({ eligibleEnvironmentIds: [capable.environmentId], isTargetAvailable: false });
+      ).toEqual({ eligibleMachineIds: [capable.machineId], isTargetAvailable: false });
     },
   );
 
@@ -229,7 +229,7 @@ describe("auto-settlement search availability", () => {
     expect(
       getThreadAutoSettlementSearchAvailability(selected, {
         kind: "all",
-        environmentIds: selected.map((entry) => entry.environmentId),
+        machineIds: selected.map((entry) => entry.machineId),
       }).isTargetAvailable,
     ).toBe(true);
   });

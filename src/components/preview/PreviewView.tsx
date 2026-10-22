@@ -1,4 +1,4 @@
-import { scopeThreadRef, scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef, scopedThreadKey } from "@vekrel/client-runtime/machine";
 import { settlePromise } from "@vekrel/client-runtime/state/runtime";
 import { previewStreamDownloadUrl } from "@vekrel/client-runtime/preview/server-browser-stream";
 import {
@@ -41,13 +41,13 @@ import {
   useThreadPreviewState,
 } from "~/previewStateStore";
 import { resolveDiscoveredServerUrl } from "~/browser/browserTargetResolver";
-import { useEnvironmentSupportsServerBrowser } from "~/state/entities";
+import { useMachineSupportsServerBrowser } from "~/state/entities";
 import {
-  useEnvironment,
-  useEnvironmentHttpBaseUrl,
-  usePrimaryEnvironmentId,
-} from "~/state/environments";
-import { previewEnvironment } from "~/state/preview";
+  useMachine,
+  useMachineHttpBaseUrl,
+  usePrimaryMachineId,
+} from "~/state/machines";
+import { previewMachine } from "~/state/preview";
 import { usePreviewStreamAccess } from "~/state/previewStream";
 import { useAtomCommand } from "~/state/use-atom-command";
 import {
@@ -55,7 +55,7 @@ import {
   selectThreadPreviewMiniPlayerTabId,
   usePreviewMiniPlayerStore,
 } from "~/previewMiniPlayerStore";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import { readMachineScope, useMachineScope } from "~/state/session";
 import { useRightPanelStore } from "~/rightPanelStore";
 
 import { previewBridge } from "./previewBridge";
@@ -125,7 +125,7 @@ function ServerTabFileNotShown(props: {
   readonly url: string;
   readonly download: { readonly id: string; readonly fileName: string };
 }) {
-  const access = usePreviewStreamAccess(props.threadRef.environmentId);
+  const access = usePreviewStreamAccess(props.threadRef.machineId);
   return (
     <PreviewFileNotShown
       url={props.url}
@@ -153,7 +153,7 @@ export function PreviewView({
   const [focusUrlNonce, setFocusUrlNonce] = useState<number | undefined>(undefined);
   const [pickActive, setPickActive] = useState(false);
   const canSendAnnotation =
-    useEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope) &&
+    useMachineScope(threadRef.machineId, AuthOrchestrationOperateScope) &&
     Boolean(onSendAnnotation);
   const activeRecordingTabIds = useActiveBrowserRecordingTabIds();
   const pickActiveRef = useRef<{ cancelled: boolean } | null>(null);
@@ -168,17 +168,17 @@ export function PreviewView({
   );
   const addPreviewAnnotation = useComposerDraftStore((store) => store.addPreviewAnnotation);
   const addImage = useComposerDraftStore((store) => store.addImage);
-  const environmentHttpBaseUrl = useEnvironmentHttpBaseUrl(threadRef.environmentId);
-  const environmentHostname = environmentHttpBaseUrl
-    ? new URL(environmentHttpBaseUrl).hostname
+  const machineHttpBaseUrl = useMachineHttpBaseUrl(threadRef.machineId);
+  const machineHostname = machineHttpBaseUrl
+    ? new URL(machineHttpBaseUrl).hostname
     : null;
-  const open = useAtomCommand(previewEnvironment.open);
-  const closePreview = useAtomCommand(previewEnvironment.close, "preview close");
-  const environmentLabel = useEnvironment(threadRef.environmentId)?.label ?? "the environment";
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const serverBrowser = useEnvironmentSupportsServerBrowser(threadRef.environmentId);
-  const resize = useAtomCommand(previewEnvironment.resize, "preview viewport resize");
-  const adjust = useAtomCommand(previewEnvironment.adjust, "preview appearance or zoom");
+  const open = useAtomCommand(previewMachine.open);
+  const closePreview = useAtomCommand(previewMachine.close, "preview close");
+  const machineLabel = useMachine(threadRef.machineId)?.label ?? "the machine";
+  const primaryMachineId = usePrimaryMachineId();
+  const serverBrowser = useMachineSupportsServerBrowser(threadRef.machineId);
+  const resize = useAtomCommand(previewMachine.resize, "preview viewport resize");
+  const adjust = useAtomCommand(previewMachine.adjust, "preview appearance or zoom");
 
   usePreviewSession(threadRef);
 
@@ -200,7 +200,7 @@ export function PreviewView({
         : findActiveBrowserRecordingRuntimeTabId(threadRef, tabId)
       : null;
   const snapshot = tabId ? (previewState.sessions[tabId] ?? null) : null;
-  const nativeServerTab = useRendersServerTabNatively(threadRef.environmentId, snapshot);
+  const nativeServerTab = useRendersServerTabNatively(threadRef.machineId, snapshot);
   const isServerTab = snapshot?.runtime === "server" && !nativeServerTab;
   const serverOwnsRendering = snapshot?.runtime === "server";
   const serverSurfaceRef = useRef<ServerBrowserHandle | null>(null);
@@ -246,16 +246,16 @@ export function PreviewView({
   const navTitle = navStatus._tag === "Success" ? navStatus.title : null;
   const latestHistoryUrl = recentHistoryEntries[0]?.url;
   // Keyed on the ids rather than threadRef, which is recreated on every update.
-  const { environmentId: threadEnvironmentId, threadId } = threadRef;
+  const { machineId: threadMachineId, threadId } = threadRef;
   useEffect(() => {
     if (!navUrl || !navTitle || !latestHistoryUrl) return;
     setTitleForThreadUrl(
-      scopeThreadRef(threadEnvironmentId, threadId),
+      scopeThreadRef(threadMachineId, threadId),
       navUrl,
       navTitle,
-      environmentHostname,
+      machineHostname,
     );
-  }, [environmentHostname, latestHistoryUrl, navTitle, navUrl, threadEnvironmentId, threadId]);
+  }, [machineHostname, latestHistoryUrl, navTitle, navUrl, threadMachineId, threadId]);
 
   const navigateToResolvedUrl = async (resolvedUrl: string) => {
     if (isServerTab && serverSurfaceRef.current) {
@@ -297,7 +297,7 @@ export function PreviewView({
       const resolved =
         isServerTab || !previewBridge
           ? normalizePreviewUrl(next)
-          : resolveDiscoveredServerUrl(threadRef.environmentId, next);
+          : resolveDiscoveredServerUrl(threadRef.machineId, next);
       if (await navigateToResolvedUrl(resolved)) {
         recordVisitForThread(threadRef, next);
       }
@@ -312,7 +312,7 @@ export function PreviewView({
   const adjustServerTab = async (change: Omit<PreviewAdjustInput, "threadId" | "tabId">) => {
     if (!tabId) return;
     const result = await adjust({
-      environmentId: threadRef.environmentId,
+      machineId: threadRef.machineId,
       input: { threadId: threadRef.threadId, tabId, ...change },
     });
     if (result._tag === "Failure") {
@@ -360,7 +360,7 @@ export function PreviewView({
   const handleViewportChange = async (nextViewport: PreviewViewportSetting) => {
     if (!tabId) return;
     const result = await resize({
-      environmentId: threadRef.environmentId,
+      machineId: threadRef.machineId,
       input: {
         threadId: threadRef.threadId,
         tabId,
@@ -420,13 +420,13 @@ export function PreviewView({
   };
 
   const moveTarget = alternatePreviewRuntime(
-    threadRef.environmentId,
-    primaryEnvironmentId,
+    threadRef.machineId,
+    primaryMachineId,
     serverBrowser,
     snapshot,
   );
   const moveLabel =
-    moveTarget === "server" ? `Open in ${environmentLabel}'s browser` : "Open on this computer";
+    moveTarget === "server" ? `Open in ${machineLabel}'s browser` : "Open on this computer";
   const handleMoveTab = async () => {
     if (!moveTarget || !tabId || !snapshot) return;
     const result = await openPreviewSession({
@@ -436,7 +436,7 @@ export function PreviewView({
         ? {
             url:
               moveTarget === "desktop"
-                ? resolveDiscoveredServerUrl(threadRef.environmentId, url)
+                ? resolveDiscoveredServerUrl(threadRef.machineId, url)
                 : url,
           }
         : {}),
@@ -499,11 +499,11 @@ export function PreviewView({
           resetZoom: handleResetZoom,
           clearCookies: () =>
             void previewBridge
-              ?.clearCookies(threadRef.environmentId, activeProfileId)
+              ?.clearCookies(threadRef.machineId, activeProfileId)
               .catch(() => undefined),
           clearCache: () =>
             void previewBridge
-              ?.clearCache(threadRef.environmentId, activeProfileId)
+              ?.clearCache(threadRef.machineId, activeProfileId)
               .catch(() => undefined),
           openDevTools: desktopCall(previewBridge.openDevTools),
           toggleNativePictureInPicture: () => handleNativePictureInPicture(),
@@ -801,7 +801,7 @@ export function PreviewView({
       await bridge.setAnnotationSendEnabled?.(
         runtimeTabId,
         Boolean(onSendAnnotation) &&
-          readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope),
+          readMachineScope(threadRef.machineId, AuthOrchestrationOperateScope),
       );
       if (pickRequest.cancelled) return;
       const result = await bridge.pickElement(runtimeTabId);
@@ -851,7 +851,7 @@ export function PreviewView({
       }
       if (
         submission === "send" &&
-        readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope)
+        readMachineScope(threadRef.machineId, AuthOrchestrationOperateScope)
       ) {
         onSendAnnotation?.(annotation, image);
       }
@@ -1000,12 +1000,12 @@ export function PreviewView({
               <ServerBrowserSurface
                 key={runtimeTabId}
                 ref={serverSurfaceRef}
-                environmentId={threadRef.environmentId}
+                machineId={threadRef.machineId}
                 threadId={threadRef.threadId}
                 tabId={snapshot.tabId}
                 pdfUrl={
                   navStatus._tag === "Success"
-                    ? previewPdfAssetUrl(url, environmentHttpBaseUrl)
+                    ? previewPdfAssetUrl(url, machineHttpBaseUrl)
                     : null
                 }
                 visible={visible}
@@ -1041,7 +1041,7 @@ export function PreviewView({
         {showEmptyState ? (
           <PreviewEmptyState
             threadRef={threadRef}
-            environmentId={threadRef.environmentId}
+            machineId={threadRef.machineId}
             configuredUrls={configuredUrls}
             recentEntries={recentHistoryEntries}
             onRemoveRecent={(url) => removeUrlForThread(threadRef, url)}

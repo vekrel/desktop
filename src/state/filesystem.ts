@@ -1,24 +1,24 @@
 import {
-  createFilesystemEnvironmentAtoms,
+  createFilesystemMachineAtoms,
   resolveFilesystemReadAccess,
 } from "@vekrel/client-runtime/state/filesystem";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 
 import { connectionAtomRuntime } from "../connection/runtime";
-import { useEnvironmentPresentation } from "./presentation";
-import { useEnvironmentQuery } from "./query";
-import { environmentSession } from "./session";
+import { useMachinePresentation } from "./presentation";
+import { useMachineQuery } from "./query";
+import { machineSession } from "./session";
 
-export const filesystemEnvironment = createFilesystemEnvironmentAtoms(connectionAtomRuntime);
+export const filesystemMachine = createFilesystemMachineAtoms(connectionAtomRuntime);
 
-export function useFilesystemReadAccess(environmentId: EnvironmentId | null) {
-  const session = useEnvironmentQuery(
-    environmentId === null ? null : environmentSession.sessionStateAtom(environmentId),
+export function useFilesystemReadAccess(machineId: MachineId | null) {
+  const session = useMachineQuery(
+    machineId === null ? null : machineSession.sessionStateAtom(machineId),
   );
-  const environment = useEnvironmentPresentation(environmentId);
+  const machine = useMachinePresentation(machineId);
   return resolveFilesystemReadAccess({
-    isCatalogReady: environment.isReady,
-    connection: environment.presentation?.connection ?? null,
+    isCatalogReady: machine.isReady,
+    connection: machine.presentation?.connection ?? null,
     session: session.data,
     sessionError: session.error,
   });

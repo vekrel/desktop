@@ -1,10 +1,10 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { useServerConfigs } from "~/state/entities";
 
-export function useSupportsMultiplePullRequests(environmentId: EnvironmentId | null): boolean {
+export function useSupportsMultiplePullRequests(machineId: MachineId | null): boolean {
   const configs = useServerConfigs();
   return (
-    environmentId !== null &&
-    configs.get(environmentId)?.environment.capabilities.threadPullRequests === true
+    machineId !== null &&
+    configs.get(machineId)?.machine.capabilities.threadPullRequests === true
   );
 }

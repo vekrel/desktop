@@ -1,13 +1,13 @@
 import type { ProviderInstanceId, UnifiedSettings } from "@vekrel/contracts";
 
-import { mergeEnvironmentSettings } from "../../hooks/useSettings";
+import { mergeMachineSettings } from "../../hooks/useSettings";
 import { getCustomModelOptionsByInstance } from "../../modelSelection";
 import {
   applyProviderInstanceSettings,
   deriveProviderInstanceEntries,
   type ProviderInstanceEntry,
 } from "../../providerInstances";
-import { useEnvironmentProviders, useEnvironments } from "../../state/environments";
+import { useMachineProviders, useMachines } from "../../state/machines";
 import { useSettingsScope } from "./SettingsScopeContext";
 
 export function useScopedModelDisabledReason(
@@ -15,23 +15,23 @@ export function useScopedModelDisabledReason(
   entries: readonly ProviderInstanceEntry[],
 ) {
   const { targets } = useSettingsScope();
-  const { environments } = useEnvironments();
-  const providersByEnvironment = useEnvironmentProviders();
+  const { machines } = useMachines();
+  const providersByMachine = useMachineProviders();
   return (instanceId: ProviderInstanceId, model: string): string | null => {
     const sourceEntry = entries.find((entry) => entry.instanceId === instanceId);
     for (const candidate of targets) {
-      const environment = environments.find(
-        (entry) => entry.environmentId === candidate.environmentId,
+      const machine = machines.find(
+        (entry) => entry.machineId === candidate.machineId,
       );
-      const providers = providersByEnvironment.get(candidate.environmentId);
-      if (!environment?.serverConfig || !providers) continue;
+      const providers = providersByMachine.get(candidate.machineId);
+      if (!machine?.serverConfig || !providers) continue;
       const entry = applyProviderInstanceSettings(
         deriveProviderInstanceEntries(providers),
         candidate.settings,
         candidate.projectId,
       ).find((option) => option.instanceId === instanceId);
       const options = getCustomModelOptionsByInstance(
-        mergeEnvironmentSettings(candidate.settings, settings),
+        mergeMachineSettings(candidate.settings, settings),
         providers,
       ).get(instanceId);
       if (
@@ -40,7 +40,7 @@ export function useScopedModelDisabledReason(
         entry.driverKind !== sourceEntry?.driverKind ||
         !options?.some((option) => option.slug === model && !option.isUnavailable)
       ) {
-        return `This model is unavailable on ${environment?.label ?? "a selected environment"}. Select that environment to choose its model separately.`;
+        return `This model is unavailable on ${machine?.label ?? "a selected machine"}. Select that machine to choose its model separately.`;
       }
     }
     return null;

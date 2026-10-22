@@ -3,25 +3,25 @@ import type { PullRequestAction } from "@vekrel/contracts";
 import { createContext, use, type ReactNode } from "react";
 
 import { useShortcutModifierState } from "~/shortcutModifierState";
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 import { useUiStateStore } from "~/uiStateStore";
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { resolvePullRequestMergeMethod } from "./pullRequestDetail.logic";
 import { PullRequestGlyph } from "./pullRequestIcons";
-import { pullRequestQuickActions, type EnvironmentPullRequestEntry } from "./pullRequestList.logic";
+import { pullRequestQuickActions, type MachinePullRequestEntry } from "./pullRequestList.logic";
 import {
   usePullRequestActionRunner,
   usePullRequestDefaultMergeMethodResolver,
 } from "./usePullRequestActions";
 
 type PullRequestSpeedActionEntry = Pick<
-  EnvironmentPullRequestEntry,
-  "environmentId" | "projectId" | "host" | "repository" | "number" | "state" | "isDraft"
+  MachinePullRequestEntry,
+  "machineId" | "projectId" | "host" | "repository" | "number" | "state" | "isDraft"
 > & { readonly stack?: object | undefined };
 
-export interface PullRequestSpeedActionResult<Entry = EnvironmentPullRequestEntry> {
+export interface PullRequestSpeedActionResult<Entry = MachinePullRequestEntry> {
   readonly entry: Entry;
   readonly action: PullRequestAction;
 }
@@ -42,10 +42,10 @@ export function PullRequestSpeedActions<Entry extends PullRequestSpeedActionEntr
   onCloseSweepStart?: (entry: Entry, event: PointerEvent) => void;
 }) {
   const canWrite = useAtomValue(
-    pullRequestEnvironment.runAction.permissionAtom(entry.environmentId),
+    pullRequestMachine.runAction.permissionAtom(entry.machineId),
   );
   const resolveProjectDefault = usePullRequestDefaultMergeMethodResolver(
-    entry.environmentId,
+    entry.machineId,
     entry.projectId,
   );
   const reference = {
@@ -55,7 +55,7 @@ export function PullRequestSpeedActions<Entry extends PullRequestSpeedActionEntr
     number: entry.number,
   };
   const { actionPending, perform } = usePullRequestActionRunner({
-    environmentId: entry.environmentId,
+    machineId: entry.machineId,
     reference,
     onSuccess: (action) => onActed?.({ entry, action }),
     resolveMergeMethod: (detail) => {

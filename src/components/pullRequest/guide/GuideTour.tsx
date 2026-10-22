@@ -1,9 +1,9 @@
-import type { EnvironmentId, PullRequestRef, PullRequestReviewGuide } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef, PullRequestReviewGuide } from "@vekrel/contracts";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 
 import { createPullRequestDiffFileContentsLoader } from "~/lib/diffFileContents";
 import { isEditableFocused } from "~/lib/editableFocus";
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { isCommandPaletteOpen } from "~/commandPaletteBus";
@@ -22,7 +22,7 @@ import { stepTourPosition, stopFilePaths } from "@vekrel/client-runtime/review-g
 import { useGuideDiffFiles } from "./useGuideDiffFiles";
 
 export function GuideTour({
-  environmentId,
+  machineId,
   reference,
   guide,
   banner,
@@ -32,7 +32,7 @@ export function GuideTour({
   onFinish,
   onOpenFile,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   guide: PullRequestReviewGuide;
   banner: ReactNode;
@@ -42,7 +42,7 @@ export function GuideTour({
   onFinish: (() => void) | null;
   onOpenFile: (path: string) => void;
 }) {
-  const key = guideProgressKey(guideRunKey(environmentId, reference), guide.headSha);
+  const key = guideProgressKey(guideRunKey(machineId, reference), guide.headSha);
   const tour = useGuideProgress(key);
   const update = (change: (current: GuideProgress) => Partial<GuideProgress>) =>
     useGuideRunStore.getState().setProgress(key, (current) => ({ ...current, ...change(current) }));
@@ -54,14 +54,14 @@ export function GuideTour({
 
   const wantedPaths = stop === null ? [] : stopFilePaths(stop);
   const diff = useGuideDiffFiles({
-    environmentId,
+    machineId,
     reference,
     headSha: guide.headSha,
     wantedPaths,
   });
-  const getDiffFileContents = useAtomCommand(pullRequestEnvironment.diffFileContents);
+  const getDiffFileContents = useAtomCommand(pullRequestMachine.diffFileContents);
   const loadDiffFiles = createPullRequestDiffFileContentsLoader(getDiffFileContents, {
-    environmentId,
+    machineId,
     reference,
     commit: null,
     cacheKey: `pull-request-guide:${key}`,

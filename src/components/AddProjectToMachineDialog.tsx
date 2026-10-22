@@ -1,15 +1,15 @@
 import { useParams } from "@tanstack/react-router";
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
 import {
   getAddProjectInitialQuery,
   getCloneDestinationPath,
   getCloneDirectoryName,
 } from "@vekrel/client-runtime/operations/projects";
 import {
-  type EnvironmentId,
+  type MachineId,
   type ProjectIgnoredFile,
   type ScopedProjectRef,
-  resolveEnvironmentMachineKind,
+  resolveMachineKind,
 } from "@vekrel/contracts";
 import {
   type CloneProtocol,
@@ -23,7 +23,7 @@ import { create } from "zustand";
 import { type DraftId, useComposerDraftStore } from "../composerDraftStore";
 import { useAddProjectTargets } from "../hooks/useAddProjectTargets";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
-import { useLogicalProjectEnvironments } from "../hooks/useLogicalProjectEnvironments";
+import { useLogicalProjectMachines } from "../hooks/useLogicalProjectMachines";
 import {
   COPYABLE_FILE_MAX_BYTES,
   addProjectToMachine,
@@ -32,10 +32,10 @@ import {
 import { formatBytes } from "../lib/formatBytes";
 import { newProjectId } from "../lib/utils";
 import { useProject } from "../state/entities";
-import { useEnvironments } from "../state/environments";
-import { projectEnvironment } from "../state/projects";
-import { useEnvironmentQuery } from "../state/query";
-import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
+import { useMachines } from "../state/machines";
+import { projectMachine } from "../state/projects";
+import { useMachineQuery } from "../state/query";
+import { MachineIcon } from "./MachineIcon";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import {
@@ -55,7 +55,7 @@ import { Toggle, ToggleGroup } from "./ui/toggle-group";
 
 interface AddProjectToMachineRequest {
   readonly projectRef: ScopedProjectRef;
-  readonly targetEnvironmentId: EnvironmentId | null;
+  readonly targetMachineId: MachineId | null;
 }
 
 const useRequest = create<{ request: AddProjectToMachineRequest | null }>(() => ({
@@ -79,11 +79,11 @@ function AddProjectToMachineDialog({ request }: { request: AddProjectToMachineRe
   const project = useProject(request.projectRef);
   const handleNewThread = useNewThreadHandler();
   const { draftId: routeDraftId } = useParams({ strict: false });
-  const { environments } = useEnvironments();
-  const targets = useAddProjectTargets(project, useLogicalProjectEnvironments(project, false));
-  const [targetId, setTargetId] = useState(request.targetEnvironmentId);
-  const target = targets.find((t) => t.environmentId === targetId) ?? targets[0] ?? null;
-  const source = environments.find((env) => env.environmentId === request.projectRef.environmentId);
+  const { machines } = useMachines();
+  const targets = useAddProjectTargets(project, useLogicalProjectMachines(project, false));
+  const [targetId, setTargetId] = useState(request.targetMachineId);
+  const target = targets.find((t) => t.machineId === targetId) ?? targets[0] ?? null;
+  const source = machines.find((env) => env.machineId === request.projectRef.machineId);
   const sourceUrl =
     project?.repositoryIdentity?.origin?.remoteUrl ??
     project?.repositoryIdentity?.locator.remoteUrl ??
@@ -94,19 +94,19 @@ function AddProjectToMachineDialog({ request }: { request: AddProjectToMachineRe
   const remoteUrl =
     (protocol === "ssh" ? sshUrl : protocol === "https" ? httpsUrl : null) ?? sourceUrl;
 
-  const targetEnvironment = environments.find((env) => env.environmentId === target?.environmentId);
+  const targetMachine = machines.find((env) => env.machineId === target?.machineId);
   const defaultPath = getCloneDestinationPath(
-    getAddProjectInitialQuery(targetEnvironment?.serverConfig?.settings.addProjectBaseDirectory),
+    getAddProjectInitialQuery(targetMachine?.serverConfig?.settings.addProjectBaseDirectory),
     getCloneDirectoryName(sourceUrl),
   );
   const [pathOverride, setPathOverride] = useState<string | null>(null);
   const destinationPath = pathOverride ?? defaultPath;
 
-  const canListFiles = source?.serverConfig?.environment.capabilities.ignoredFileListing === true;
-  const ignoredFiles = useEnvironmentQuery(
+  const canListFiles = source?.serverConfig?.machine.capabilities.ignoredFileListing === true;
+  const ignoredFiles = useMachineQuery(
     project && canListFiles
-      ? projectEnvironment.listIgnoredFiles({
-          environmentId: project.environmentId,
+      ? projectMachine.listIgnoredFiles({
+          machineId: project.machineId,
           input: { cwd: project.workspaceRoot },
         })
       : null,
@@ -150,13 +150,13 @@ function AddProjectToMachineDialog({ request }: { request: AddProjectToMachineRe
       draftId &&
       draft &&
       !draft.promotedTo &&
-      draft.environmentId === request.projectRef.environmentId &&
+      draft.machineId === request.projectRef.machineId &&
       draft.projectId === request.projectRef.projectId
     ) {
       drafts.setDraftThreadContext(draftId, {
         projectRef: targetRef,
-        environmentSelection: "manual",
-        loadBalancedEnvironmentId: null,
+        machineSelection: "manual",
+        loadBalancedMachineId: null,
       });
       return;
     }
@@ -174,12 +174,12 @@ function AddProjectToMachineDialog({ request }: { request: AddProjectToMachineRe
     const projectId = newProjectId();
     try {
       await addProjectToMachine({
-        source: { environmentId: project.environmentId, cwd: project.workspaceRoot },
+        source: { machineId: project.machineId, cwd: project.workspaceRoot },
         subdirectory: projectSubdirectory(
           project.repositoryIdentity?.rootPath,
           project.workspaceRoot,
         ),
-        target: { environmentId: target.environmentId, label: target.label },
+        target: { machineId: target.machineId, label: target.label },
         projectId,
         title: project.title,
         remoteUrl,
@@ -187,7 +187,7 @@ function AddProjectToMachineDialog({ request }: { request: AddProjectToMachineRe
         files: files.filter((file) => selectedFiles.has(file.path)).map((file) => file.path),
       });
       close();
-      openClonedProject(scopeProjectRef(target.environmentId, projectId));
+      openClonedProject(scopeProjectRef(target.machineId, projectId));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not start the clone.");
       setSubmitting(false);
@@ -220,8 +220,8 @@ function AddProjectToMachineDialog({ request }: { request: AddProjectToMachineRe
             <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
               <div className="flex min-w-0 flex-col gap-1">
                 <span className="flex min-w-0 items-center gap-1.5 font-medium text-sm">
-                  <EnvironmentMachineIcon
-                    kind={resolveEnvironmentMachineKind(source?.serverConfig ?? null)}
+                  <MachineIcon
+                    kind={resolveMachineKind(source?.serverConfig ?? null)}
                     className="size-3.5 shrink-0"
                   />
                   <span className="truncate">{source?.label ?? "This machine"}</span>
@@ -245,23 +245,23 @@ function AddProjectToMachineDialog({ request }: { request: AddProjectToMachineRe
               <div className="flex min-w-0 flex-col gap-1">
                 {targets.length > 1 ? (
                   <Select
-                    value={target?.environmentId ?? null}
+                    value={target?.machineId ?? null}
                     onValueChange={(value) => {
                       if (value) setTargetId(value);
                     }}
-                    items={targets.map((t) => ({ value: t.environmentId, label: t.label }))}
+                    items={targets.map((t) => ({ value: t.machineId, label: t.label }))}
                   >
                     <SelectTrigger size="sm" aria-label="Machine to add the project to">
                       {target ? (
-                        <EnvironmentMachineIcon kind={target.machine} className="size-3.5" />
+                        <MachineIcon kind={target.machine} className="size-3.5" />
                       ) : null}
                       <SelectValue />
                     </SelectTrigger>
                     <SelectPopup>
                       {targets.map((t) => (
-                        <SelectItem key={t.environmentId} value={t.environmentId}>
+                        <SelectItem key={t.machineId} value={t.machineId}>
                           <span className="inline-flex items-center gap-1.5">
-                            <EnvironmentMachineIcon kind={t.machine} className="size-3" />
+                            <MachineIcon kind={t.machine} className="size-3" />
                             {t.label}
                           </span>
                         </SelectItem>
@@ -271,7 +271,7 @@ function AddProjectToMachineDialog({ request }: { request: AddProjectToMachineRe
                 ) : (
                   <span className="flex min-w-0 items-center gap-1.5 font-medium text-sm">
                     {target ? (
-                      <EnvironmentMachineIcon kind={target.machine} className="size-3.5 shrink-0" />
+                      <MachineIcon kind={target.machine} className="size-3.5 shrink-0" />
                     ) : null}
                     <span className="truncate">{target?.label ?? "No machine available"}</span>
                   </span>

@@ -1,7 +1,7 @@
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   type ProviderInstanceId,
-  type EnvironmentId,
+  type MachineId,
   type ProviderDriverKind,
   type ResolvedKeybindingsConfig,
   MODEL_PICKER_JUMP_KEYBINDING_COMMANDS,
@@ -49,8 +49,8 @@ import {
   shortcutLabelForCommand,
 } from "../../keybindings";
 import {
-  useEnvironmentModelPreferences,
-  useToggleEnvironmentModelFavorite,
+  useMachineModelPreferences,
+  useToggleMachineModelFavorite,
 } from "~/hooks/useSettings";
 import { cn } from "~/lib/utils";
 import { getVirtualizedScrollFadeClassName } from "../ui/scroll-area";
@@ -342,7 +342,7 @@ function WindowKeyDownListener({ onKeyDown }: { onKeyDown: (event: KeyboardEvent
 }
 
 export const ModelPickerContent = memo(function ModelPickerContent(props: {
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   activeInstanceId: ProviderInstanceId;
   model: string;
   selectedModels?: ReadonlyArray<{ instanceId: ProviderInstanceId; model: string }>;
@@ -373,7 +373,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   const modelListRef = useRef<LegendListRef | null>(null);
   const pickerContentRef = useRef<HTMLDivElement>(null);
   const highlightedModelKeyRef = useRef<string | null>(null);
-  const { favorites } = useEnvironmentModelPreferences(props.environmentId);
+  const { favorites } = useMachineModelPreferences(props.machineId);
   const activeEntry = props.instanceEntries.find(
     (entry) => entry.instanceId === props.activeInstanceId,
   );
@@ -442,7 +442,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   const serverKeybindings = useAtomValue(primaryServerKeybindingsAtom);
   const keybindings = providedKeybindings ?? serverKeybindings;
   const [searchHeight, setSearchHeight] = useState(0);
-  const toggleFavorite = useToggleEnvironmentModelFavorite(props.environmentId);
+  const toggleFavorite = useToggleMachineModelFavorite(props.machineId);
 
   const focusSearchInput = () => {
     searchInputRef.current?.focus({ preventScroll: true });

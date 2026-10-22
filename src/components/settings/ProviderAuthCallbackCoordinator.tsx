@@ -1,29 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import { pendingProviderAuthDelivery, clearProviderAuthDelivery } from "../../providerAuthDelivery";
-import { serverEnvironment } from "../../state/server";
-import { useEnvironments } from "../../state/environments";
+import { serverMachine } from "../../state/server";
+import { useMachines } from "../../state/machines";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { toastManager } from "../ui/toast";
 
-/** Hosted web receives only the one-time code; the selected environment verifies and stores tokens. */
+/** Hosted web receives only the one-time code; the selected machine verifies and stores tokens. */
 export function ProviderAuthCallbackCoordinator() {
-  const completeAuth = useAtomCommand(serverEnvironment.completeProviderAuth, {
+  const completeAuth = useAtomCommand(serverMachine.completeProviderAuth, {
     reportFailure: false,
   });
-  const { environments } = useEnvironments();
+  const { machines } = useMachines();
   const [delivery, setDelivery] = useState(pendingProviderAuthDelivery);
   const started = useRef(false);
-  const environmentId = delivery?.environmentId;
-  const connected = environments.some(
-    (environment) =>
-      environment.environmentId === environmentId && environment.connection.phase === "connected",
+  const machineId = delivery?.machineId;
+  const connected = machines.some(
+    (machine) =>
+      machine.machineId === machineId && machine.connection.phase === "connected",
   );
   useEffect(() => {
     const input = delivery;
     if (!input || started.current || !connected) return;
     started.current = true;
     void completeAuth({
-      environmentId: input.environmentId,
+      machineId: input.machineId,
       input: { instanceId: input.instanceId, flowId: input.flowId, callbackUrl: input.callbackUrl },
     })
       .then((result) => {
@@ -38,7 +38,7 @@ export function ProviderAuthCallbackCoordinator() {
         toastManager.add({
           type: "error",
           title: "ChatGPT sign-in couldn't finish",
-          description: "Reconnect to the environment and try again.",
+          description: "Reconnect to the machine and try again.",
         }),
       )
       .finally(() => {

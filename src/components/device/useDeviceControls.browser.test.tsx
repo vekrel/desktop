@@ -1,4 +1,4 @@
-import { EnvironmentId, type DeviceDetail, type DeviceSummary } from "@vekrel/contracts";
+import { MachineId, type DeviceDetail, type DeviceSummary } from "@vekrel/contracts";
 import type { DeviceHubAccess } from "@vekrel/client-runtime/device/hub-access";
 import * as Cause from "effect/Cause";
 import { useEffect } from "react";
@@ -14,11 +14,11 @@ const { read, action, subscribe } = vi.hoisted(() => ({
     vi.fn<(_target: unknown, onChange: (app: { id: string } | null) => void) => () => void>(),
 }));
 vi.mock(import("~/state/use-atom-command"), async (original) => {
-  const { deviceEnvironment } = await import("~/state/device");
+  const { deviceMachine } = await import("~/state/device");
   return {
     ...(await original()),
     useAtomCommand: ((command: unknown) =>
-      command === deviceEnvironment.detail ? read : action) as never,
+      command === deviceMachine.detail ? read : action) as never,
   };
 });
 vi.mock(import("./deviceHubApi"), async (original) => ({
@@ -58,7 +58,7 @@ function deferred() {
 let controls: DeviceControls;
 function Probe({ visible, access = null }: { visible: boolean; access?: DeviceHubAccess | null }) {
   const next = useDeviceControls({
-    environmentId: EnvironmentId.make("environment"),
+    machineId: MachineId.make("machine"),
     device,
     access,
     visible,

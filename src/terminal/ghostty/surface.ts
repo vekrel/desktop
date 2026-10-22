@@ -94,14 +94,14 @@ function terminalFontFamily(family?: string): string {
 async function loadTerminalFontFamily(
   family: string | undefined,
   size: number,
-  environment?: {
+  machine?: {
     readonly load: (font: string, text: string) => Promise<unknown>;
     readonly resolve: (family: string | undefined) => string;
   },
 ): Promise<string> {
   const candidate = uncheckedTerminalFontFamily(family);
   const load =
-    environment?.load ?? ((font: string, text: string) => document.fonts.load(font, text));
+    machine?.load ?? ((font: string, text: string) => document.fonts.load(font, text));
   try {
     await Promise.all(
       TERMINAL_FONT_LOAD_VARIANTS.map((variant) =>
@@ -109,7 +109,7 @@ async function loadTerminalFontFamily(
       ),
     );
   } catch {}
-  return (environment?.resolve ?? terminalFontFamily)(family);
+  return (machine?.resolve ?? terminalFontFamily)(family);
 }
 
 function terminalFontSize(size?: number): number {

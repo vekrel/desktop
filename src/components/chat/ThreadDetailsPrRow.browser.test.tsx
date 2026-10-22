@@ -1,4 +1,4 @@
-import { EnvironmentId, ProjectId, ThreadId, type PullRequestCheck } from "@vekrel/contracts";
+import { MachineId, ProjectId, ThreadId, type PullRequestCheck } from "@vekrel/contracts";
 import { DraftId } from "~/composerDraftStore";
 import { AsyncResult } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
@@ -21,8 +21,8 @@ vi.mock(import("~/state/entities"), async (importOriginal) => ({
   useServerConfigs: (() =>
     new Map([
       [
-        EnvironmentId.make("environment"),
-        { environment: { capabilities: { pullRequests: true } } },
+        MachineId.make("machine"),
+        { machine: { capabilities: { pullRequests: true } } },
       ],
     ])) as never,
 }));
@@ -56,11 +56,11 @@ const queryData = () => ({
 });
 vi.mock(import("~/state/query"), async (importOriginal) => ({
   ...(await importOriginal()),
-  useEnvironmentQuerySelector: ((_atom: unknown, select: (result: unknown) => unknown) =>
+  useMachineQuerySelector: ((_atom: unknown, select: (result: unknown) => unknown) =>
     select(AsyncResult.success(queryData()))) as never,
-  useEnvironmentQueryIsNewer: () => true,
-  useEnvironmentQueryRefresh: () => ({ refresh: vi.fn(), isPending: () => false }),
-  useEnvironmentQuery: (() => ({
+  useMachineQueryIsNewer: () => true,
+  useMachineQueryRefresh: () => ({ refresh: vi.fn(), isPending: () => false }),
+  useMachineQuery: (() => ({
     data: {
       code: { additions: 1, deletions: 0 },
       tests: { additions: 0, deletions: 0 },
@@ -112,7 +112,7 @@ it("merges with the last selected merge method", async () => {
   await act(async () => {
     await screen.rerender(
       <ThreadDetailsPrRow
-        environmentId={EnvironmentId.make("environment")}
+        machineId={MachineId.make("machine")}
         pr={null}
         number={1}
         status={null}
@@ -141,7 +141,7 @@ it("requires a new merge click after passing checks become pending and pass agai
   const { container } = screen;
   const render = () => (
     <ThreadDetailsPrRow
-      environmentId={EnvironmentId.make("environment")}
+      machineId={MachineId.make("machine")}
       pr={null}
       number={1}
       status={null}

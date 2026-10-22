@@ -1,29 +1,29 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import type { SourceControlClientDefinition } from "@vekrel/client-runtime/source-control-clients";
 import { useState } from "react";
 
-import { useEnvironmentSettings } from "../../hooks/useSettings";
-import { serverEnvironment } from "../../state/server";
+import { useMachineSettings } from "../../hooks/useSettings";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { ProviderSettingsForm } from "./ProviderSettingsForm";
 
 export function SourceControlHostSettings({
-  environmentId,
+  machineId,
   definition,
   onSaved,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly definition: SourceControlClientDefinition & {
     readonly settings: NonNullable<SourceControlClientDefinition["settings"]>;
   };
   readonly onSaved: () => void;
 }) {
-  const saved = useEnvironmentSettings(
-    environmentId,
+  const saved = useMachineSettings(
+    machineId,
     (settings) => settings.sourceControlHosts[definition.kind],
   );
-  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
+  const updateSettings = useAtomCommand(serverMachine.updateSettings, {
     label: `save ${definition.label} settings`,
   });
   const [saving, setSaving] = useState(false);
@@ -33,7 +33,7 @@ export function SourceControlHostSettings({
   const save = async (fields: Record<string, unknown>) => {
     setSaving(true);
     const result = await updateSettings({
-      environmentId,
+      machineId,
       input: { patch: { sourceControlHosts: { [definition.kind]: fields } } },
     });
     setSaving(false);
@@ -46,7 +46,7 @@ export function SourceControlHostSettings({
       <ProviderSettingsForm
         definition={formDefinition}
         value={saved ?? {}}
-        idPrefix={`source-control-${definition.kind}-${environmentId}`}
+        idPrefix={`source-control-${definition.kind}-${machineId}`}
         variant="settings"
         onChange={(next) => {
           const fields = next ?? {};

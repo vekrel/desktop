@@ -1,13 +1,13 @@
-import { EnvironmentRegistry } from "@vekrel/client-runtime/connection";
+import { MachineRegistry } from "@vekrel/client-runtime/connection";
 import {
-  EnvironmentRpcSubscriptionObserver,
+  MachineRpcSubscriptionObserver,
   request,
-  type EnvironmentRpcSubscriptionObservation,
+  type MachineRpcSubscriptionObservation,
 } from "@vekrel/client-runtime/rpc";
 import {
   type BackgroundScope,
   type ClientActivityReportInput,
-  type EnvironmentId,
+  type MachineId,
   WS_METHODS,
 } from "@vekrel/contracts";
 import * as Clock from "effect/Clock";
@@ -28,7 +28,7 @@ const RECENT_INTERACTION_WINDOW_MS = LEASE_TTL_MS;
 const BASELINE_SCOPES: ReadonlyArray<BackgroundScope> = [{ type: "provider-status" }];
 
 interface RetainedScope {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly scope: BackgroundScope;
   refCount: number;
 }
@@ -44,18 +44,18 @@ function notifyRetainedScopesChanged(): void {
   }
 }
 
-function stableScopeKey(environmentId: EnvironmentId, scope: BackgroundScope): string {
+function stableScopeKey(machineId: MachineId, scope: BackgroundScope): string {
   switch (scope.type) {
     case "server-config":
     case "diagnostics":
-      return JSON.stringify([environmentId, scope.type]);
+      return JSON.stringify([machineId, scope.type]);
     case "provider-status":
-      return JSON.stringify([environmentId, scope.type, scope.instanceId ?? null]);
+      return JSON.stringify([machineId, scope.type, scope.instanceId ?? null]);
     case "vcs-status":
     case "git-refs":
-      return JSON.stringify([environmentId, scope.type, scope.cwd]);
+      return JSON.stringify([machineId, scope.type, scope.cwd]);
     case "thread":
-      return JSON.stringify([environmentId, scope.type, scope.threadId]);
+      return JSON.stringify([machineId, scope.type, scope.threadId]);
   }
 }
 
@@ -83,18 +83,18 @@ function wasRecentlyInteracted(lastInteractionAtMs: number, observedAtMs: number
 }
 
 function createActivityReport(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   lastInteractionAtMs: number,
   observedAtMs: number,
 ): ClientActivityReportInput {
   const scopes = [...BASELINE_SCOPES];
   for (const entry of retainedScopes.values()) {
-    if (entry.environmentId === environmentId) {
+    if (entry.machineId === machineId) {
       scopes.push(entry.scope);
     }
   }
   return {
-    environmentId,
+    machineId,
     clientId: getClientId(),
     clientKind: resolveClientKind(),
     visible: document.visibilityState === "visible",
@@ -108,7 +108,7 @@ function createActivityReport(
 }
 
 function scopeForSubscription(
-  observation: EnvironmentRpcSubscriptionObservation,
+  observation: MachineRpcSubscriptionObservation,
 ): BackgroundScope | null {
   if (observation.method === WS_METHODS.subscribeResourceTelemetry) {
     return { type: "diagnostics" };
@@ -121,13 +121,13 @@ function scopeForSubscription(
   return typeof input.cwd === "string" ? { type: "vcs-status", cwd: input.cwd } : null;
 }
 
-function retainBackgroundScope(environmentId: EnvironmentId, scope: BackgroundScope): () => void {
-  const key = stableScopeKey(environmentId, scope);
+function retainBackgroundScope(machineId: MachineId, scope: BackgroundScope): () => void {
+  const key = stableScopeKey(machineId, scope);
   const existing = retainedScopes.get(key);
   if (existing) {
     existing.refCount += 1;
   } else {
-    retainedScopes.set(key, { environmentId, scope, refCount: 1 });
+    retainedScopes.set(key, { machineId, scope, refCount: 1 });
     notifyRetainedScopesChanged();
   }
 
@@ -143,29 +143,29 @@ function retainBackgroundScope(environmentId: EnvironmentId, scope: BackgroundSc
 }
 
 export function observeBackgroundActivitySubscription(
-  observation: EnvironmentRpcSubscriptionObservation,
+  observation: MachineRpcSubscriptionObservation,
 ): Effect.Effect<Effect.Effect<void>> {
   const scope = scopeForSubscription(observation);
   if (scope === null) {
     return Effect.succeed(Effect.void);
   }
   return Effect.sync(() => {
-    const release = retainBackgroundScope(observation.environmentId as EnvironmentId, scope);
+    const release = retainBackgroundScope(observation.machineId as MachineId, scope);
     return Effect.sync(release);
   });
 }
 
 export function retainedBackgroundScopes(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
 ): ReadonlyArray<BackgroundScope> {
   return Array.from(retainedScopes.values(), (entry) =>
-    entry.environmentId === environmentId ? entry.scope : null,
+    entry.machineId === machineId ? entry.scope : null,
   ).filter((scope): scope is BackgroundScope => scope !== null);
 }
 
 export const layerObserver = Layer.succeed(
-  EnvironmentRpcSubscriptionObserver,
-  EnvironmentRpcSubscriptionObserver.of({
+  MachineRpcSubscriptionObserver,
+  MachineRpcSubscriptionObserver.of({
     observe: observeBackgroundActivitySubscription,
   }),
 );
@@ -176,7 +176,7 @@ export const layer = Layer.effectDiscard(
       return;
     }
 
-    const registry = yield* EnvironmentRegistry.EnvironmentRegistry;
+    const registry = yield* MachineRegistry.MachineRegistry;
     const clock = yield* Clock.Clock;
     const reportRequests = yield* Queue.sliding<void>(1);
     const requestReport = () => Queue.offerUnsafe(reportRequests, undefined);
@@ -196,16 +196,16 @@ export const layer = Layer.effectDiscard(
       const entries = yield* SubscriptionRef.get(registry.entries);
       yield* Effect.forEach(
         entries.keys(),
-        (environmentId) =>
+        (machineId) =>
           registry
             .run(
-              environmentId,
+              machineId,
               request(
                 WS_METHODS.serverReportClientActivity,
-                createActivityReport(environmentId, lastInteractionAtMs, observedAtMs),
+                createActivityReport(machineId, lastInteractionAtMs, observedAtMs),
               ),
             )
-            // Not `ignore`: tearing down an environment mid-request interrupts its report,
+            // Not `ignore`: tearing down a machine mid-request interrupts its report,
             // and an interrupt leaking out here would end the reporting loop for good.
             .pipe(Effect.ignoreCause),
         { concurrency: "unbounded", discard: true },

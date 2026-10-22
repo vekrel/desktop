@@ -1,7 +1,7 @@
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { settlePromise, squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentId, PullRequestRef, ScopedThreadRef, ThreadId } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef, ScopedThreadRef, ThreadId } from "@vekrel/contracts";
 import { CheckIcon, MessageSquareIcon } from "lucide-react";
 import { useState } from "react";
 import { threadPullRequestLinkMode } from "@vekrel/client-runtime/thread-pull-request-compatibility";
@@ -10,8 +10,8 @@ import { usePullRequestLinking } from "~/hooks/usePullRequestLinking";
 import { parseChangeRequestUrl } from "~/lib/openPullRequestLink";
 import { normalizeThreadPullRequestKey } from "@vekrel/shared/threadPullRequests";
 import { useProjects, useServerConfigs, useThreadShell, useThreadShells } from "~/state/entities";
-import { pullRequestEnvironment } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestMachine } from "~/state/pullRequests";
+import { useMachineQuery } from "~/state/query";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import { openCommandPalette } from "~/commandPaletteBus";
 import { Button } from "../ui/button";
@@ -22,7 +22,7 @@ import { toastManager } from "../ui/toast";
 import { PullRequestGlyph } from "./pullRequestIcons";
 
 interface PullRequestThreadLinksProps {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   url: string;
   threadRef: ScopedThreadRef | null;
@@ -33,16 +33,16 @@ interface PullRequestThreadLinksProps {
 export function PullRequestThreadLinks(props: PullRequestThreadLinksProps) {
   const configs = useServerConfigs();
   if (
-    threadPullRequestLinkMode(configs.get(props.environmentId)?.environment.capabilities) ===
+    threadPullRequestLinkMode(configs.get(props.machineId)?.machine.capabilities) ===
     "unsupported"
   ) {
     return null;
   }
-  return <EnabledPullRequestThreadLinks key={`${props.environmentId}:${props.url}`} {...props} />;
+  return <EnabledPullRequestThreadLinks key={`${props.machineId}:${props.url}`} {...props} />;
 }
 
 function EnabledPullRequestThreadLinks({
-  environmentId,
+  machineId,
   reference,
   url,
   threadRef,
@@ -50,14 +50,14 @@ function EnabledPullRequestThreadLinks({
   onPickerOpenChange,
 }: PullRequestThreadLinksProps) {
   const parsed = parseChangeRequestUrl(url);
-  const thread = useThreadShell(threadRef?.environmentId === environmentId ? threadRef : null);
+  const thread = useThreadShell(threadRef?.machineId === machineId ? threadRef : null);
   const currentThreadRef = thread === null ? null : threadRef;
-  const linking = usePullRequestLinking(environmentId);
+  const linking = usePullRequestLinking(machineId);
   const linkedHere = linking.isLinked(thread, url);
-  const relations = useEnvironmentQuery(
+  const relations = useMachineQuery(
     linking.mode === "multiple" && display !== "menu-item"
-      ? pullRequestEnvironment.linkedThreads({
-          environmentId,
+      ? pullRequestMachine.linkedThreads({
+          machineId,
           input:
             parsed === null
               ? reference
@@ -77,7 +77,7 @@ function EnabledPullRequestThreadLinks({
     if (parsed === null || pending) return;
     setPending(true);
     const result = await settlePromise(() =>
-      linking.changeLink(scopeThreadRef(environmentId, threadId), url, !remove),
+      linking.changeLink(scopeThreadRef(machineId, threadId), url, !remove),
     );
     setPending(false);
     if (result._tag === "Failure") {
@@ -91,8 +91,8 @@ function EnabledPullRequestThreadLinks({
     }
     if (linking.mode === "multiple") {
       appAtomRegistry.refresh(
-        pullRequestEnvironment.linkedThreads({
-          environmentId,
+        pullRequestMachine.linkedThreads({
+          machineId,
           input: { ...reference, ...normalizeThreadPullRequestKey(parsed) },
         }),
       );
@@ -122,7 +122,7 @@ function EnabledPullRequestThreadLinks({
                     query: url,
                     ...((relations.data ?? lastRelations) === null
                       ? {}
-                      : { linkedThreads: { environmentId, threads: linkedThreads } }),
+                      : { linkedThreads: { machineId, threads: linkedThreads } }),
                   })
                 }
               >
@@ -162,7 +162,7 @@ function EnabledPullRequestThreadLinks({
           <DialogPopup className="max-w-md" showCloseButton={false}>
             <DialogTitle className="sr-only">Link pull request to a thread</DialogTitle>
             <ThreadPicker
-              environmentId={environmentId}
+              machineId={machineId}
               url={url}
               pending={pending}
               onSelect={(threadId) => void changeLink(threadId, false)}
@@ -175,30 +175,30 @@ function EnabledPullRequestThreadLinks({
 }
 
 function ThreadPicker({
-  environmentId,
+  machineId,
   url,
   pending,
   onSelect,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   url: string;
   pending: boolean;
   onSelect: (threadId: ThreadId) => void;
 }) {
   const threads = useThreadShells();
-  const linking = usePullRequestLinking(environmentId);
+  const linking = usePullRequestLinking(machineId);
   const projects = useProjects();
   const [query, setQuery] = useState("");
   const projectNames = new Map(
     projects
-      .filter((project) => project.environmentId === environmentId)
+      .filter((project) => project.machineId === machineId)
       .map((project) => [project.id, project.title]),
   );
   const search = query.trim().toLocaleLowerCase();
   const candidates = threads
     .filter(
       (thread) =>
-        thread.environmentId === environmentId &&
+        thread.machineId === machineId &&
         thread.archivedAt === null &&
         `${thread.title} ${projectNames.get(thread.projectId) ?? ""}`
           .toLocaleLowerCase()

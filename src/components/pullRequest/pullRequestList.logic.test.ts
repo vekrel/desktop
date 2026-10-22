@@ -1,6 +1,6 @@
 import { SourceControlProviderKind } from "@vekrel/contracts";
 import type {
-  EnvironmentId,
+  MachineId,
   ProjectId,
   PullRequestAction,
   PullRequestListEntry,
@@ -28,9 +28,9 @@ import {
   rankPullRequestsBlockedOnAuthor,
   rankPullRequestsByMergeReadiness,
   sortPullRequestGroups,
-  resolveQueryEnvironmentIds,
-  resolveSelectedEnvironmentId,
-  type EnvironmentPullRequestEntry,
+  resolveQueryMachineIds,
+  resolveSelectedMachineId,
+  type MachinePullRequestEntry,
   applyPullRequestOverrides,
   reusePullRequestEntries,
   settlePullRequestOverrides,
@@ -43,10 +43,10 @@ import {
 const VIEWERS = { "github.com": "Bilal" } as const;
 
 function entry(
-  overrides: Partial<EnvironmentPullRequestEntry> & Pick<PullRequestListEntry, "number">,
+  overrides: Partial<MachinePullRequestEntry> & Pick<PullRequestListEntry, "number">,
 ) {
   return {
-    environmentId: "env-1",
+    machineId: "env-1",
     provider: "github",
     host: "github.com",
     projectId: "project-1",
@@ -67,7 +67,7 @@ function entry(
     viewerReviewRequested: false,
     labels: [],
     ...overrides,
-  } as EnvironmentPullRequestEntry;
+  } as MachinePullRequestEntry;
 }
 
 describe("visible pull request line-count targets", () => {
@@ -81,7 +81,7 @@ describe("visible pull request line-count targets", () => {
     const secondKey = pullRequestEntryKey(entries[1]!);
     const completedStats = mergePullRequestDiffStats(new Map(), [
       {
-        environmentId: ENV_1,
+        machineId: ENV_1,
         projectId: "project-1",
         number: 1,
         additions: 1,
@@ -101,7 +101,7 @@ describe("visible pull request line-count targets", () => {
     ]);
   });
 
-  it("keeps every per-environment batch within the stats contract limit", () => {
+  it("keeps every per-machine batch within the stats contract limit", () => {
     const entries = Array.from({ length: 501 }, (_, index) =>
       entry({ additions: 0, deletions: 0, number: index + 1 }),
     );
@@ -442,10 +442,10 @@ describe("remembered pull request list controls", () => {
   });
 });
 
-const ENV_1 = "env-1" as EnvironmentId;
-const ENV_2 = "env-2" as EnvironmentId;
+const ENV_1 = "env-1" as MachineId;
+const ENV_2 = "env-2" as MachineId;
 
-describe("merging the environments' own listings", () => {
+describe("merging the machines' own listings", () => {
   const answer = (
     overrides: Partial<Parameters<typeof mergePullRequestLists>[0][number][1]> = {},
   ) =>
@@ -468,19 +468,19 @@ describe("merging the environments' own listings", () => {
       ...overrides,
     }) as Parameters<typeof mergePullRequestLists>[0][number][1];
 
-  it("tags every row with the environment that read it, newest first", () => {
+  it("tags every row with the machine that read it, newest first", () => {
     const merged = mergePullRequestLists([
       [ENV_1, answer({ entries: [entry({ number: 1, updatedAt: "2026-07-01T00:00:00Z" })] })],
       [ENV_2, answer({ entries: [entry({ number: 2, updatedAt: "2026-08-01T00:00:00Z" })] })],
     ]);
-    expect(merged?.entries.map((row) => [row.environmentId, row.number])).toEqual([
+    expect(merged?.entries.map((row) => [row.machineId, row.number])).toEqual([
       [ENV_2, 2],
       [ENV_1, 1],
     ]);
   });
 
-  // regression: #6490 one environment's error showed on every environment
-  it("keeps project errors scoped to the environment that reported them", () => {
+  // regression: #6490 one machine's error showed on every machine
+  it("keeps project errors scoped to the machine that reported them", () => {
     const error = {
       projectId: "project-1" as ProjectId,
       projectTitle: "Web",
@@ -491,10 +491,10 @@ describe("merging the environments' own listings", () => {
       [ENV_2, answer()],
     ]);
 
-    expect(merged?.errors).toEqual([{ ...error, environmentId: ENV_1 }]);
+    expect(merged?.errors).toEqual([{ ...error, machineId: ENV_1 }]);
   });
 
-  it("folds a host reached from two environments into one switcher row", () => {
+  it("folds a host reached from two machines into one switcher row", () => {
     const merged = mergePullRequestLists([
       [ENV_1, answer()],
       [
@@ -558,28 +558,28 @@ describe('who "I" am, per server', () => {
 
 describe("the project an id names", () => {
   const projects = [
-    { id: "project-1", environmentId: ENV_1 },
-    { id: "project-1", environmentId: ENV_2 },
-    { id: "project-2", environmentId: ENV_2 },
+    { id: "project-1", machineId: ENV_1 },
+    { id: "project-1", machineId: ENV_2 },
+    { id: "project-2", machineId: ENV_2 },
   ];
 
   it("answers a bare id only where one server has it", () => {
-    expect(findScopedProject(projects, null, "project-2")?.environmentId).toBe(ENV_2);
+    expect(findScopedProject(projects, null, "project-2")?.machineId).toBe(ENV_2);
     expect(findScopedProject(projects, null, "project-1")).toBeUndefined();
   });
 });
 
-describe("which environments a listing should ask", () => {
-  const ENV_3 = "env-3" as EnvironmentId;
-  const environmentIds = [ENV_1, ENV_2, ENV_3];
+describe("which machines a listing should ask", () => {
+  const ENV_3 = "env-3" as MachineId;
+  const machineIds = [ENV_1, ENV_2, ENV_3];
 
-  it("asks only the environments that actually hold an ambiguous bare id, never a third that doesn't", () => {
+  it("asks only the machines that actually hold an ambiguous bare id, never a third that doesn't", () => {
     const projects = [
-      { id: "project-1", environmentId: ENV_1 },
-      { id: "project-1", environmentId: ENV_2 },
+      { id: "project-1", machineId: ENV_1 },
+      { id: "project-1", machineId: ENV_2 },
     ];
     expect(
-      resolveQueryEnvironmentIds(environmentIds, projects, undefined, "project-1", true),
+      resolveQueryMachineIds(machineIds, projects, undefined, "project-1", true),
     ).toEqual([ENV_1, ENV_2]);
   });
 });
@@ -588,7 +588,7 @@ describe("the server a saved selection names", () => {
   const known = new Set([ENV_1, ENV_2]);
 
   it("resolves to nothing yet for a server that is known but not ready, rather than falling back", () => {
-    expect(resolveSelectedEnvironmentId(ENV_2, known, ENV_1)).toBe(ENV_2);
+    expect(resolveSelectedMachineId(ENV_2, known, ENV_1)).toBe(ENV_2);
   });
 });
 
@@ -742,10 +742,10 @@ describe("refresh page size", () => {
 });
 
 describe("findProjectForRepository", () => {
-  it("resolves Azure bare names using matching project and environment scope", () => {
-    const azure = (id: string, environmentId: string, path: string) => ({
+  it("resolves Azure bare names using matching project and machine scope", () => {
+    const azure = (id: string, machineId: string, path: string) => ({
       id,
-      environmentId,
+      machineId,
       repositoryIdentity: {
         canonicalKey: `dev.azure.com/${path}`,
         locator: { source: "git-remote" as const, remoteName: "origin", remoteUrl: "" },
@@ -766,22 +766,22 @@ describe("findProjectForRepository", () => {
       findProjectForRepository(projects, {
         repository: "api",
         scopedProjectId: "p2",
-        scopedEnvironmentId: ENV_2,
+        scopedMachineId: ENV_2,
       }),
     ).toBe(remoteBilling);
     expect(
       findProjectForRepository(projects, {
         repository: "api",
         scopedProjectId: "p3",
-        scopedEnvironmentId: ENV_2,
+        scopedMachineId: ENV_2,
       }),
     ).toBe(payments);
   });
 
-  it("keeps repository matches on the selected environment when project IDs overlap", () => {
-    const project = (id: string, environmentId: string, repository: string) => ({
+  it("keeps repository matches on the selected machine when project IDs overlap", () => {
+    const project = (id: string, machineId: string, repository: string) => ({
       id,
-      environmentId,
+      machineId,
       repositoryIdentity: {
         canonicalKey: `github.com/${repository}`,
         locator: { source: "git-remote" as const, remoteName: "origin", remoteUrl: "" },
@@ -798,19 +798,19 @@ describe("findProjectForRepository", () => {
     expect(
       findProjectForRepository(projects, {
         repository: "acme/api",
-        selectedEnvironmentId: ENV_2,
+        selectedMachineId: ENV_2,
       }),
     ).toBe(remote);
     expect(
       findProjectForRepository(projects, {
         repository: "acme/web",
-        selectedEnvironmentId: ENV_2,
+        selectedMachineId: ENV_2,
       }),
     ).toBeUndefined();
     expect(
       findProjectForRepository(projects, {
         repository: "acme/api",
-        selectedEnvironmentId: "env-connecting",
+        selectedMachineId: "env-connecting",
       }),
     ).toBeUndefined();
   });

@@ -1,4 +1,4 @@
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import {
   ChatFileAttachment,
   INCOGNITO_BROWSER_PROFILE_ID,
@@ -89,7 +89,7 @@ const isClosedViewEntry = (entry: unknown): entry is ClosedViewEntry => {
         typeof surface.repository === "string" &&
         Number.isSafeInteger(surface.number) &&
         surface.number > 0 &&
-        (surface.environmentId === undefined || typeof surface.environmentId === "string") &&
+        (surface.machineId === undefined || typeof surface.machineId === "string") &&
         (surface.host === undefined || typeof surface.host === "string") &&
         (surface.url === undefined || typeof surface.url === "string")
       );

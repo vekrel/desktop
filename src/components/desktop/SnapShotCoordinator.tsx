@@ -46,7 +46,7 @@ type CaptureFailure = "missing-project" | "delivery";
 
 function isSameCaptureTarget(a: CaptureTarget, b: CaptureTarget): boolean {
   if (typeof a === "string" || typeof b === "string") return a === b;
-  return a.environmentId === b.environmentId && a.threadId === b.threadId;
+  return a.machineId === b.machineId && a.threadId === b.threadId;
 }
 
 export function resolveExistingSnapShotTarget(
@@ -61,7 +61,7 @@ export function resolveExistingSnapShotTarget(
   }
   const targetIsCurrentRoute =
     routeThreadRef !== null &&
-    routeThreadRef.environmentId === target.environmentId &&
+    routeThreadRef.machineId === target.machineId &&
     routeThreadRef.threadId === target.threadId;
   return targetIsCurrentRoute ||
     store.getDraftSessionByRef(target) !== null ||

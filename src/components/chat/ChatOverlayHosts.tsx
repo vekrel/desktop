@@ -1,6 +1,6 @@
 import type {
   DeviceServiceState,
-  EnvironmentId,
+  MachineId,
   MessageId,
   ScopedThreadRef,
   ThreadId,
@@ -70,7 +70,7 @@ export function openPullRequestThreadDialog(threadKey: string, reference?: strin
 
 export function PullRequestThreadDialogHost(props: {
   readonly threadKey: string | null;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId: ThreadId;
   readonly cwd: string | null;
   readonly onPrepared: (input: {
@@ -84,7 +84,7 @@ export function PullRequestThreadDialogHost(props: {
     <PullRequestThreadDialog
       key={state.key}
       open
-      environmentId={props.environmentId}
+      machineId={props.machineId}
       threadId={props.threadId}
       cwd={props.cwd}
       initialReference={state.initialReference}
@@ -119,7 +119,7 @@ export function DeviceSetupDialogHost(props: {
       <WizardPopup>
         {threadRef ? (
           <DeviceSetup
-            environmentId={threadRef.environmentId}
+            machineId={threadRef.machineId}
             state={props.state}
             onComplete={() => {
               useRightPanelStore.getState().open(threadRef, "device");

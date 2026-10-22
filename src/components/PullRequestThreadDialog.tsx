@@ -1,6 +1,6 @@
 import {
   AuthOrchestrationOperateScope,
-  type EnvironmentId,
+  type MachineId,
   type ThreadId,
 } from "@vekrel/contracts";
 import {
@@ -18,9 +18,9 @@ import {
 import { cn } from "~/lib/utils";
 import { parsePullRequestReference } from "@vekrel/client-runtime/pull-request-link-input";
 import { getSourceControlPresentation } from "~/sourceControlPresentation";
-import { useEnvironmentQuery } from "~/state/query";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
-import { vcsEnvironment } from "~/state/vcs";
+import { useMachineQuery } from "~/state/query";
+import { readMachineScope, useMachineScope } from "~/state/session";
+import { vcsMachine } from "~/state/vcs";
 import { OFF_HEAD_PULL_REQUEST_CHECKOUT_TOAST } from "./pullRequest/pullRequestCheckoutToast";
 import { Button } from "./ui/button";
 import {
@@ -38,7 +38,7 @@ import { toastManager } from "./ui/toast";
 
 interface PullRequestThreadDialogProps {
   open: boolean;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   threadId: ThreadId;
   cwd: string | null;
   initialReference: string | null;
@@ -61,7 +61,7 @@ function pullRequestStatusTone(state: string | undefined): string {
 
 export function PullRequestThreadDialog({
   open,
-  environmentId,
+  machineId,
   threadId,
   cwd,
   initialReference,
@@ -78,11 +78,11 @@ export function PullRequestThreadDialog({
     { wait: 450 },
     (debouncerState) => ({ isPending: debouncerState.isPending }),
   );
-  const { data: gitStatus } = useEnvironmentQuery(
+  const { data: gitStatus } = useMachineQuery(
     cwd === null
       ? null
-      : vcsEnvironment.status({
-          environmentId,
+      : vcsMachine.status({
+          machineId,
           input: { cwd },
         }),
   );
@@ -104,19 +104,19 @@ export function PullRequestThreadDialog({
   const parsedReference = parsePullRequestReference(reference);
   const parsedDebouncedReference = parsePullRequestReference(debouncedReference);
   const pullRequestResolution = usePullRequestResolution({
-    environmentId,
+    machineId,
     cwd,
     reference: open ? parsedDebouncedReference : null,
   });
   const cachedPullRequest =
     readCachedPullRequestResolution({
-      environmentId,
+      machineId,
       cwd,
       reference: parsedReference,
     })?.pullRequest ?? null;
   // The prepare action keys on this scope object, so it only ever reaches the hook.
-  const preparePullRequestThreadAction = usePreparePullRequestThreadAction({ environmentId, cwd });
-  const canOperateThread = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
+  const preparePullRequestThreadAction = usePreparePullRequestThreadAction({ machineId, cwd });
+  const canOperateThread = useMachineScope(machineId, AuthOrchestrationOperateScope);
 
   const liveResolvedPullRequest =
     parsedReference !== null && parsedReference === parsedDebouncedReference
@@ -137,7 +137,7 @@ export function PullRequestThreadDialog({
     if (!preparePullRequestThreadAction.isAllowed) return;
     if (
       mode === "worktree" &&
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)
+      !readMachineScope(machineId, AuthOrchestrationOperateScope)
     ) {
       return;
     }

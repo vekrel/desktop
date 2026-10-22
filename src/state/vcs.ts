@@ -1,9 +1,9 @@
 import {
   createVcsActionManager,
-  createVcsEnvironmentAtoms,
+  createVcsMachineAtoms,
 } from "@vekrel/client-runtime/state/vcs";
 
 import { connectionAtomRuntime } from "../connection/runtime";
 
-export const vcsEnvironment = createVcsEnvironmentAtoms(connectionAtomRuntime);
+export const vcsMachine = createVcsMachineAtoms(connectionAtomRuntime);
 export const vcsActionManager = createVcsActionManager(connectionAtomRuntime);

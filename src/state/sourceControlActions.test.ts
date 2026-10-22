@@ -1,7 +1,7 @@
 import {
   AuthOrchestrationOperateScope,
   AuthSourceControlWriteScope,
-  EnvironmentId,
+  MachineId,
   ThreadId,
   SourceControlProviderKind,
 } from "@vekrel/contracts";
@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
   scopes: new Map<string, Set<string>>(),
-  requests: [] as { action: string; environmentId: string | null }[],
+  requests: [] as { action: string; machineId: string | null }[],
 }));
 
 vi.mock("react", () => ({ useCallback: (callback: unknown) => callback }));
@@ -20,38 +20,38 @@ vi.mock("@effect/atom-react", () => ({
 }));
 vi.mock("../rpc/atomRegistry", () => ({ appAtomRegistry: {} }));
 vi.mock("./session", () => ({
-  useEnvironmentScope: (environmentId: string, scope: string) =>
-    state.scopes.get(environmentId)?.has(scope) === true,
-  readEnvironmentScope: (environmentId: string, scope: string) =>
-    state.scopes.get(environmentId)?.has(scope) === true,
+  useMachineScope: (machineId: string, scope: string) =>
+    state.scopes.get(machineId)?.has(scope) === true,
+  readMachineScope: (machineId: string, scope: string) =>
+    state.scopes.get(machineId)?.has(scope) === true,
 }));
-vi.mock("./query", () => ({ useEnvironmentQuery: () => ({ refresh: () => {} }) }));
+vi.mock("./query", () => ({ useMachineQuery: () => ({ refresh: () => {} }) }));
 vi.mock("./use-atom-command", () => ({
   useAtomCommand:
-    (command: { action: string; environmentId?: string }) =>
-    async (input: { environmentId?: string }) => {
+    (command: { action: string; machineId?: string }) =>
+    async (input: { machineId?: string }) => {
       state.requests.push({
         action: command.action,
-        environmentId: input.environmentId ?? command.environmentId ?? null,
+        machineId: input.machineId ?? command.machineId ?? null,
       });
       return AsyncResult.success({});
     },
 }));
 vi.mock("./vcs", () => ({
-  vcsEnvironment: { init: { action: "init" }, pull: { action: "pull" }, status: () => "status" },
+  vcsMachine: { init: { action: "init" }, pull: { action: "pull" }, status: () => "status" },
   vcsActionManager: {
     stateAtom: () => "state",
     resetError: () => {},
     track: (_registry: unknown, _target: unknown, _input: unknown, execute: () => unknown) =>
       execute(),
-    runStackedAction: (scope: { environmentId: string }) => ({ action: "stack", ...scope }),
+    runStackedAction: (scope: { machineId: string }) => ({ action: "stack", ...scope }),
   },
 }));
 vi.mock("./sourceControl", () => ({
-  sourceControlEnvironment: { publishRepository: { action: "publish" } },
+  sourceControlMachine: { publishRepository: { action: "publish" } },
 }));
 vi.mock("./git", () => ({
-  gitEnvironment: { preparePullRequestThread: { action: "prepare" } },
+  gitMachine: { preparePullRequestThread: { action: "prepare" } },
 }));
 
 import {
@@ -62,9 +62,9 @@ import {
   useVcsPullAction,
 } from "./sourceControlActions";
 
-const primary = EnvironmentId.make("primary");
-const secondary = EnvironmentId.make("secondary");
-const scope = { environmentId: secondary, cwd: "/repo" };
+const primary = MachineId.make("primary");
+const secondary = MachineId.make("secondary");
+const scope = { machineId: secondary, cwd: "/repo" };
 const threadId = ThreadId.make("thread");
 const cases = [
   {
@@ -129,7 +129,7 @@ beforeEach(() => {
 });
 
 describe("source control callback grants", () => {
-  it.each(cases)("$name uses the selected environment's permission", async ({ create }) => {
+  it.each(cases)("$name uses the selected machine's permission", async ({ create }) => {
     const action = create();
     expect(action.isAllowed).toBe(false);
     expect((await action.run())._tag).toBe("Failure");

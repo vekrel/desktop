@@ -1,11 +1,11 @@
 import type {
-  EnvironmentId,
+  MachineId,
   ServerSettingsPatch,
   UsageModelPriceOverride,
 } from "@vekrel/contracts";
 
 export interface UsagePriceTarget {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly label: string;
   readonly prices: Readonly<Record<string, UsageModelPriceOverride>> | null;
   readonly aliases: Readonly<Record<string, string>> | null;
@@ -26,17 +26,17 @@ export type UsagePriceWriteResult =
  */
 export async function writeUsagePrices(input: {
   readonly targets: readonly UsagePriceTarget[];
-  readonly changes: ReadonlyMap<EnvironmentId, readonly UsagePriceChange[]>;
+  readonly changes: ReadonlyMap<MachineId, readonly UsagePriceChange[]>;
   readonly write: (input: {
-    environmentId: EnvironmentId;
+    machineId: MachineId;
     input: { patch: ServerSettingsPatch };
   }) => Promise<{ readonly _tag: "Success" | "Failure" }>;
-  readonly onResult: (environmentId: EnvironmentId, result: UsagePriceWriteResult) => void;
+  readonly onResult: (machineId: MachineId, result: UsagePriceWriteResult) => void;
 }) {
   await Promise.all(
     input.targets.map(async (target) => {
       let result: UsagePriceWriteResult;
-      const changes = input.changes.get(target.environmentId) ?? [];
+      const changes = input.changes.get(target.machineId) ?? [];
       const prices = changes.flatMap((change) =>
         "price" in change ? [[change.model, change.price] as const] : [],
       );
@@ -53,7 +53,7 @@ export async function writeUsagePrices(input: {
             changes.length === 0
               ? { _tag: "Success" as const }
               : await input.write({
-                  environmentId: target.environmentId,
+                  machineId: target.machineId,
                   input: {
                     patch: {
                       ...(prices.length > 0
@@ -73,7 +73,7 @@ export async function writeUsagePrices(input: {
           result = { status: "failed", error: "Could not save. Try again." };
         }
       }
-      input.onResult(target.environmentId, result);
+      input.onResult(target.machineId, result);
     }),
   );
 }

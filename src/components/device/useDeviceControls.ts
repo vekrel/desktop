@@ -3,11 +3,11 @@ import type {
   DeviceActionInput,
   DeviceDetail,
   DeviceSummary,
-  EnvironmentId,
+  MachineId,
 } from "@vekrel/contracts";
 import { useEffect, useRef, useState } from "react";
-import { deviceEnvironment } from "~/state/device";
-import { formatEnvironmentQueryError } from "~/state/query";
+import { deviceMachine } from "~/state/device";
+import { formatMachineQueryError } from "~/state/query";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { subscribeDeviceForeground, type DeviceForegroundInfo } from "./deviceHubApi";
 
@@ -19,14 +19,14 @@ type ActionBody = DeviceActionInput extends infer A
 
 /** Mount keyed by device. */
 export function useDeviceControls(options: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   device: DeviceSummary;
   access: DeviceHubAccess | null;
   visible: boolean;
 }) {
-  const { environmentId, device, access, visible } = options;
-  const readDetail = useAtomCommand(deviceEnvironment.detail, { reportFailure: false });
-  const runAction = useAtomCommand(deviceEnvironment.action, { reportFailure: false });
+  const { machineId, device, access, visible } = options;
+  const readDetail = useAtomCommand(deviceMachine.detail, { reportFailure: false });
+  const runAction = useAtomCommand(deviceMachine.action, { reportFailure: false });
   const [detail, setDetail] = useState<DeviceDetail | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export function useDeviceControls(options: {
   useEffect(() => {
     const revision = ++generation.current;
     if (!visible) return;
-    const request = { environmentId, input: { hostId, deviceId } };
+    const request = { machineId, input: { hostId, deviceId } };
     visibleRead.current = request;
     void readDetail(request).then((result) => {
       if (generation.current !== revision) return;
@@ -50,14 +50,14 @@ export function useDeviceControls(options: {
         setError(null);
       } else {
         setDetail(null);
-        setError(formatEnvironmentQueryError(result.cause));
+        setError(formatMachineQueryError(result.cause));
       }
     });
     return () => {
       visibleRead.current = null;
       generation.current++;
     };
-  }, [deviceId, environmentId, hostId, readDetail, visible]);
+  }, [deviceId, machineId, hostId, readDetail, visible]);
 
   useEffect(() => {
     if (!access || !visible) return;
@@ -83,7 +83,7 @@ export function useDeviceControls(options: {
     setPending(true);
     setError(null);
     return runAction({
-      environmentId,
+      machineId,
       input: { hostId, deviceId, ...body } as DeviceActionInput,
     })
       .then((result) => {
@@ -100,12 +100,12 @@ export function useDeviceControls(options: {
               setError(null);
             } else {
               setDetail(null);
-              setError(formatEnvironmentQueryError(refreshed.cause));
+              setError(formatMachineQueryError(refreshed.cause));
             }
           });
         }
         if (result._tag === "Success") setDetail(result.value);
-        else setError(formatEnvironmentQueryError(result.cause));
+        else setError(formatMachineQueryError(result.cause));
       })
       .finally(() => {
         busy.current = false;

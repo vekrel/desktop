@@ -1,8 +1,8 @@
-import { AuthFilesystemWriteScope, type EnvironmentId } from "@vekrel/contracts";
+import { AuthFilesystemWriteScope, type MachineId } from "@vekrel/contracts";
 import { createRef, useEffect, useState } from "react";
 
-import { projectEnvironment } from "~/state/projects";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import { projectMachine } from "~/state/projects";
+import { readMachineScope, useMachineScope } from "~/state/session";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { FileSaveCoordinator } from "./fileSaveCoordinator";
@@ -14,29 +14,29 @@ import {
 const FILE_SAVE_DEBOUNCE_MS = 500;
 
 interface FileSaveOptions {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   cwd: string;
   relativePath: string;
   onPendingChange: (relativePath: string, pending: boolean) => void;
 }
 
 export function useFileSaveCoordinator({
-  environmentId,
+  machineId,
   cwd,
   relativePath,
   onPendingChange,
 }: FileSaveOptions): Pick<FileSaveCoordinator, "change"> {
-  const canWriteFiles = useEnvironmentScope(environmentId, AuthFilesystemWriteScope);
+  const canWriteFiles = useMachineScope(machineId, AuthFilesystemWriteScope);
   const writeFile = useProjectFileWriter();
   // A session owns the pending debounce, so it must outlive rerenders and be
   // replaced only when what it writes to changes.
-  const inputs = { environmentId, cwd, relativePath, onPendingChange, writeFile };
+  const inputs = { machineId, cwd, relativePath, onPendingChange, writeFile };
   const [current, setCurrent] = useState(() => ({
     inputs,
     session: createFileSaveSession(inputs),
   }));
   if (
-    current.inputs.environmentId !== environmentId ||
+    current.inputs.machineId !== machineId ||
     current.inputs.cwd !== cwd ||
     current.inputs.relativePath !== relativePath ||
     current.inputs.onPendingChange !== onPendingChange ||
@@ -55,22 +55,22 @@ export function useFileSaveCoordinator({
     // Replay must retire the first session before recovery queues a draft to flush.
     queueMicrotask(() => {
       if (cancelled) return;
-      const unsaved = getUnsavedProjectFileQueryData(environmentId, cwd, relativePath);
+      const unsaved = getUnsavedProjectFileQueryData(machineId, cwd, relativePath);
       if (unsaved) session.change(unsaved.contents);
     });
     return () => {
       cancelled = true;
     };
-  }, [canWriteFiles, cwd, environmentId, relativePath, session]);
+  }, [canWriteFiles, cwd, machineId, relativePath, session]);
   return session;
 }
 
 function useProjectFileWriter() {
-  return useAtomCommand(projectEnvironment.writeFile);
+  return useAtomCommand(projectMachine.writeFile);
 }
 
 function createFileSaveSession({
-  environmentId,
+  machineId,
   cwd,
   relativePath,
   onPendingChange,
@@ -84,15 +84,15 @@ function createFileSaveSession({
     setup: () => {
       const coordinator = new FileSaveCoordinator({
         debounceMs: FILE_SAVE_DEBOUNCE_MS,
-        canPersist: () => readEnvironmentScope(environmentId, AuthFilesystemWriteScope),
+        canPersist: () => readMachineScope(machineId, AuthFilesystemWriteScope),
         onPendingChange: (pending) => onPendingChange(relativePath, pending),
         persist: (nextContents) =>
           writeFile({
-            environmentId,
+            machineId,
             input: { cwd, relativePath, contents: nextContents },
           }),
         onConfirmed: (confirmedContents) =>
-          confirmProjectFileQueryData(environmentId, cwd, relativePath, confirmedContents),
+          confirmProjectFileQueryData(machineId, cwd, relativePath, confirmedContents),
       });
       coordinatorRef.current = coordinator;
       return () => {

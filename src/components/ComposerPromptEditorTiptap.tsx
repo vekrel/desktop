@@ -275,7 +275,7 @@ function ComposerMentionNodeView({ node }: NodeViewProps) {
     >
       <FileTagChipContent
         path={path}
-        environmentId={actions.environmentId}
+        machineId={actions.machineId}
         cwd={actions.cwd}
         label={basenameOfPath(path)}
         theme={resolvedThemeFromDocument()}
@@ -289,7 +289,7 @@ function ComposerMentionNodeView({ node }: NodeViewProps) {
         <TooltipPopup side="top">
           <WorkspaceEntryTooltip
             path={path}
-            environmentId={actions.environmentId}
+            machineId={actions.machineId}
             cwd={actions.cwd}
           />
         </TooltipPopup>
@@ -364,7 +364,7 @@ function ComposerSkillNodeView({ node }: NodeViewProps) {
         <div className="space-y-3 p-2 text-sm">
           <p className="font-medium">{skillLabel}</p>
           <p>{description || "No description is available for this skill."}</p>
-          {skill?.path && actions.environmentId ? (
+          {skill?.path && actions.machineId ? (
             <Button variant="outline" size="sm" onClick={() => actions.openMention(skill.path)}>
               View instructions
             </Button>

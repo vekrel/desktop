@@ -4,16 +4,16 @@ import { useAtomValue } from "@effect/atom-react";
 import * as Option from "effect/Option";
 import { AsyncResult } from "effect/reactivity";
 import { AuthSettingsWriteScope } from "@vekrel/contracts";
-import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { readMachineScope, useMachineScope } from "../../state/session";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 import { AppleIcon, AndroidIcon } from "../Icons";
 import { Spinner } from "../ui/spinner";
-import type { EnvironmentId, SshDeviceHostConfig } from "@vekrel/contracts";
+import type { MachineId, SshDeviceHostConfig } from "@vekrel/contracts";
 import { randomUUID } from "../../lib/utils";
 import { useState } from "react";
-import { deviceEnvironment } from "../../state/device";
-import { environmentAtomList, environmentIdsKey } from "../../state/environmentAtomList";
-import { serverEnvironment } from "../../state/server";
+import { deviceMachine } from "../../state/device";
+import { machineAtomList, machineIdsKey } from "../../state/machineAtomList";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button, InlineButton } from "../ui/button";
 import {
@@ -33,54 +33,54 @@ import { toastManager } from "../ui/toast";
 import {
   groupDeviceHosts,
   updateDeviceHosts,
-  type DeviceHostEnvironment,
+  type DeviceHostMachine,
   type DeviceHostGroup,
 } from "./deviceHostsSettings.logic";
 import { FoldedSettingsSection } from "./FoldedSettingsSection";
 import { DeviceHostEditor } from "./DeviceHostEditor";
 import { useHostConnectionChecks } from "./useHostConnectionChecks";
 import { deviceHostConnectionKey } from "./deviceHostConnectionChecks";
-import { settingsScopeEnvironmentLabel, settingsScopeEnvironmentLabels } from "./settingsScopeAxis";
+import { settingsScopeMachineLabel, settingsScopeMachineLabels } from "./settingsScopeAxis";
 import { DeviceHostDiagnostics } from "../device/DeviceSetup";
 
-export function DeviceHostsSettings(props: { environmentId: EnvironmentId | null }) {
-  const { scope, environments, connectedEnvironments } = useSettingsScope();
-  const canConfigure = useEnvironmentScope(props.environmentId, AuthSettingsWriteScope);
+export function DeviceHostsSettings(props: { machineId: MachineId | null }) {
+  const { scope, machines, connectedMachines } = useSettingsScope();
+  const canConfigure = useMachineScope(props.machineId, AuthSettingsWriteScope);
   const projectScope = scope.kind === "project" || scope.kind === "checkout";
-  const update = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: false });
+  const update = useAtomCommand(serverMachine.updateSettings, { reportFailure: false });
   const [editing, setEditing] = useState<SshDeviceHostConfig | null>(null);
   const [originalHost, setOriginalHost] = useState<SshDeviceHostConfig | null>(null);
   const [busy, setBusy] = useState(false);
-  const targets = environments.map((environment) => ({
-    environmentId: environment.environmentId,
-    label: settingsScopeEnvironmentLabel(environment, environments),
-    connected: environment.connection.phase === "connected",
+  const targets = machines.map((machine) => ({
+    machineId: machine.machineId,
+    label: settingsScopeMachineLabel(machine, machines),
+    connected: machine.connection.phase === "connected",
   }));
   const { checks, testConnection } = useHostConnectionChecks(targets);
-  const hostEnvironments = connectedEnvironments.map((environment) => ({
-    environmentId: environment.environmentId,
-    label: environment.label,
-    labels: settingsScopeEnvironmentLabels(environment, connectedEnvironments),
-    hosts: environment.serverConfig?.settings.deviceHosts ?? [],
+  const hostMachines = connectedMachines.map((machine) => ({
+    machineId: machine.machineId,
+    label: machine.label,
+    labels: settingsScopeMachineLabels(machine, connectedMachines),
+    hosts: machine.serverConfig?.settings.deviceHosts ?? [],
   }));
-  const groupedHosts = groupDeviceHosts(hostEnvironments);
+  const groupedHosts = groupDeviceHosts(hostMachines);
   const save = async (host: SshDeviceHostConfig, remove = false, original = host) => {
-    if (!props.environmentId || projectScope) return;
+    if (!props.machineId || projectScope) return;
     setBusy(true);
     const results = await Promise.allSettled(
-      environments.map(async (environment) => {
-        if (environment.connection.phase !== "connected" || !environment.serverConfig) {
-          throw new Error("Environment disconnected");
+      machines.map(async (machine) => {
+        if (machine.connection.phase !== "connected" || !machine.serverConfig) {
+          throw new Error("Machine disconnected");
         }
-        if (!readEnvironmentScope(environment.environmentId, AuthSettingsWriteScope)) {
+        if (!readMachineScope(machine.machineId, AuthSettingsWriteScope)) {
           throw new Error("This connection cannot change device settings.");
         }
         return update({
-          environmentId: environment.environmentId,
+          machineId: machine.machineId,
           input: {
             patch: {
               deviceHosts: updateDeviceHosts(
-                environment.serverConfig.settings.deviceHosts,
+                machine.serverConfig.settings.deviceHosts,
                 host,
                 remove,
                 original,
@@ -91,7 +91,7 @@ export function DeviceHostsSettings(props: { environmentId: EnvironmentId | null
       }),
     );
     setBusy(false);
-    const failed = environments.filter((_, index) => {
+    const failed = machines.filter((_, index) => {
       const result = results[index];
       return result?.status !== "fulfilled" || result.value._tag === "Failure";
     });
@@ -100,8 +100,8 @@ export function DeviceHostsSettings(props: { environmentId: EnvironmentId | null
     } else {
       toastManager.add({
         type: "error",
-        title: "Device hosts not saved on all environments",
-        description: `Could not update ${failed.map((environment) => environment.label).join(", ")}.`,
+        title: "Device hosts not saved on all machines",
+        description: `Could not update ${failed.map((machine) => machine.label).join(", ")}.`,
       });
     }
   };
@@ -111,15 +111,15 @@ export function DeviceHostsSettings(props: { environmentId: EnvironmentId | null
     testConnection: async (host: SshDeviceHostConfig) => {
       const results = await testConnection(host);
       if (!results) return;
-      const failed = targets.filter((target) => results[target.environmentId]?.status === "failed");
+      const failed = targets.filter((target) => results[target.machineId]?.status === "failed");
       toastManager.add({
         type: failed.length ? "error" : "success",
         title: failed.length
-          ? `${host.label}: ${failed.length} of ${targets.length} environments failed`
+          ? `${host.label}: ${failed.length} of ${targets.length} machines failed`
           : `${host.label}: connection checks passed`,
         description: failed.length
           ? `Could not connect from ${failed.map((target) => target.label).join(", ")}.`
-          : "Connected or already available locally on each selected environment.",
+          : "Connected or already available locally on each selected machine.",
       });
       return results;
     },
@@ -135,13 +135,13 @@ export function DeviceHostsSettings(props: { environmentId: EnvironmentId | null
       title="Device hosts"
       serverScoped
       settingKeys={["deviceHosts"]}
-      description="Add remote machines with simulator or emulator runtimes installed, and the selected environments will connect over SSH and set up device tools automatically."
+      description="Add remote machines with simulator or emulator runtimes installed, and the selected machines will connect over SSH and set up device tools automatically."
       control={
         <Button
           size="sm"
           variant="outline"
           disabled={
-            !canConfigure || projectScope || busy || !props.environmentId || editing !== null
+            !canConfigure || projectScope || busy || !props.machineId || editing !== null
           }
           onClick={() => {
             setOriginalHost(null);
@@ -153,46 +153,46 @@ export function DeviceHostsSettings(props: { environmentId: EnvironmentId | null
       }
     >
       <div className="pt-3 pb-2">
-        {!props.environmentId ? (
+        {!props.machineId ? (
           <p className="text-sm text-muted-foreground">
-            Connect a selected environment to manage device hosts.
+            Connect a selected machine to manage device hosts.
           </p>
         ) : (
           <>
-            {hostEnvironments.length > 1 && groupedHosts === null ? (
+            {hostMachines.length > 1 && groupedHosts === null ? (
               <div className="space-y-2">
-                {hostEnvironments.map((environment) => (
+                {hostMachines.map((machine) => (
                   <FoldedSettingsSection
-                    key={environment.environmentId}
-                    id={`device-hosts-${environment.environmentId}`}
+                    key={machine.machineId}
+                    id={`device-hosts-${machine.machineId}`}
                     title={
                       <>
                         <span className="block max-w-64 truncate">
-                          {environment.labels.primary}
+                          {machine.labels.primary}
                         </span>
-                        {environment.labels.secondary ? (
+                        {machine.labels.secondary ? (
                           <span className="block max-w-64 truncate text-xs font-normal text-muted-foreground">
-                            {environment.labels.secondary}
+                            {machine.labels.secondary}
                           </span>
                         ) : null}
                       </>
                     }
                     summary={
-                      summarizeLabels(environment.hosts.map((host) => host.label)) ||
+                      summarizeLabels(machine.hosts.map((host) => host.label)) ||
                       "No device hosts"
                     }
                   >
                     <div className="px-3 sm:px-4 [&>div:first-child]:border-t-0">
-                      <DeviceHostList environments={[environment]} {...listActions} />
+                      <DeviceHostList machines={[machine]} {...listActions} />
                     </div>
                   </FoldedSettingsSection>
                 ))}
               </div>
             ) : (
               <DeviceHostList
-                environments={hostEnvironments}
+                machines={hostMachines}
                 groups={groupedHosts ?? undefined}
-                compact={hostEnvironments.length > 1}
+                compact={hostMachines.length > 1}
                 {...listActions}
               />
             )}
@@ -214,12 +214,12 @@ export function DeviceHostsSettings(props: { environmentId: EnvironmentId | null
   );
 }
 
-const deviceHostStatesAtom = environmentAtomList("web-device-host-states", (environmentId) =>
-  deviceEnvironment.state({ environmentId, input: {} }),
+const deviceHostStatesAtom = machineAtomList("web-device-host-states", (machineId) =>
+  deviceMachine.state({ machineId, input: {} }),
 );
 
 function DeviceHostList({
-  environments,
+  machines,
   groups,
   compact = false,
   busy,
@@ -228,7 +228,7 @@ function DeviceHostList({
   checks,
   testConnection,
 }: {
-  environments: ReadonlyArray<DeviceHostEnvironment>;
+  machines: ReadonlyArray<DeviceHostMachine>;
   groups?: ReadonlyArray<DeviceHostGroup> | undefined;
   compact?: boolean;
   busy: boolean;
@@ -237,33 +237,33 @@ function DeviceHostList({
   checks: ReturnType<typeof useHostConnectionChecks>["checks"];
   testConnection: ReturnType<typeof useHostConnectionChecks>["testConnection"];
 }) {
-  const { environments: scopeEnvironments } = useSettingsScope();
-  const environmentLabels = new Map(
-    scopeEnvironments.map((environment) => [
-      environment.environmentId,
-      settingsScopeEnvironmentLabels(environment, scopeEnvironments),
+  const { machines: scopeMachines } = useSettingsScope();
+  const machineLabels = new Map(
+    scopeMachines.map((machine) => [
+      machine.machineId,
+      settingsScopeMachineLabels(machine, scopeMachines),
     ]),
   );
-  const environmentIds = environments.map(({ environmentId }) => environmentId);
-  const results = useAtomValue(deviceHostStatesAtom(environmentIdsKey(environmentIds)));
+  const machineIds = machines.map(({ machineId }) => machineId);
+  const results = useAtomValue(deviceHostStatesAtom(machineIdsKey(machineIds)));
   const states = new Map(
-    environmentIds.map(
-      (environmentId, index) =>
-        [environmentId, Option.getOrUndefined(AsyncResult.value(results[index]!))] as const,
+    machineIds.map(
+      (machineId, index) =>
+        [machineId, Option.getOrUndefined(AsyncResult.value(results[index]!))] as const,
     ),
   );
-  const retry = useAtomCommand(deviceEnvironment.list);
+  const retry = useAtomCommand(deviceMachine.list);
   const [retrying, setRetrying] = useState<string | null>(null);
-  const retryHost = (environmentId: EnvironmentId, hostId: string, key = hostId) => {
+  const retryHost = (machineId: MachineId, hostId: string, key = hostId) => {
     setRetrying(key);
-    void retry({ environmentId, input: { retryHostId: hostId } }).finally(() => setRetrying(null));
+    void retry({ machineId, input: { retryHostId: hostId } }).finally(() => setRetrying(null));
   };
   const rows =
     groups ??
-    environments.flatMap((environment) =>
-      environment.hosts.map((host) => ({
+    machines.flatMap((machine) =>
+      machine.hosts.map((host) => ({
         host,
-        members: [{ environmentId: environment.environmentId, label: environment.label, host }],
+        members: [{ machineId: machine.machineId, label: machine.label, host }],
       })),
     );
   return (
@@ -273,19 +273,19 @@ function DeviceHostList({
       ) : null}
       {rows.map(({ host, members }) => {
         const hostChecks = checks[deviceHostConnectionKey(host)];
-        const checkedMembers = scopeEnvironments.flatMap((environment) =>
-          hostChecks?.[environment.environmentId] &&
-          !members.some((member) => member.environmentId === environment.environmentId)
-            ? [{ environmentId: environment.environmentId, label: environment.label, host }]
+        const checkedMembers = scopeMachines.flatMap((machine) =>
+          hostChecks?.[machine.machineId] &&
+          !members.some((member) => member.machineId === machine.machineId)
+            ? [{ machineId: machine.machineId, label: machine.label, host }]
             : [],
         );
         const results = [...members, ...checkedMembers].map((member) => {
-          const state = states.get(member.environmentId);
+          const state = states.get(member.machineId);
           const status = state?.hostStatuses[member.host.id];
-          const check = hostChecks?.[member.environmentId];
+          const check = hostChecks?.[member.machineId];
           const summary = state?.hosts.find((value) => value.id === member.host.id);
-          const label = environmentLabels.get(member.environmentId)?.primary ?? member.label;
-          const address = environmentLabels.get(member.environmentId)?.secondary;
+          const label = machineLabels.get(member.machineId)?.primary ?? member.label;
+          const address = machineLabels.get(member.machineId)?.secondary;
           const error =
             check?.status === "failed"
               ? check.error
@@ -315,7 +315,7 @@ function DeviceHostList({
         });
         const first = results[0];
         if (!first) return null;
-        const { environmentId, status, check, summary, error } = first;
+        const { machineId, status, check, summary, error } = first;
         const platforms =
           (check?.status === "connected" ? check.platforms : undefined) ?? summary?.platforms ?? [];
         const progress =
@@ -374,7 +374,7 @@ function DeviceHostList({
                 detail: failed.length ? (
                   <div className="space-y-1">
                     {failed.map((result) => (
-                      <p key={result.environmentId}>
+                      <p key={result.machineId}>
                         {result.name}: {result.error || "Connection failed"}
                       </p>
                     ))}
@@ -438,7 +438,7 @@ function DeviceHostList({
                     result.status?.status === "ready" && result.status.androidDiscoveryIncomplete,
                 )
                 .map((result) => (
-                  <p key={result.environmentId} role="status" className="mt-1 text-xs text-warning">
+                  <p key={result.machineId} role="status" className="mt-1 text-xs text-warning">
                     {compact ? `${result.label}: ` : ""}
                     {result.status?.detail ??
                       "The Android device list may be incomplete. Refresh devices to try again."}
@@ -460,7 +460,7 @@ function DeviceHostList({
                   <CollapsiblePanel>
                     <div className="mt-2 space-y-2">
                       {results.map((result) => (
-                        <div key={result.environmentId}>
+                        <div key={result.machineId}>
                           <p className="text-xs text-muted-foreground">{result.label}</p>
                           {result.address ? (
                             <p className="truncate text-xs text-muted-foreground">
@@ -515,7 +515,7 @@ function DeviceHostList({
                 ? results.map((result) =>
                     result.state ? (
                       <DeviceHostDiagnostics
-                        key={result.environmentId}
+                        key={result.machineId}
                         className="mt-1"
                         hosts={[result.host]}
                         hostStatuses={result.state.hostStatuses}
@@ -554,13 +554,13 @@ function DeviceHostList({
                 {compact
                   ? retryable.map((result) => (
                       <MenuItem
-                        key={result.environmentId}
+                        key={result.machineId}
                         disabled={retrying !== null}
                         onClick={() =>
-                          retryHost(result.environmentId, result.host.id, result.environmentId)
+                          retryHost(result.machineId, result.host.id, result.machineId)
                         }
                       >
-                        {retrying === result.environmentId ? "Retrying" : "Retry"} from{" "}
+                        {retrying === result.machineId ? "Retrying" : "Retry"} from{" "}
                         {result.label}
                         {result.address ? ` (${result.address})` : null}
                       </MenuItem>
@@ -575,7 +575,7 @@ function DeviceHostList({
                 busy || (canRetry ? retrying !== null : compact ? pending : progress !== null)
               }
               onClick={() => {
-                if (canRetry) retryHost(environmentId, host.id);
+                if (canRetry) retryHost(machineId, host.id);
                 else void testConnection(host);
               }}
             >

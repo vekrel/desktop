@@ -1,17 +1,17 @@
 import {
   AuthSourceControlWriteScope,
-  type EnvironmentId,
+  type MachineId,
   type PullRequestDetail,
   type PullRequestListEntry,
   type PullRequestRef,
 } from "@vekrel/contracts";
 import { useEffect, useEffectEvent, useState } from "react";
 
-import { useEnvironmentQuery } from "~/state/query";
-import { useEnvironmentScope } from "~/state/session";
+import { useMachineQuery } from "~/state/query";
+import { useMachineScope } from "~/state/session";
 import {
   newestPullRequestSummary,
-  pullRequestEnvironment,
+  pullRequestMachine,
   pullRequestListEntryToSummary,
   useSharedPullRequestSummary,
 } from "~/state/pullRequests";
@@ -35,22 +35,22 @@ function pullRequestDetailSummary(data: PullRequestDetail | null) {
  * summary and the list row, into the detail the panel shows.
  */
 export function usePullRequestDetail(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   reference: PullRequestRef,
   listEntry: PullRequestListEntry | null,
 ) {
-  const scopeKey = `${environmentId}:${pullRequestRefKey(reference)}`;
-  const canWriteSourceControl = useEnvironmentScope(environmentId, AuthSourceControlWriteScope);
-  const detailQuery = useEnvironmentQuery(
-    pullRequestEnvironment.detail({ environmentId, input: reference }),
+  const scopeKey = `${machineId}:${pullRequestRefKey(reference)}`;
+  const canWriteSourceControl = useMachineScope(machineId, AuthSourceControlWriteScope);
+  const detailQuery = useMachineQuery(
+    pullRequestMachine.detail({ machineId, input: reference }),
   );
-  const activityQuery = useEnvironmentQuery(
-    pullRequestEnvironment.activity({ environmentId, input: reference }),
+  const activityQuery = useMachineQuery(
+    pullRequestMachine.activity({ machineId, input: reference }),
   );
   const [cachedDetail, setCachedDetail] = useState(() =>
     readPullRequestDetailSnapshot(
       typeof window === "undefined" ? undefined : window.localStorage,
-      environmentId,
+      machineId,
       reference,
     ),
   );
@@ -61,7 +61,7 @@ export function usePullRequestDetail(
       detailQuery.data ??
         readPullRequestDetailSnapshot(
           typeof window === "undefined" ? undefined : window.localStorage,
-          environmentId,
+          machineId,
           reference,
         ),
     );
@@ -71,7 +71,7 @@ export function usePullRequestDetail(
   const saveDetailSnapshot = useEffectEvent((data: PullRequestDetail) => {
     writePullRequestDetailSnapshot(
       typeof window === "undefined" ? undefined : window.localStorage,
-      environmentId,
+      machineId,
       reference,
       data,
     );
@@ -81,7 +81,7 @@ export function usePullRequestDetail(
   }, [detailQuery.data]);
   const detailSummary = pullRequestDetailSummary(detailQuery.data);
   const observedSummary = useSharedPullRequestSummary(
-    environmentId,
+    machineId,
     reference,
     detailSummary,
     detailQuery.dataUpdatedAt,

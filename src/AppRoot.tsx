@@ -2,8 +2,8 @@ import { RouterProvider } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { subscribeComposerDraftModelReconciliation } from "./composerDraftStore";
-import { environmentThreadShells } from "./state/threads";
-import { environmentShell } from "./state/shell";
+import { machineThreadShells } from "./state/threads";
+import { machineShell } from "./state/shell";
 
 import { BrowserProfileReporter } from "./browser/BrowserProfileReporter";
 import { ElectronBrowserHost } from "./browser/ElectronBrowserHost";
@@ -21,9 +21,9 @@ export function AppRoot({ router }: { readonly router: AppRouter }) {
     () =>
       subscribeComposerDraftModelReconciliation({
         registry: appAtomRegistry,
-        threadShellAtom: environmentThreadShells.threadShellAtom,
-        threadRefsAtom: environmentThreadShells.threadRefsAtom,
-        shellStateAtom: environmentShell.stateAtom,
+        threadShellAtom: machineThreadShells.threadShellAtom,
+        threadRefsAtom: machineThreadShells.threadRefsAtom,
+        shellStateAtom: machineShell.stateAtom,
       }),
     [],
   );

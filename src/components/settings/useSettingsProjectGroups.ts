@@ -1,6 +1,6 @@
 import { useClientSettings } from "../../hooks/useSettings";
 import { buildSidebarProjectSnapshots } from "../../sidebarProjectGrouping";
-import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environments";
+import { useMachines, usePrimaryMachineId } from "../../state/machines";
 import { useProjects } from "../../state/entities";
 
 export function useSettingsProjectGroups() {
@@ -14,13 +14,13 @@ export function useSettingsProjectGroups() {
   const sidebarProjectGroupingOverrides = useClientSettings(
     (settings) => settings.sidebarProjectGroupingOverrides,
   );
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const { environments } = useEnvironments();
-  const labels = new Map(environments.map((entry) => [entry.environmentId, entry.label]));
+  const primaryMachineId = usePrimaryMachineId();
+  const { machines } = useMachines();
+  const labels = new Map(machines.map((entry) => [entry.machineId, entry.label]));
   return buildSidebarProjectSnapshots({
     projects,
     settings: { sidebarProjectGroupingMode, sidebarProjectGroupingOverrides },
-    primaryEnvironmentId,
-    resolveEnvironmentLabel: (id) => labels.get(id) ?? null,
+    primaryMachineId,
+    resolveMachineLabel: (id) => labels.get(id) ?? null,
   }).sort((a, b) => a.displayName.localeCompare(b.displayName));
 }

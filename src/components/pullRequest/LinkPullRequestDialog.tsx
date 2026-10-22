@@ -47,7 +47,7 @@ interface LinkPullRequestDialogProps {
 export function LinkPullRequestDialogHost() {
   const threadRef = useAtomValue(linkPullRequestDialogThreadAtom);
   const thread = useThreadShell(threadRef);
-  const linking = usePullRequestLinking(threadRef?.environmentId);
+  const linking = usePullRequestLinking(threadRef?.machineId);
   if (threadRef === null || linking.mode === "unsupported") return null;
   return (
     <LinkPullRequestDialog
@@ -74,10 +74,10 @@ function LinkPullRequestDialog({
   const projects = useProjects();
   const ownProject = pullRequestLinkProject(
     projects.find(
-      (project) => project.environmentId === threadRef.environmentId && project.id === projectId,
+      (project) => project.machineId === threadRef.machineId && project.id === projectId,
     )?.repositoryIdentity,
   );
-  const linking = usePullRequestLinking(threadRef.environmentId);
+  const linking = usePullRequestLinking(threadRef.machineId);
   const [pending, setPending] = useState(false);
 
   const [openSeen, setOpenSeen] = useState(open);

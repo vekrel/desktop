@@ -1,9 +1,9 @@
 import { useAtomCommand } from "~/state/use-atom-command";
-import type { EnvironmentId, PullRequestRef, PullRequestReviewVerdict } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef, PullRequestReviewVerdict } from "@vekrel/contracts";
 import { CheckIcon, MessageSquareIcon, XCircleIcon } from "lucide-react";
 import { useState, type ReactNode, type RefObject } from "react";
 
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger } from "../ui/select";
@@ -42,7 +42,7 @@ const VERDICTS: ReadonlyArray<{
 ];
 
 export function PullRequestReviewForm({
-  environmentId,
+  machineId,
   reference,
   verdicts,
   requestChangesSummaryRequired,
@@ -51,7 +51,7 @@ export function PullRequestReviewForm({
   onPendingChange,
   onSubmitted,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   verdicts: ReadonlyArray<PullRequestReviewVerdict>;
   requestChangesSummaryRequired: boolean;
@@ -70,7 +70,7 @@ export function PullRequestReviewForm({
   const removeComments = usePullRequestReviewStore((store) => store.removeComments);
   const setSummary = usePullRequestReviewStore((store) => store.setSummary);
   const clearSummary = usePullRequestReviewStore((store) => store.clearSummary);
-  const submitReview = useAtomCommand(pullRequestEnvironment.submitReview, {
+  const submitReview = useAtomCommand(pullRequestMachine.submitReview, {
     reportFailure: false,
   });
 
@@ -84,7 +84,7 @@ export function PullRequestReviewForm({
     const submittedComments = comments;
     onPendingChange(true);
     const result = await submitReview({
-      environmentId,
+      machineId,
       input: {
         ...reference,
         verdict: verdict.value,

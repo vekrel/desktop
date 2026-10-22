@@ -21,8 +21,8 @@ import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings"
 import { useSettingsScope } from "./SettingsScopeContext";
 import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { cn } from "../../lib/utils";
-import { useEnvironmentQuery } from "../../state/query";
-import { sourceControlEnvironment } from "../../state/sourceControl";
+import { useMachineQuery } from "../../state/query";
+import { sourceControlMachine } from "../../state/sourceControl";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Collapsible, CollapsibleContent } from "../ui/collapsible";
@@ -478,14 +478,14 @@ function EmptySourceControlDiscovery({
   const hasError = error !== null;
 
   return (
-    <SettingsSection id={searchableSetting("source-control").id} title="Server environment">
+    <SettingsSection id={searchableSetting("source-control").id} title="Server machine">
       <Empty>
         <EmptyMedia variant="icon">
           <PullRequestGlyph.pullRequest />
         </EmptyMedia>
         <EmptyHeader>
           <EmptyTitle>
-            {hasError ? "Could not scan the server environment" : "Nothing detected yet"}
+            {hasError ? "Could not scan the server machine" : "Nothing detected yet"}
           </EmptyTitle>
           <EmptyDescription>
             {hasError
@@ -505,17 +505,17 @@ function EmptySourceControlDiscovery({
 }
 
 export function SourceControlSettingsPanel() {
-  const { scope, environment, connectedEnvironments } = useSettingsScope();
+  const { scope, machine, connectedMachines } = useSettingsScope();
 
-  const environmentId =
-    environment?.connection.phase === "connected" ? environment.environmentId : null;
-  const aggregate = scope.environmentIds.length !== 1 && connectedEnvironments.length > 1;
-  const environmentSuffix = aggregate && environment ? ` · ${environment.label}` : "";
-  const discovery = useEnvironmentQuery(
-    environmentId === null
+  const machineId =
+    machine?.connection.phase === "connected" ? machine.machineId : null;
+  const aggregate = scope.machineIds.length !== 1 && connectedMachines.length > 1;
+  const machineSuffix = aggregate && machine ? ` · ${machine.label}` : "";
+  const discovery = useMachineQuery(
+    machineId === null
       ? null
-      : sourceControlEnvironment.discovery({
-          environmentId,
+      : sourceControlMachine.discovery({
+          machineId,
           input: {},
         }),
   );
@@ -528,13 +528,13 @@ export function SourceControlSettingsPanel() {
   };
   const hostSettingsPanel = (kind: string) => {
     const definition = sourceControlClients.find(kind);
-    if (!definition?.settings || environmentId === null) return undefined;
+    if (!definition?.settings || machineId === null) return undefined;
     return (
       <SettingsSearchTarget id={sourceControlHostSettingsSearchId(kind)}>
         <SourceControlHostSettings
-          // Drafts belong to one environment; switching must not carry them over.
-          key={environmentId}
-          environmentId={environmentId}
+          // Drafts belong to one machine; switching must not carry them over.
+          key={machineId}
+          machineId={machineId}
           definition={{ ...definition, settings: definition.settings }}
           onSaved={handleScan}
         />
@@ -550,7 +550,7 @@ export function SourceControlSettingsPanel() {
             variant="ghost-muted"
             onClick={handleScan}
             disabled={discovery.isPending}
-            aria-label="Rescan server environment"
+            aria-label="Rescan server machine"
           >
             <RefreshIcon refreshing={discovery.isPending} />
           </Button>
@@ -563,16 +563,16 @@ export function SourceControlSettingsPanel() {
   return (
     <SettingsPageContainer>
       <ProjectDefaultsSettings category="source-control" />
-      {environmentId === null ? (
-        <SettingsSection id={searchableSetting("source-control").id} title="Server environment">
+      {machineId === null ? (
+        <SettingsSection id={searchableSetting("source-control").id} title="Server machine">
           <p className="px-4 py-3 text-sm text-muted-foreground">
-            Connect an environment to inspect its version control tools and hosting integrations.
+            Connect a machine to inspect its version control tools and hosting integrations.
           </p>
         </SettingsSection>
       ) : isInitialScanPending ? (
         <>
           <SourceControlSectionSkeleton
-            title={`Version Control${environmentSuffix}`}
+            title={`Version Control${machineSuffix}`}
             headerAction={scanButton}
           />
           <SourceControlSectionSkeleton title="Source Control Providers" />
@@ -582,7 +582,7 @@ export function SourceControlSettingsPanel() {
           {hasVersionControlSystems ? (
             <SettingsSection
               id={searchableSetting("source-control").id}
-              title={`Version Control${environmentSuffix}`}
+              title={`Version Control${machineSuffix}`}
               headerAction={scanButton}
             >
               {result.versionControlSystems.map((item) => (
@@ -599,7 +599,7 @@ export function SourceControlSettingsPanel() {
               title={
                 hasVersionControlSystems
                   ? "Source Control Providers"
-                  : `Source Control Providers${environmentSuffix}`
+                  : `Source Control Providers${machineSuffix}`
               }
               headerAction={hasVersionControlSystems ? null : scanButton}
             >
@@ -610,14 +610,14 @@ export function SourceControlSettingsPanel() {
                       <div className="grid gap-6">
                         {}
                         <GitHubTokenSettings
-                          key={`token-${environmentId}`}
-                          environmentId={environmentId}
+                          key={`token-${machineId}`}
+                          machineId={machineId}
                           onSaved={handleScan}
                         />
                         {item.status === "available" ? (
                           <GitHubAccountSettings
-                            key={environmentId}
-                            environmentId={environmentId}
+                            key={machineId}
+                            machineId={machineId}
                             auth={item.auth}
                             onSaved={handleScan}
                           />

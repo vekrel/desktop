@@ -12,8 +12,8 @@ import {
 import {
   AuthOrchestrationOperateScope,
   AuthSourceControlWriteScope,
-  EnvironmentAuthorizationError,
-  type EnvironmentId,
+  MachineAuthorizationError,
+  type MachineId,
   type GitResolvePullRequestResult,
   type SourceControlCloneProtocol,
   type SourceControlProviderKind,
@@ -25,12 +25,12 @@ import * as Option from "effect/Option";
 import { AsyncResult } from "effect/reactivity";
 
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { gitEnvironment } from "./git";
-import { useEnvironmentQuery } from "./query";
-import { readEnvironmentScope, useEnvironmentScope } from "./session";
-import { sourceControlEnvironment } from "./sourceControl";
+import { gitMachine } from "./git";
+import { useMachineQuery } from "./query";
+import { readMachineScope, useMachineScope } from "./session";
+import { sourceControlMachine } from "./sourceControl";
 import { useAtomCommand } from "./use-atom-command";
-import { vcsActionManager, vcsEnvironment } from "./vcs";
+import { vcsActionManager, vcsMachine } from "./vcs";
 
 export type SourceControlActionKind =
   | "init"
@@ -40,7 +40,7 @@ export type SourceControlActionKind =
   | "preparePullRequestThread";
 
 export interface SourceControlActionScope {
-  readonly environmentId: EnvironmentId | null;
+  readonly machineId: MachineId | null;
   readonly cwd: string | null;
 }
 
@@ -56,7 +56,7 @@ interface SourceControlActionState<
   ) => Promise<
     AtomCommandResult<
       AtomCommandSuccess<R>,
-      AtomCommandFailure<R> | VcsActionUnavailableError | EnvironmentAuthorizationError
+      AtomCommandFailure<R> | VcsActionUnavailableError | MachineAuthorizationError
     >
   >;
   readonly resetError: () => void;
@@ -81,7 +81,7 @@ function useAction<
   readonly onSuccess?: () => void;
   readonly managedExternally?: boolean;
 }): SourceControlActionState<TArgs, R> {
-  const isAllowed = useEnvironmentScope(input.scope.environmentId, AuthSourceControlWriteScope);
+  const isAllowed = useMachineScope(input.scope.machineId, AuthSourceControlWriteScope);
   const operation = ACTION_OPERATION[input.kind];
   const state = useAtomValue(vcsActionManager.stateAtom(input.scope));
   const ownsState = state.operation === operation;
@@ -92,12 +92,12 @@ function useAction<
 
   const run = async (...args: TArgs) => {
     if (
-      input.scope.environmentId === null ||
-      !readEnvironmentScope(input.scope.environmentId, AuthSourceControlWriteScope)
+      input.scope.machineId === null ||
+      !readMachineScope(input.scope.machineId, AuthSourceControlWriteScope)
     ) {
-      return AsyncResult.failure<never, EnvironmentAuthorizationError>(
+      return AsyncResult.failure<never, MachineAuthorizationError>(
         Cause.fail(
-          new EnvironmentAuthorizationError({
+          new MachineAuthorizationError({
             requiredScope: AuthSourceControlWriteScope,
             message: "This connection cannot change source control.",
           }),
@@ -136,11 +136,11 @@ function useAction<
 }
 
 function resolveScope(scope: SourceControlActionScope) {
-  if (scope.environmentId === null || scope.cwd === null) {
+  if (scope.machineId === null || scope.cwd === null) {
     return null;
   }
   return {
-    environmentId: scope.environmentId,
+    machineId: scope.machineId,
     cwd: scope.cwd,
   };
 }
@@ -158,7 +158,7 @@ export function useSourceControlActionRunning(
 }
 
 export function useVcsInitAction(scope: SourceControlActionScope) {
-  const init = useAtomCommand(vcsEnvironment.init, { reportFailure: false });
+  const init = useAtomCommand(vcsMachine.init, { reportFailure: false });
   const action = async () => {
     const target = resolveScope(scope);
     if (target === null) {
@@ -166,14 +166,14 @@ export function useVcsInitAction(scope: SourceControlActionScope) {
         Cause.fail(
           new VcsActionUnavailableError({
             operation: "init",
-            environmentId: scope.environmentId,
+            machineId: scope.machineId,
             cwd: scope.cwd,
           }),
         ),
       );
     }
     return init({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { cwd: target.cwd },
     });
   };
@@ -181,11 +181,11 @@ export function useVcsInitAction(scope: SourceControlActionScope) {
 }
 
 export function useVcsPullAction(scope: SourceControlActionScope) {
-  const pull = useAtomCommand(vcsEnvironment.pull, { reportFailure: false });
-  const status = useEnvironmentQuery(
-    scope.environmentId !== null && scope.cwd !== null
-      ? vcsEnvironment.status({
-          environmentId: scope.environmentId,
+  const pull = useAtomCommand(vcsMachine.pull, { reportFailure: false });
+  const status = useMachineQuery(
+    scope.machineId !== null && scope.cwd !== null
+      ? vcsMachine.status({
+          machineId: scope.machineId,
           input: { cwd: scope.cwd },
         })
       : null,
@@ -197,14 +197,14 @@ export function useVcsPullAction(scope: SourceControlActionScope) {
         Cause.fail(
           new VcsActionUnavailableError({
             operation: "pull",
-            environmentId: scope.environmentId,
+            machineId: scope.machineId,
             cwd: scope.cwd,
           }),
         ),
       );
     }
     return pull({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { cwd: target.cwd },
     });
   };
@@ -221,10 +221,10 @@ export function useGitStackedAction(scope: SourceControlActionScope) {
   const runStackedAction = useAtomCommand(vcsActionManager.runStackedAction(scope), {
     reportFailure: false,
   });
-  const status = useEnvironmentQuery(
-    scope.environmentId !== null && scope.cwd !== null
-      ? vcsEnvironment.status({
-          environmentId: scope.environmentId,
+  const status = useMachineQuery(
+    scope.machineId !== null && scope.cwd !== null
+      ? vcsMachine.status({
+          machineId: scope.machineId,
           input: { cwd: scope.cwd },
         })
       : null,
@@ -236,7 +236,7 @@ export function useGitStackedAction(scope: SourceControlActionScope) {
         Cause.fail(
           new VcsActionUnavailableError({
             operation: "run_change_request",
-            environmentId: scope.environmentId,
+            machineId: scope.machineId,
             cwd: scope.cwd,
           }),
         ),
@@ -256,13 +256,13 @@ export function useGitStackedAction(scope: SourceControlActionScope) {
 }
 
 export function useSourceControlPublishRepositoryAction(scope: SourceControlActionScope) {
-  const publishRepository = useAtomCommand(sourceControlEnvironment.publishRepository, {
+  const publishRepository = useAtomCommand(sourceControlMachine.publishRepository, {
     reportFailure: false,
   });
-  const status = useEnvironmentQuery(
-    scope.environmentId !== null && scope.cwd !== null
-      ? vcsEnvironment.status({
-          environmentId: scope.environmentId,
+  const status = useMachineQuery(
+    scope.machineId !== null && scope.cwd !== null
+      ? vcsMachine.status({
+          machineId: scope.machineId,
           input: { cwd: scope.cwd },
         })
       : null,
@@ -280,14 +280,14 @@ export function useSourceControlPublishRepositoryAction(scope: SourceControlActi
         Cause.fail(
           new VcsActionUnavailableError({
             operation: "publish_repository",
-            environmentId: scope.environmentId,
+            machineId: scope.machineId,
             cwd: scope.cwd,
           }),
         ),
       );
     }
     return publishRepository({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: {
         cwd: target.cwd,
         ...input,
@@ -304,7 +304,7 @@ export function useSourceControlPublishRepositoryAction(scope: SourceControlActi
 }
 
 export function usePreparePullRequestThreadAction(scope: SourceControlActionScope) {
-  const preparePullRequestThread = useAtomCommand(gitEnvironment.preparePullRequestThread, {
+  const preparePullRequestThread = useAtomCommand(gitMachine.preparePullRequestThread, {
     reportFailure: false,
   });
   const action = async (input: {
@@ -318,7 +318,7 @@ export function usePreparePullRequestThreadAction(scope: SourceControlActionScop
         Cause.fail(
           new VcsActionUnavailableError({
             operation: "prepare_pull_request_thread",
-            environmentId: scope.environmentId,
+            machineId: scope.machineId,
             cwd: scope.cwd,
           }),
         ),
@@ -327,11 +327,11 @@ export function usePreparePullRequestThreadAction(scope: SourceControlActionScop
     if (
       input.mode === "worktree" &&
       input.threadId !== undefined &&
-      !readEnvironmentScope(target.environmentId, AuthOrchestrationOperateScope)
+      !readMachineScope(target.machineId, AuthOrchestrationOperateScope)
     ) {
-      return AsyncResult.failure<never, EnvironmentAuthorizationError>(
+      return AsyncResult.failure<never, MachineAuthorizationError>(
         Cause.fail(
-          new EnvironmentAuthorizationError({
+          new MachineAuthorizationError({
             requiredScope: AuthOrchestrationOperateScope,
             message: "This connection cannot change threads.",
           }),
@@ -339,7 +339,7 @@ export function usePreparePullRequestThreadAction(scope: SourceControlActionScop
       );
     }
     return preparePullRequestThread({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: {
         cwd: target.cwd,
         reference: input.reference,
@@ -357,7 +357,7 @@ export function usePreparePullRequestThreadAction(scope: SourceControlActionScop
 }
 
 export interface PullRequestResolutionTarget {
-  readonly environmentId: EnvironmentId | null;
+  readonly machineId: MachineId | null;
   readonly cwd: string | null;
   readonly reference: string | null;
 }
@@ -365,14 +365,14 @@ export interface PullRequestResolutionTarget {
 export function readCachedPullRequestResolution(
   target: PullRequestResolutionTarget,
 ): GitResolvePullRequestResult | null {
-  if (target.environmentId === null || target.cwd === null || target.reference === null) {
+  if (target.machineId === null || target.cwd === null || target.reference === null) {
     return null;
   }
   return Option.getOrNull(
     AsyncResult.value(
       appAtomRegistry.get(
-        gitEnvironment.pullRequestResolution({
-          environmentId: target.environmentId,
+        gitMachine.pullRequestResolution({
+          machineId: target.machineId,
           input: { cwd: target.cwd, reference: target.reference },
         }),
       ),
@@ -381,10 +381,10 @@ export function readCachedPullRequestResolution(
 }
 
 export function usePullRequestResolutionState(target: PullRequestResolutionTarget) {
-  const query = useEnvironmentQuery(
-    target.environmentId !== null && target.cwd !== null && target.reference !== null
-      ? gitEnvironment.pullRequestResolution({
-          environmentId: target.environmentId,
+  const query = useMachineQuery(
+    target.machineId !== null && target.cwd !== null && target.reference !== null
+      ? gitMachine.pullRequestResolution({
+          machineId: target.machineId,
           input: {
             cwd: target.cwd,
             reference: target.reference,

@@ -1,5 +1,5 @@
 import type { ServerUpdateState } from "@vekrel/client-runtime/state/server";
-import type { EnvironmentId, ServerConfig } from "@vekrel/contracts";
+import type { MachineId, ServerConfig } from "@vekrel/contracts";
 import { cliReleaseChannelOf } from "@vekrel/shared/cliRelease";
 
 import {
@@ -11,10 +11,10 @@ import {
 import type { ServerUpdateOutcome, ServerUpdateTarget } from "../ServerUpdateAction";
 
 export interface UpdateEverythingMachine {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly label: string;
   readonly serverConfig: {
-    readonly environment: ServerConfig["environment"];
+    readonly machine: ServerConfig["machine"];
     readonly settings: Pick<ServerConfig["settings"], "continueThreadsAfterServerUpdate">;
   } | null;
   readonly connected: boolean;
@@ -24,30 +24,30 @@ export interface UpdateEverythingMachine {
 }
 
 export interface RestartingMachine {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly continuesThreads: boolean;
 }
 
 export function collectRestartingMachines(
   machines: ReadonlyArray<UpdateEverythingMachine>,
-  servers: ReadonlyArray<Pick<ServerUpdateTarget, "environmentId">>,
+  servers: ReadonlyArray<Pick<ServerUpdateTarget, "machineId">>,
   installsLocal: boolean,
 ): RestartingMachine[] {
-  const updated = new Set(servers.map((server) => server.environmentId));
+  const updated = new Set(servers.map((server) => server.machineId));
   return machines.flatMap((machine) => {
     const config = machine.serverConfig;
     if (
       config === null ||
       !machine.connected ||
-      !(updated.has(machine.environmentId) || (installsLocal && machine.hostedByThisApp))
+      !(updated.has(machine.machineId) || (installsLocal && machine.hostedByThisApp))
     ) {
       return [];
     }
     return [
       {
-        environmentId: machine.environmentId,
+        machineId: machine.machineId,
         continuesThreads:
-          config.environment.capabilities.threadRestartContinuation === true &&
+          config.machine.capabilities.threadRestartContinuation === true &&
           config.settings.continueThreadsAfterServerUpdate === true,
       },
     ];
@@ -55,7 +55,7 @@ export function collectRestartingMachines(
 }
 
 export interface SkippedMachine {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly label: string;
   readonly reason: string;
 }
@@ -77,12 +77,12 @@ export function collectServerUpdateTargets(
     if (machine.hostedByThisApp) continue;
     if (
       config !== null &&
-      resolveVersionMismatch(config.environment.serverVersion, targetVersion) === null
+      resolveVersionMismatch(config.machine.serverVersion, targetVersion) === null
     ) {
       continue;
     }
     const skip = (reason: string) =>
-      skipped.push({ environmentId: machine.environmentId, label: machine.label, reason });
+      skipped.push({ machineId: machine.machineId, label: machine.label, reason });
     if (config === null || !machine.connected) {
       skip("not connected");
       continue;
@@ -105,7 +105,7 @@ export function collectServerUpdateTargets(
       skip("needs a newer desktop app");
       continue;
     }
-    const serverVersion = config.environment.serverVersion;
+    const serverVersion = config.machine.serverVersion;
     if (
       selfUpdate !== "desktop-managed" &&
       cliReleaseChannelOf(serverVersion) !== cliReleaseChannelOf(targetVersion)
@@ -114,10 +114,10 @@ export function collectServerUpdateTargets(
       continue;
     }
     targets.push({
-      environmentId: machine.environmentId,
+      machineId: machine.machineId,
       serverLabel: machine.label,
       selfUpdate,
-      installation: config.environment.capabilities.serverInstallation,
+      installation: config.machine.capabilities.serverInstallation,
       desktopAppUpdate,
       threadContinuation: supportsServerUpdateThreadContinuation(config),
       continueThreadsAfterServerUpdate: config.settings.continueThreadsAfterServerUpdate ?? false,
@@ -162,7 +162,7 @@ export type UpdateRunMachineStatus =
   | "failed";
 
 export interface UpdateRunMachine {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly label: string;
   readonly updatesProviders: boolean;
   readonly server: ServerUpdateTarget | null;
@@ -363,10 +363,10 @@ export function getUpdateEverythingToastView(
 export interface UpdateEverythingPlan {
   readonly localVersion: string | null;
   readonly servers: ReadonlyArray<
-    Pick<ServerUpdateTarget, "environmentId" | "serverLabel" | "selfUpdate" | "targetVersion">
+    Pick<ServerUpdateTarget, "machineId" | "serverLabel" | "selfUpdate" | "targetVersion">
   >;
   readonly providerMachines: ReadonlyArray<{
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly label: string;
     readonly providers: ReadonlyArray<string>;
   }>;
@@ -397,23 +397,23 @@ export function describeUpdateEverything(plan: UpdateEverythingPlan): {
     ].filter((part) => part !== null),
   )}`;
 
-  const machines = new Map<EnvironmentId, { label: string; items: string[] }>();
-  const itemsFor = (environmentId: EnvironmentId, label: string) => {
-    const existing = machines.get(environmentId);
+  const machines = new Map<MachineId, { label: string; items: string[] }>();
+  const itemsFor = (machineId: MachineId, label: string) => {
+    const existing = machines.get(machineId);
     if (existing) return existing.items;
     const items: string[] = [];
-    machines.set(environmentId, { label, items });
+    machines.set(machineId, { label, items });
     return items;
   };
   for (const server of plan.servers) {
-    itemsFor(server.environmentId, server.serverLabel).push(
+    itemsFor(server.machineId, server.serverLabel).push(
       server.selfUpdate === "desktop-managed"
         ? "desktop app update"
         : `server to ${server.targetVersion}`,
     );
   }
   for (const machine of plan.providerMachines) {
-    itemsFor(machine.environmentId, machine.label).push(...machine.providers);
+    itemsFor(machine.machineId, machine.label).push(...machine.providers);
   }
 
   return {

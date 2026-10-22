@@ -49,7 +49,7 @@ export type WorkEntryIconName =
   | "square-pen"
   | "terminal"
   | "pull-request"
-  | "t3-code"
+  | "vekrel"
   | "wrench"
   | "x"
   | "zap";
@@ -132,8 +132,8 @@ function NativeAppToolActivityIcon(props: {
   className: string;
   muted: boolean;
 }) {
-  const { activeThreadEnvironmentId } = use(TimelineRowCtx);
-  const asset = useAssetUrlState(activeThreadEnvironmentId, {
+  const { activeThreadMachineId } = use(TimelineRowCtx);
+  const asset = useAssetUrlState(activeThreadMachineId, {
     _tag: "native-app-icon",
     app: props.app,
   });
@@ -146,7 +146,7 @@ function NativeAppToolActivityIcon(props: {
     );
   }
   const cacheKey = getProjectFaviconCacheKey(
-    activeThreadEnvironmentId,
+    activeThreadMachineId,
     JSON.stringify(props.app),
     asset.url,
   );
@@ -242,7 +242,7 @@ function WorkEntryIcon({ name, className }: { name: WorkEntryIconName; className
       return <Code2Icon className={className} aria-hidden />;
     case "device":
       return <SmartphoneIcon className={className} aria-hidden />;
-    case "t3-code":
+    case "vekrel":
       return <T3Wordmark className={className} aria-hidden />;
     case "check":
       return <CheckIcon className={className} aria-hidden />;

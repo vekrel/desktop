@@ -120,7 +120,7 @@ export function deriveProviderSettingsFields(
               ? "Executable"
               : (annotatedTitle ?? titleizeFieldKey(key)),
           ...(isLocalAcp && key === "commandPath"
-            ? { description: "Executable name or path on this environment." }
+            ? { description: "Executable name or path on this machine." }
             : annotatedDescription !== undefined
               ? { description: annotatedDescription }
               : {}),

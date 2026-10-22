@@ -1,5 +1,5 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import { type EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import { type MachineId, ThreadId } from "@vekrel/contracts";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
 import {
@@ -8,7 +8,7 @@ import {
   usePreviewMiniPlayerStore,
 } from "./previewMiniPlayerStore";
 
-const refA = scopeThreadRef("env-1" as EnvironmentId, ThreadId.make("thread-A"));
+const refA = scopeThreadRef("env-1" as MachineId, ThreadId.make("thread-A"));
 const tabA = browserMiniPlayerSource("tab-a");
 const tabB = browserMiniPlayerSource("tab-b");
 

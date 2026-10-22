@@ -1,7 +1,7 @@
 import type { ThreadStructure } from "@vekrel/client-runtime/state/shell";
 import {
   AuthOrchestrationOperateScope,
-  type EnvironmentId,
+  type MachineId,
   type ProviderApprovalDecision,
   type RuntimeRequestId,
   type ScopedThreadRef,
@@ -52,8 +52,8 @@ import {
   derivePendingUserInputs,
   type PendingUserInput,
 } from "../../session-logic";
-import { readEnvironmentScope } from "../../state/session";
-import { threadEnvironment } from "../../state/threads";
+import { readMachineScope } from "../../state/session";
+import { threadMachine } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import type { ChatComposerHandle } from "./ChatComposer";
@@ -107,7 +107,7 @@ function makePendingCustomAnswerSetter(input: {
  * waiting, the user's in-progress answers, and the commands that respond.
  */
 export function usePendingThreadRequests(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly activeThreadId: ThreadId | null;
   readonly activeThread: { readonly id: ThreadId } | undefined;
   readonly serverProjection: ThreadStructure | null;
@@ -119,7 +119,7 @@ export function usePendingThreadRequests(input: {
   readonly setThreadError: (threadId: ThreadId, error: string | null) => void;
 }) {
   const {
-    environmentId,
+    machineId,
     activeThreadId,
     activeThread,
     serverProjection,
@@ -130,13 +130,13 @@ export function usePendingThreadRequests(input: {
     composerRef,
     setThreadError,
   } = input;
-  const respondToThreadApproval = useOrchestrationCommand(threadEnvironment.respondToApproval, {
+  const respondToThreadApproval = useOrchestrationCommand(threadMachine.respondToApproval, {
     reportFailure: false,
   });
-  const respondToThreadUserInput = useOrchestrationCommand(threadEnvironment.respondToUserInput, {
+  const respondToThreadUserInput = useOrchestrationCommand(threadMachine.respondToUserInput, {
     reportFailure: false,
   });
-  const dismissThreadUserInput = useAtomCommand(threadEnvironment.dismissUserInput, {
+  const dismissThreadUserInput = useAtomCommand(threadMachine.dismissUserInput, {
     reportFailure: false,
   });
   const userInputResponsesInFlight = useRef(new Set<string>());
@@ -163,7 +163,7 @@ export function usePendingThreadRequests(input: {
       : derivePendingUserInputs(pendingRequests.userInputs);
   const activePendingUserInput = pendingUserInputs[0] ?? null;
   const activePendingRequestKey = pendingUserInputRequestKey(
-    environmentId,
+    machineId,
     activeThreadId,
     activePendingUserInput?.requestId,
   );
@@ -184,7 +184,7 @@ export function usePendingThreadRequests(input: {
   const pendingQuestionDraftKeys = activeThreadId
     ? pendingUserInputs.flatMap((request) =>
         request.questions.map((question) =>
-          questionAttachmentDraftId(environmentId, activeThreadId, request.requestId, question.id),
+          questionAttachmentDraftId(machineId, activeThreadId, request.requestId, question.id),
         ),
       )
     : [];
@@ -205,7 +205,7 @@ export function usePendingThreadRequests(input: {
             key,
             attachments.some((attachment) => {
               const upload = state.uploadsByImageId[attachment.id];
-              return upload?.status !== "ready" || upload.environmentId !== environmentId;
+              return upload?.status !== "ready" || upload.machineId !== machineId;
             }),
           ];
         }),
@@ -225,20 +225,20 @@ export function usePendingThreadRequests(input: {
     const pendingRequestIds = currentRequests.map((request) => request.requestId);
     usePendingUserInputAnswers.setState(
       (existing) =>
-        pruneResolvedUserInputDrafts(existing, environmentId, questionThread.id, pendingRequestIds),
+        pruneResolvedUserInputDrafts(existing, machineId, questionThread.id, pendingRequestIds),
       true,
     );
     usePendingUserInputQuestionIndex.setState(
       (existing) =>
-        pruneResolvedUserInputDrafts(existing, environmentId, questionThread.id, pendingRequestIds),
+        pruneResolvedUserInputDrafts(existing, machineId, questionThread.id, pendingRequestIds),
       true,
     );
-    const prefix = questionAttachmentDraftPrefix(environmentId, questionThread.id);
+    const prefix = questionAttachmentDraftPrefix(machineId, questionThread.id);
     const retained = new Set(
       currentRequests.flatMap((request) =>
         request.questions.map((question) =>
           questionAttachmentDraftId(
-            environmentId,
+            machineId,
             questionThread.id,
             request.requestId,
             question.id,
@@ -254,14 +254,14 @@ export function usePendingThreadRequests(input: {
       if (key.startsWith(prefix) && !retained.has(DraftId.make(key)))
         clearQuestionAttachmentDraft(DraftId.make(key));
     }
-  }, [environmentId, activeThread, projectedThreadId, pendingUserInputs]);
+  }, [machineId, activeThread, projectedThreadId, pendingUserInputs]);
   const activePendingDraftAnswers =
     !activePendingUserInput || !activeThreadId
       ? EMPTY_PENDING_USER_INPUT_ANSWERS
       : Object.fromEntries(
           activePendingUserInput.questions.map((question) => {
             const key = questionAttachmentDraftId(
-              environmentId,
+              machineId,
               activeThreadId,
               activePendingUserInput.requestId,
               question.id,
@@ -301,7 +301,7 @@ export function usePendingThreadRequests(input: {
     requestId: RuntimeRequestId,
     decision: ProviderApprovalDecision,
   ) => {
-    if (!activeThreadId || !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope))
+    if (!activeThreadId || !readMachineScope(machineId, AuthOrchestrationOperateScope))
       return;
     if (
       pendingApprovals.find((approval) => approval.requestId === requestId)?.responseCapability !==
@@ -313,7 +313,7 @@ export function usePendingThreadRequests(input: {
       existing.includes(requestId) ? existing : [...existing, requestId],
     );
     const result = await respondToThreadApproval({
-      environmentId,
+      machineId,
       input: {
         threadId: activeThreadId,
         requestId,
@@ -336,17 +336,17 @@ export function usePendingThreadRequests(input: {
     requestId: RuntimeRequestId,
     answers: Record<string, unknown>,
   ) => {
-    if (!activeThreadId || !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope))
+    if (!activeThreadId || !readMachineScope(machineId, AuthOrchestrationOperateScope))
       return;
     const pendingInput = pendingUserInputs.find((input) => input.requestId === requestId);
     if (!pendingInput || pendingInput.responseCapability === "not_resumable") return;
-    const responseKey = JSON.stringify([environmentId, activeThreadId, requestId]);
+    const responseKey = JSON.stringify([machineId, activeThreadId, requestId]);
     if (userInputResponsesInFlight.current.has(responseKey)) return;
     const attachmentsByQuestionId = new Map<string, UserInputAttachments[string]>();
     const providerAnswers = { ...answers };
     for (const question of pendingInput.questions) {
       const target = questionAttachmentDraftId(
-        environmentId,
+        machineId,
         activeThreadId,
         requestId,
         question.id,
@@ -359,7 +359,7 @@ export function usePendingThreadRequests(input: {
       );
       const attachments = draft ? [...draft.images, ...draft.files] : [];
       if (attachments.length === 0) continue;
-      const uploaded = getUploadedAttachments({ environmentId, images: attachments });
+      const uploaded = getUploadedAttachments({ machineId, images: attachments });
       if (!uploaded) {
         setThreadError(
           activeThreadId,
@@ -375,7 +375,7 @@ export function usePendingThreadRequests(input: {
       existing.includes(requestId) ? existing : [...existing, requestId],
     );
     const result = await respondToThreadUserInput({
-      environmentId,
+      machineId,
       input: {
         threadId: activeThreadId,
         requestId,
@@ -406,7 +406,7 @@ export function usePendingThreadRequests(input: {
       existing.includes(requestId) ? existing : [...existing, requestId],
     );
     const result = await dismissThreadUserInput({
-      environmentId,
+      machineId,
       input: { threadId: activeThreadId, requestId },
     });
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
@@ -446,7 +446,7 @@ export function usePendingThreadRequests(input: {
       if (activeThreadId) {
         const store = useComposerDraftStore.getState();
         const questionTarget = questionAttachmentDraftId(
-          environmentId,
+          machineId,
           activeThreadId,
           activePendingUserInput.requestId,
           questionId,

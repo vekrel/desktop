@@ -1,4 +1,4 @@
-import type { EnvironmentId, ProjectId } from "@vekrel/contracts";
+import type { MachineId, ProjectId } from "@vekrel/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { type PullRequestListSort } from "../components/pullRequest/pullRequestListPreferences";
@@ -45,8 +45,8 @@ export const Route = createFileRoute("/_chat/pull-requests")({
     ...(typeof raw.projectId === "string" && raw.projectId
       ? { projectId: raw.projectId as ProjectId }
       : {}),
-    ...(typeof raw.environmentId === "string" && raw.environmentId
-      ? { environmentId: raw.environmentId as EnvironmentId }
+    ...(typeof raw.machineId === "string" && raw.machineId
+      ? { machineId: raw.machineId as MachineId }
       : {}),
     ...(typeof raw.host === "string" && raw.host ? { host: raw.host.slice(0, 200) } : {}),
     ...(typeof raw.selectedProjectId === "string" && raw.selectedProjectId
@@ -55,8 +55,8 @@ export const Route = createFileRoute("/_chat/pull-requests")({
     ...(typeof raw.selectedHost === "string" && raw.selectedHost
       ? { selectedHost: raw.selectedHost.slice(0, 200) }
       : {}),
-    ...(typeof raw.selectedEnvironmentId === "string" && raw.selectedEnvironmentId
-      ? { selectedEnvironmentId: raw.selectedEnvironmentId as EnvironmentId }
+    ...(typeof raw.selectedMachineId === "string" && raw.selectedMachineId
+      ? { selectedMachineId: raw.selectedMachineId as MachineId }
       : {}),
     // Always an own key: the router lays this result over the parent route's unvalidated
     // search, so leaving out a `q` the URL parser made a number would let the number through.

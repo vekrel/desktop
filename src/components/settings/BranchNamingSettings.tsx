@@ -22,7 +22,7 @@ const MODES = {
 export function BranchNamingSettings() {
   const settings = useScopedSettings();
   const { targets } = useSettingsScope();
-  const scopeKey = targets.map((target) => `${target.environmentId}:${target.projectId}`).join(",");
+  const scopeKey = targets.map((target) => `${target.machineId}:${target.projectId}`).join(",");
   const prefixEdited = useRef(false);
   const instructionsEdited = useRef(false);
   const updateSettings = useUpdateScopedSettings();

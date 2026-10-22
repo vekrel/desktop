@@ -1,10 +1,10 @@
 import type { FileDiffMetadata } from "@pierre/diffs";
-import type { EnvironmentId, PullRequestRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef } from "@vekrel/contracts";
 import { useState } from "react";
 
 import { getRenderablePatch, resolveFileDiffPath } from "~/lib/diffRendering";
-import { pullRequestEnvironment } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestMachine } from "~/state/pullRequests";
+import { useMachineQuery } from "~/state/query";
 
 import { pullRequestReviewKey } from "../pullRequestReviewStore";
 
@@ -19,17 +19,17 @@ interface LoadedDiff {
 const NO_FILES: ReadonlyMap<string, FileDiffMetadata> = new Map();
 
 export function useGuideDiffFiles({
-  environmentId,
+  machineId,
   reference,
   headSha,
   wantedPaths,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   headSha: string;
   wantedPaths: ReadonlyArray<string>;
 }) {
-  const key = `${environmentId}:${pullRequestReviewKey(reference)}:${headSha}`;
+  const key = `${machineId}:${pullRequestReviewKey(reference)}:${headSha}`;
   const [loaded, setLoaded] = useState<LoadedDiff>({
     key,
     cursor: null,
@@ -41,10 +41,10 @@ export function useGuideDiffFiles({
     loaded.key === key ? loaded : { key, cursor: null, done: false, files: NO_FILES, folded: null };
   const missing = wantedPaths.some((path) => !current.files.has(path));
   const loading = missing && !current.done;
-  const query = useEnvironmentQuery(
+  const query = useMachineQuery(
     loading
-      ? pullRequestEnvironment.diff({
-          environmentId,
+      ? pullRequestMachine.diff({
+          machineId,
           input: { ...reference, ...(current.cursor === null ? {} : { cursor: current.cursor }) },
         })
       : null,

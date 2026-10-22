@@ -2,8 +2,8 @@ import { findRevealRef } from "./markdownFindContext";
 import { type MessageId, type ServerProviderSkill, ThreadId } from "@vekrel/contracts";
 import { resolveUserMessagePresentation } from "@vekrel/client-runtime/user-message";
 import { Link } from "@tanstack/react-router";
-import { useEnvironmentQuery } from "../../state/query";
-import { serverEnvironment } from "../../state/server";
+import { useMachineQuery } from "../../state/query";
+import { serverMachine } from "../../state/server";
 import { replaceComposerContextReferences } from "@vekrel/shared/composerContextReferences";
 import { memo, use, useState, type ReactNode } from "react";
 import {
@@ -74,14 +74,14 @@ function UserVideoAttachment({ file }: { readonly file: ChatFileAttachment }) {
   // Row updates rebuild attachment objects, so the asset follows only the
   // fields it reads.
   const { downloadable, id, mimeType, name } = file;
-  const environmentId = ctx.activeThreadEnvironmentId;
+  const machineId = ctx.activeThreadMachineId;
   const asset =
     downloadable === false
       ? null
-      : buildAttachmentVideoAsset(environmentId, { id, mimeType, name });
+      : buildAttachmentVideoAsset(machineId, { id, mimeType, name });
   const resource = asset?.resource ?? null;
-  const assetUrl = useAssetUrlState(ctx.activeThreadEnvironmentId, resource);
-  const refreshAssetUrl = useAssetUrlRefresh(ctx.activeThreadEnvironmentId, resource);
+  const assetUrl = useAssetUrlState(ctx.activeThreadMachineId, resource);
+  const refreshAssetUrl = useAssetUrlRefresh(ctx.activeThreadMachineId, resource);
   const src = assetUrl._tag === "Success" ? assetUrl.url : (file.previewUrl ?? null);
 
   if (asset === null && src === null) {
@@ -101,7 +101,7 @@ function UserVideoAttachment({ file }: { readonly file: ChatFileAttachment }) {
       label={file.name}
       preload="visible"
       onOpen={() => {
-        const preview = buildAttachmentVideoPreview(ctx.activeThreadEnvironmentId, file);
+        const preview = buildAttachmentVideoPreview(ctx.activeThreadMachineId, file);
         if (preview) ctx.onImageExpand(preview);
       }}
       className="block aspect-[4/3] w-full"
@@ -118,7 +118,7 @@ export function UserMessageRow({ row }: { row: Extract<TimelineRow, { kind: "mes
   return ctx.workflowOpening?.messageId === row.message.id ? (
     <WorkflowOpeningBlock
       opening={ctx.workflowOpening}
-      environmentId={ctx.activeThreadEnvironmentId}
+      machineId={ctx.activeThreadMachineId}
       onOpenThread={(threadId) => ctx.onOpenThread(ThreadId.make(threadId))}
     />
   ) : resolveUserMessagePresentation(row.message).attribution === "automation" ? (
@@ -134,10 +134,10 @@ function AutomationMessageRow({ row }: { row: Extract<TimelineRow, { kind: "mess
   const [expanded, setExpanded] = useState(false);
   const revealRef = findRevealRef(() => setExpanded(true));
   const { text, scheduledTaskId } = resolveUserMessagePresentation(row.message);
-  const tasksQuery = useEnvironmentQuery(
+  const tasksQuery = useMachineQuery(
     scheduledTaskId
-      ? serverEnvironment.scheduledTasksLive({
-          environmentId: ctx.activeThreadEnvironmentId,
+      ? serverMachine.scheduledTasksLive({
+          machineId: ctx.activeThreadMachineId,
           input: {},
         })
       : null,
@@ -198,7 +198,7 @@ function AutomationMessageRow({ row }: { row: Extract<TimelineRow, { kind: "mess
             {scheduledTaskId ? (
               <Link
                 to="/settings/scheduled-tasks"
-                search={{ environmentId: ctx.activeThreadEnvironmentId, taskId: scheduledTaskId }}
+                search={{ machineId: ctx.activeThreadMachineId, taskId: scheduledTaskId }}
                 className="rounded-sm text-xs text-muted-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
               >
                 Open automation
@@ -253,7 +253,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
   const { onImageExpand, onFileOpen } = ctx;
   const senderThreadId = row.message.senderThreadId;
   const resources = selectMessageImageResources(row.message.attachments);
-  const previewUrls = useAssetUrls(ctx.activeThreadEnvironmentId, resources);
+  const previewUrls = useAssetUrls(ctx.activeThreadMachineId, resources);
   const [projectPreviews] = useState(createMessageAttachmentPreviewProjector);
   const previewUrlsById = new Map(
     resources.flatMap((resource, index) => {
@@ -297,7 +297,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
       : encodeComposerContextFragment({
           version: 1,
           source: {
-            environmentId: ctx.activeThreadEnvironmentId,
+            machineId: ctx.activeThreadMachineId,
             ...(ctx.threadRef ? { threadId: ctx.threadRef.threadId } : {}),
             messageId: row.message.id,
           },
@@ -321,7 +321,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
     const fragment = selectedMessageContextFragment({
       markdown: copiedMarkdown.join("\n"),
       records: resolvedContext.records,
-      environmentId: ctx.activeThreadEnvironmentId,
+      machineId: ctx.activeThreadMachineId,
       ...(ctx.threadRef ? { threadId: ctx.threadRef.threadId } : {}),
       messageId: row.message.id,
     });
@@ -370,7 +370,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
           }}
           onOpenFile={onFileOpen}
           onExpandVideo={(file) => {
-            const preview = buildAttachmentVideoPreview(ctx.activeThreadEnvironmentId, file);
+            const preview = buildAttachmentVideoPreview(ctx.activeThreadMachineId, file);
             if (preview) onImageExpand(preview);
           }}
         />

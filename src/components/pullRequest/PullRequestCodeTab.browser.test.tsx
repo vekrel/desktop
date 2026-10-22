@@ -1,5 +1,5 @@
 import {
-  EnvironmentId,
+  MachineId,
   ProjectId,
   SourceControlProviderKind,
   type PullRequestDetailView,
@@ -25,7 +25,7 @@ const { diffAtom } = await vi.hoisted(async () => {
     truncated: false,
     nextCursor: null,
   };
-  // An environment query whose refetch returns equal content hands back the previous value
+  // A machine query whose refetch returns equal content hands back the previous value
   // itself, so a refresh publishes a new result around the very same page.
   return { diffAtom: Atom.make(() => AsyncResult.success(firstPage)) };
 });
@@ -38,8 +38,8 @@ vi.mock(import("~/state/pullRequests"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    pullRequestEnvironment: {
-      ...actual.pullRequestEnvironment,
+    pullRequestMachine: {
+      ...actual.pullRequestMachine,
       diff: (() => diffAtom) as never,
     },
   };
@@ -103,7 +103,7 @@ const detail: PullRequestDetailView = {
 const tab = (refreshToken: number) => (
   <PullRequestCodeTab
     scrollerRef={() => {}}
-    environmentId={EnvironmentId.make("environment")}
+    machineId={MachineId.make("machine")}
     reference={detail}
     detail={detail}
     selectedCommitOid={null}

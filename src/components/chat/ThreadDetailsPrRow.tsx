@@ -1,9 +1,9 @@
 import { PullRequestChangeBreakdownRows } from "../pullRequest/PullRequestChangeBreakdownStat";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
-import { selectEnvironmentQueryData } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
-import type { EnvironmentId, ProjectId, PullRequestRef } from "@vekrel/contracts";
+import { selectMachineQueryData } from "@vekrel/client-runtime/state/runtime";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineId, ProjectId, PullRequestRef } from "@vekrel/contracts";
 import { sourceControlRepositorySelector } from "@vekrel/shared/sourceControl";
 import {
   ArrowUpRightIcon,
@@ -20,12 +20,12 @@ import { useLiveRefresh } from "~/hooks/useLiveRefresh";
 import { usePullRequestChecksRefresh } from "~/hooks/usePullRequestChecksRefresh";
 import { cn } from "~/lib/utils";
 import { useServerConfigs } from "~/state/entities";
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 import { useUiStateStore } from "~/uiStateStore";
 import {
-  useEnvironmentQueryIsNewer,
-  useEnvironmentQueryRefresh,
-  useEnvironmentQuerySelector,
+  useMachineQueryIsNewer,
+  useMachineQueryRefresh,
+  useMachineQuerySelector,
 } from "~/state/query";
 
 import {
@@ -78,7 +78,7 @@ const isSettledWithoutChecks = (result: AsyncResult.AsyncResult<unknown, unknown
   result._tag === "Success" && result.value === null;
 
 export function ThreadDetailsPrRow({
-  environmentId,
+  machineId,
   pr,
   number,
   reference: linkedReference,
@@ -90,12 +90,12 @@ export function ThreadDetailsPrRow({
   onActed,
   onStopWatching,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   pr: ThreadPr;
   number: number;
   reference?: Pick<PullRequestRef, "host" | "repository" | "number"> | null;
   status: PrStatusIndicator | null;
-  project: EnvironmentProject | null;
+  project: MachineProject | null;
   label: string;
   openAriaLabel: string;
   onOpen: (event: ReactMouseEvent<HTMLElement>) => void;
@@ -104,7 +104,7 @@ export function ThreadDetailsPrRow({
 }) {
   const serverConfigs = useServerConfigs();
   const supportsPullRequests =
-    serverConfigs.get(environmentId)?.environment.capabilities.pullRequests === true;
+    serverConfigs.get(machineId)?.machine.capabilities.pullRequests === true;
   const repository = sourceControlRepositorySelector(project?.repositoryIdentity);
   const reference: PullRequestRef | null =
     supportsPullRequests && project !== null
@@ -117,24 +117,24 @@ export function ThreadDetailsPrRow({
   const detailAtom =
     reference === null
       ? null
-      : pullRequestEnvironment.detail({
-          environmentId,
+      : pullRequestMachine.detail({
+          machineId,
           input: { ...reference, allowStale: false },
         });
   // Read the queries part by part: every poll publishes a new result (a new
   // timestamp, `waiting` on and off) even when nothing in it changed.
-  const detailData = useEnvironmentQuerySelector(detailAtom, selectEnvironmentQueryData);
-  const detailQuery = useEnvironmentQueryRefresh(detailAtom);
+  const detailData = useMachineQuerySelector(detailAtom, selectMachineQueryData);
+  const detailQuery = useMachineQueryRefresh(detailAtom);
   const supportsChecks =
-    serverConfigs.get(environmentId)?.environment.capabilities.pullRequestChecks === true;
+    serverConfigs.get(machineId)?.machine.capabilities.pullRequestChecks === true;
   const checksAtom =
     supportsChecks && reference !== null && detailData !== null
-      ? pullRequestEnvironment.checks({ environmentId, input: reference })
+      ? pullRequestMachine.checks({ machineId, input: reference })
       : null;
-  const checksData = useEnvironmentQuerySelector(checksAtom, selectEnvironmentQueryData);
-  const checksSettledEmpty = useEnvironmentQuerySelector(checksAtom, isSettledWithoutChecks);
-  const checksQuery = useEnvironmentQueryRefresh(checksAtom);
-  const checksAreNewer = useEnvironmentQueryIsNewer(checksAtom, detailAtom);
+  const checksData = useMachineQuerySelector(checksAtom, selectMachineQueryData);
+  const checksSettledEmpty = useMachineQuerySelector(checksAtom, isSettledWithoutChecks);
+  const checksQuery = useMachineQueryRefresh(checksAtom);
+  const checksAreNewer = useMachineQueryIsNewer(checksAtom, detailAtom);
   const detail =
     detailData === null
       ? null
@@ -142,7 +142,7 @@ export function ThreadDetailsPrRow({
         ? { ...detailData, ...checksData }
         : detailData;
   const open = reference !== null && (detail?.state ?? pr?.state) === "open";
-  const refreshKey = `${environmentId}:${project?.id}:${reference?.host}:${reference?.repository}:${number}`;
+  const refreshKey = `${machineId}:${project?.id}:${reference?.host}:${reference?.repository}:${number}`;
   useLiveRefresh(
     () => {
       if (!detailQuery.isPending()) detailQuery.refresh();
@@ -159,7 +159,7 @@ export function ThreadDetailsPrRow({
   });
 
   const { actionPending, perform } = usePullRequestActionRunner({
-    environmentId,
+    machineId,
     reference,
     onSuccess: () => {
       detailQuery.refresh();
@@ -167,10 +167,10 @@ export function ThreadDetailsPrRow({
       onActed?.();
     },
   });
-  const { handoff, startHandoff } = usePullRequestHandoffs({ environmentId, detail });
+  const { handoff, startHandoff } = usePullRequestHandoffs({ machineId, detail });
   const lastSelectedMergeMethod = useUiStateStore((state) => state.pullRequestMergeMethod);
   const resolveProjectDefaultMergeMethod = usePullRequestDefaultMergeMethodResolver(
-    environmentId,
+    machineId,
     (project?.id as ProjectId | undefined) ?? null,
   );
   const [confirmingMerge, setConfirmingMerge] = useState(false);
@@ -304,7 +304,7 @@ export function ThreadDetailsPrRow({
             </div>
             {reference !== null && (detail.additions > 0 || detail.deletions > 0) ? (
               <PullRequestChangeBreakdownRows
-                environmentId={environmentId}
+                machineId={machineId}
                 reference={reference}
                 className="pl-5 text-foreground/75"
               />

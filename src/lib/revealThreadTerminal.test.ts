@@ -1,13 +1,13 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import { MachineId, ThreadId } from "@vekrel/contracts";
 import { beforeEach, expect, it } from "vite-plus/test";
 
 import { selectThreadRightPanelState, useRightPanelStore } from "../rightPanelStore";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import { revealThreadTerminal } from "./revealThreadTerminal";
 
-const threadRef = scopeThreadRef(EnvironmentId.make("local"), ThreadId.make("settled-thread"));
-const remoteRef = scopeThreadRef(EnvironmentId.make("remote"), threadRef.threadId);
+const threadRef = scopeThreadRef(MachineId.make("local"), ThreadId.make("settled-thread"));
+const remoteRef = scopeThreadRef(MachineId.make("remote"), threadRef.threadId);
 
 beforeEach(() => {
   useTerminalUiStateStore.setState({
@@ -49,7 +49,7 @@ it("reopens the existing panel and selects a running terminal in its split", () 
   ).toEqual([]);
 });
 
-it("reveals terminals in their own environment without changing another environment's drawer", () => {
+it("reveals terminals in their own machine without changing another machine's drawer", () => {
   revealThreadTerminal(threadRef, "default");
   revealThreadTerminal(remoteRef, "setup-install");
   const state = useTerminalUiStateStore.getState().terminalUiStateByThreadKey;

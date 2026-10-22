@@ -16,7 +16,7 @@ import {
   __setClientSettingsForTests,
   ensureClientSettingsHydrated,
   getClientSettings,
-  mergeEnvironmentSettings,
+  mergeMachineSettings,
   persistClientSettingsPatch,
   persistClientSettingsUpdate,
   prepareModelPreferencesPatch,
@@ -263,7 +263,7 @@ describe("persistClientSettingsUpdate", () => {
   });
 });
 
-describe("mergeEnvironmentSettings", () => {
+describe("mergeMachineSettings", () => {
   it("keeps server settlement settings when legacy client data contains retired keys", () => {
     const serverSettings = {
       ...DEFAULT_SERVER_SETTINGS,
@@ -276,7 +276,7 @@ describe("mergeEnvironmentSettings", () => {
       sidebarAutoSettleOnMerge: true,
     };
 
-    const settings = mergeEnvironmentSettings(serverSettings, legacyClientSettings);
+    const settings = mergeMachineSettings(serverSettings, legacyClientSettings);
 
     expect(settings.sidebarAutoSettleAfterDays).toBe(14);
     expect(settings.sidebarAutoSettleOnMerge).toBe(false);
@@ -320,16 +320,16 @@ describe("onboarding completion persistence", () => {
   });
 });
 
-it("uses the environment's model preferences after migration, including empty lists", () => {
+it("uses the machine's model preferences after migration, including empty lists", () => {
   const client = {
     ...DEFAULT_CLIENT_SETTINGS,
     favorites: [{ provider: ProviderInstanceId.make("codex_work"), model: "old" }],
     providerModelPreferences: { codex_work: { hiddenModels: ["old"], modelOrder: [] } },
   };
-  expect(mergeEnvironmentSettings(DEFAULT_SERVER_SETTINGS, client).favorites).toEqual(
+  expect(mergeMachineSettings(DEFAULT_SERVER_SETTINGS, client).favorites).toEqual(
     client.favorites,
   );
-  const merged = mergeEnvironmentSettings(
+  const merged = mergeMachineSettings(
     { ...DEFAULT_SERVER_SETTINGS, favorites: [], providerModelPreferences: {} },
     client,
   );

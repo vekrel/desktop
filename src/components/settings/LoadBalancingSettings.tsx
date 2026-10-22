@@ -1,14 +1,14 @@
-import { resolveEnvironmentMachineKind } from "@vekrel/contracts";
+import { resolveMachineKind } from "@vekrel/contracts";
 
 import {
   useClientSettings,
   useClientSettingsHydrated,
   updateClientSettings,
 } from "~/hooks/useSettings";
-import type { EnvironmentPresentation } from "~/state/environments";
+import type { MachinePresentation } from "~/state/machines";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
-import { EnvironmentRow, environmentTransportLabel } from "./EnvironmentRow";
+import { MachineRow, machineTransportLabel } from "./MachineRow";
 import { FoldedSettingsSection } from "./FoldedSettingsSection";
 import { searchableSetting } from "./settingsSearch";
 
@@ -32,22 +32,22 @@ function preferenceLabel(preference: LoadPreference): string {
 }
 
 function summarizeLoadPreferences(
-  environments: ReadonlyArray<Pick<EnvironmentPresentation, "environmentId" | "label">>,
+  machines: ReadonlyArray<Pick<MachinePresentation, "machineId" | "label">>,
   weights: Readonly<Record<string, number>>,
 ): string | null {
-  const parts = environments.flatMap((environment) => {
-    const preference = loadPreferenceForWeight(weights[environment.environmentId]);
+  const parts = machines.flatMap((machine) => {
+    const preference = loadPreferenceForWeight(weights[machine.machineId]);
     return preference === 50
       ? []
-      : [`${environment.label} ${preferenceLabel(preference).toLowerCase()}`];
+      : [`${machine.label} ${preferenceLabel(preference).toLowerCase()}`];
   });
   return parts.length === 0 ? null : parts.join(" · ");
 }
 
 export function LoadBalancingSettings({
-  environments,
+  machines,
 }: {
-  environments: ReadonlyArray<EnvironmentPresentation>;
+  machines: ReadonlyArray<MachinePresentation>;
 }) {
   const settings = useClientSettings((current) => ({
     loadBalancingEnabled: current.loadBalancingEnabled,
@@ -55,7 +55,7 @@ export function LoadBalancingSettings({
   }));
   const settingsHydrated = useClientSettingsHydrated();
 
-  if (environments.length < 2) return null;
+  if (machines.length < 2) return null;
 
   const { id, title } = searchableSetting("load-balancing");
   return (
@@ -64,7 +64,7 @@ export function LoadBalancingSettings({
       title={title}
       summary={
         settings.loadBalancingEnabled
-          ? summarizeLoadPreferences(environments, settings.loadBalancingWeights)
+          ? summarizeLoadPreferences(machines, settings.loadBalancingWeights)
           : "Off"
       }
       control={
@@ -80,17 +80,17 @@ export function LoadBalancingSettings({
         New threads in shared projects start on the machine with the most free CPU and memory,
         weighted by each machine's preference.
       </p>
-      {environments.map((environment) => (
-        <EnvironmentRow
-          key={environment.environmentId}
-          kind={resolveEnvironmentMachineKind(environment.serverConfig)}
-          label={environment.label}
-          subtitle={environmentTransportLabel(environment)}
+      {machines.map((machine) => (
+        <MachineRow
+          key={machine.machineId}
+          kind={resolveMachineKind(machine.serverConfig)}
+          label={machine.label}
+          subtitle={machineTransportLabel(machine)}
         >
           <Select
             items={preferences}
             value={loadPreferenceForWeight(
-              settings.loadBalancingWeights[environment.environmentId],
+              settings.loadBalancingWeights[machine.machineId],
             )}
             disabled={!settingsHydrated || !settings.loadBalancingEnabled}
             onValueChange={(value) => {
@@ -98,7 +98,7 @@ export function LoadBalancingSettings({
               updateClientSettings({
                 loadBalancingWeights: {
                   ...settings.loadBalancingWeights,
-                  [environment.environmentId]: value,
+                  [machine.machineId]: value,
                 },
               });
             }}
@@ -106,7 +106,7 @@ export function LoadBalancingSettings({
             <SelectTrigger
               size="xs"
               className="w-32"
-              aria-label={`${environment.label} load preference`}
+              aria-label={`${machine.label} load preference`}
             >
               <SelectValue />
             </SelectTrigger>
@@ -118,7 +118,7 @@ export function LoadBalancingSettings({
               ))}
             </SelectPopup>
           </Select>
-        </EnvironmentRow>
+        </MachineRow>
       ))}
     </FoldedSettingsSection>
   );

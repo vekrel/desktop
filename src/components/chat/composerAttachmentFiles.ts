@@ -1,5 +1,5 @@
 import {
-  type EnvironmentId,
+  type MachineId,
   isProviderSendTurnSupportedImageMimeType,
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
 } from "@vekrel/contracts";
@@ -76,22 +76,22 @@ export function classifyComposerAttachmentFile(
 
 export function isPreviewableComposerVideo(
   file: ComposerFileAttachment,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
 ): boolean {
   return (
     isVideoAttachment(file) &&
     (file.file !== null ||
-      (file.uploadedAttachmentId !== undefined && file.uploadEnvironmentId === environmentId))
+      (file.uploadedAttachmentId !== undefined && file.uploadMachineId === machineId))
   );
 }
 
 export function composerOtherFilesForPresentation(
   files: ReadonlyArray<ComposerFileAttachment>,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   inlineFileIds: ReadonlySet<string>,
 ): ComposerFileAttachment[] {
   return files.filter(
-    (file) => !isPreviewableComposerVideo(file, environmentId) && !inlineFileIds.has(file.id),
+    (file) => !isPreviewableComposerVideo(file, machineId) && !inlineFileIds.has(file.id),
   );
 }
 

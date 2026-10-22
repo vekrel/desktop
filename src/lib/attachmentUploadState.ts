@@ -1,22 +1,22 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 
 export type ReadyAttachmentUpload = {
   readonly status: "ready";
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly attachmentId: string;
 };
 
 export type AttachmentUploadState =
   | {
       readonly status: "uploading";
-      readonly environmentId: EnvironmentId;
+      readonly machineId: MachineId;
       readonly progress: number;
       readonly previous?: ReadyAttachmentUpload;
     }
   | ReadyAttachmentUpload
   | {
       readonly status: "failed";
-      readonly environmentId: EnvironmentId;
+      readonly machineId: MachineId;
       readonly reason: string;
       /**
        * Retry and release delete it, so it must never carry a draft's persisted
@@ -29,15 +29,15 @@ export type AttachmentUploadState =
 export function attachmentUploadBlockReason(input: {
   readonly imageIds: ReadonlyArray<string>;
   readonly uploadsByImageId: Readonly<Record<string, AttachmentUploadState>>;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
 }): string | null {
   let pending = 0;
 
   for (const imageId of input.imageIds) {
     const upload = input.uploadsByImageId[imageId];
     // Send retries failed uploads, so they must not disable it.
-    if (upload?.status === "failed" && upload.environmentId === input.environmentId) continue;
-    if (upload?.status !== "ready" || upload.environmentId !== input.environmentId) {
+    if (upload?.status === "failed" && upload.machineId === input.machineId) continue;
+    if (upload?.status !== "ready" || upload.machineId !== input.machineId) {
       pending += 1;
     }
   }

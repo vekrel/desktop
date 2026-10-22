@@ -1,17 +1,17 @@
-import { type EnvironmentId, sessionGrantsScope } from "@vekrel/contracts";
+import { type MachineId, sessionGrantsScope } from "@vekrel/contracts";
 import { AUTH_SCOPE_OPTIONS } from "@vekrel/shared/authScopeOptions";
-import { useEnvironmentSessionState } from "~/state/session";
+import { useMachineSessionState } from "~/state/session";
 
 export function SessionPermissions({
-  environmentId,
+  machineId,
   connected,
   routeContext = false,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly connected: boolean;
   readonly routeContext?: boolean;
 }) {
-  const session = useEnvironmentSessionState(environmentId);
+  const session = useMachineSessionState(machineId);
   return connected && !session.hasError && !session.isPending && session.data?.authenticated ? (
     <div className="space-y-3 py-3 text-xs">
       <p className="text-muted-foreground">
@@ -32,7 +32,7 @@ export function SessionPermissions({
     </div>
   ) : (
     <p className="py-3 text-xs text-muted-foreground">
-      Permissions not checked. Connect to this environment to view this session’s permissions.
+      Permissions not checked. Connect to this machine to view this session’s permissions.
     </p>
   );
 }

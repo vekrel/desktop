@@ -8,7 +8,7 @@ import {
 import { describe, expect, it } from "vite-plus/test";
 import {
   applyProviderInstanceSettings,
-  deriveProviderEntriesByEnvironment,
+  deriveProviderEntriesByMachine,
   deriveProviderInstanceEntries,
   getDefaultProviderInstanceModel,
   isProviderInstancePickerReady,
@@ -202,11 +202,11 @@ describe("applyProviderInstanceSettings", () => {
   });
 });
 
-describe("deriveProviderEntriesByEnvironment", () => {
-  it("resolves registry branding from each environment's settings", () => {
+describe("deriveProviderEntriesByMachine", () => {
+  it("resolves registry branding from each machine's settings", () => {
     const instanceId = "custom-acp";
     const snapshot = provider({ provider: ProviderDriverKind.make("acpRegistry"), instanceId });
-    const byEnvironment = deriveProviderEntriesByEnvironment(
+    const byMachine = deriveProviderEntriesByMachine(
       ["devin", "other-agent"].map(
         (agentId) =>
           [
@@ -225,18 +225,18 @@ describe("deriveProviderEntriesByEnvironment", () => {
           ] as const,
       ),
     );
-    expect(byEnvironment.get("devin")?.get(instanceId)?.acpRegistryAgentId).toBe("devin");
-    expect(byEnvironment.get("devin")?.get(instanceId)?.acpRegistryIconUrl).toBe(
+    expect(byMachine.get("devin")?.get(instanceId)?.acpRegistryAgentId).toBe("devin");
+    expect(byMachine.get("devin")?.get(instanceId)?.acpRegistryIconUrl).toBe(
       "https://example.com/devin.svg",
     );
-    expect(byEnvironment.get("other-agent")?.get(instanceId)?.acpRegistryAgentId).toBe(
+    expect(byMachine.get("other-agent")?.get(instanceId)?.acpRegistryAgentId).toBe(
       "other-agent",
     );
   });
 
-  // regression: #7292 sidebar provider icons resolved from the wrong environment
-  it("keeps same-id default instances distinct per environment", () => {
-    const byEnvironment = deriveProviderEntriesByEnvironment([
+  // regression: #7292 sidebar provider icons resolved from the wrong machine
+  it("keeps same-id default instances distinct per machine", () => {
+    const byMachine = deriveProviderEntriesByMachine([
       [
         "local",
         [
@@ -261,15 +261,15 @@ describe("deriveProviderEntriesByEnvironment", () => {
       ],
     ]);
 
-    expect(byEnvironment.get("local")?.get("claude")?.displayName).toBe("Claude Local");
-    expect(byEnvironment.get("local")?.get("claude")?.accentColor).toBe("#112233");
-    expect(byEnvironment.get("remote")?.get("claude")?.displayName).toBe("Claude Remote");
-    expect(byEnvironment.get("remote")?.get("claude")?.accentColor).toBe("#445566");
+    expect(byMachine.get("local")?.get("claude")?.displayName).toBe("Claude Local");
+    expect(byMachine.get("local")?.get("claude")?.accentColor).toBe("#112233");
+    expect(byMachine.get("remote")?.get("claude")?.displayName).toBe("Claude Remote");
+    expect(byMachine.get("remote")?.get("claude")?.accentColor).toBe("#445566");
   });
 
   it("keeps an instance a project turns on as a sibling for the instance badge", () => {
     const codex = ProviderDriverKind.make("codex");
-    const byEnvironment = deriveProviderEntriesByEnvironment([
+    const byMachine = deriveProviderEntriesByMachine([
       [
         "local",
         [
@@ -288,7 +288,7 @@ describe("deriveProviderEntriesByEnvironment", () => {
         },
       ],
     ]);
-    const entries = byEnvironment.get("local");
+    const entries = byMachine.get("local");
     const personal = entries?.get("codex");
 
     expect(personal && shouldShowInstanceBadge(personal, entries?.values() ?? [])).toBe(true);

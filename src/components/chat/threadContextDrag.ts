@@ -1,11 +1,11 @@
-import type { EnvironmentId, ScopedThreadRef } from "@vekrel/contracts";
+import type { MachineId, ScopedThreadRef } from "@vekrel/contracts";
 import { type RefObject, useEffect, useEffectEvent, useSyncExternalStore } from "react";
 
 export const THREAD_CONTEXT_DROP_EVENT = "t3-thread-context-drop";
 
 export function useThreadContextDrop(
   targetRef: RefObject<EventTarget | null>,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   targetKey: string,
   onDrop: (refs: ReadonlyArray<ScopedThreadRef>, isActive: () => boolean) => void,
 ) {
@@ -22,8 +22,8 @@ export function useThreadContextDrop(
       target.removeEventListener(THREAD_CONTEXT_DROP_EVENT, listener);
     };
   }, [
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- A new environment or target ends the previous listener, so isActive reports false to drops still in flight for it.
-    environmentId,
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- A new machine or target ends the previous listener, so isActive reports false to drops still in flight for it.
+    machineId,
     targetKey,
     targetRef,
   ]);

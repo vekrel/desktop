@@ -1,6 +1,6 @@
 import {
   DESKTOP_PREVIEW_RECORDING_CAPTURE_TRIGGER,
-  EnvironmentId,
+  MachineId,
   ThreadId,
   type DesktopPreviewBridge,
 } from "@vekrel/contracts";
@@ -251,11 +251,11 @@ describe("browser recording", () => {
 
   it("records separate tabs concurrently", async () => {
     const firstThreadRef = {
-      environmentId: EnvironmentId.make("environment-recording"),
+      machineId: MachineId.make("machine-recording"),
       threadId: ThreadId.make("thread-recording-first"),
     };
     const secondThreadRef = {
-      environmentId: EnvironmentId.make("environment-recording"),
+      machineId: MachineId.make("machine-recording"),
       threadId: ThreadId.make("thread-recording-second"),
     };
     await Promise.all([
@@ -280,7 +280,7 @@ describe("browser recording", () => {
 
   it("keeps a recording reachable through its runtime id after a server epoch changes", async () => {
     const threadRef = {
-      environmentId: EnvironmentId.make("environment-recording"),
+      machineId: MachineId.make("machine-recording"),
       threadId: ThreadId.make("thread-recording-scoped"),
     };
     const runtimeTabId = previewRuntimeTabId(threadRef, "epoch-a", "tab_1");

@@ -1,8 +1,8 @@
 import {
   defaultInstanceIdForDriver,
   PROVIDER_DISPLAY_NAMES,
-  type EnvironmentId,
-  type ExecutionEnvironmentPlatformOs,
+  type MachineId,
+  type ExecutionMachinePlatformOs,
   type ProviderDriverKind,
   type ProviderInstanceId,
   type ServerProvider,
@@ -41,7 +41,7 @@ export interface ProviderUpdateToastView {
 /**
  * A non-terminal ("initial"/"running") snapshot never re-polls itself, so
  * storing one pins an update row's spinner indefinitely once its pending flag
- * expires; such phases must be dropped in favor of the live per-environment
+ * expires; such phases must be dropped in favor of the live per-machine
  * provider state instead of being persisted.
  */
 export function isTerminalProviderUpdatePhase(phase: ProviderUpdateToastPhase): boolean {
@@ -355,7 +355,7 @@ export function getProviderUpdateProgressToastView(input: {
 }
 
 export interface ProviderUpdateRun {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly machineLabel: string;
   readonly driver: ProviderDriverKind;
   readonly instanceId: ProviderInstanceId;
@@ -652,7 +652,7 @@ function getFailedProviderUpdateDescription(providers: ReadonlyArray<ServerProvi
 }
 
 export interface LocalProviderUpdateOutcome {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly isPrimary: boolean;
   readonly driver: ProviderDriverKind;
   readonly instanceId: ProviderInstanceId;
@@ -701,10 +701,10 @@ export function collectProviderUpdateOutcomeSnapshots(
   return [...worstByDriver.values()];
 }
 
-export function deriveEnvironmentDisplayLabel(input: {
+export function deriveMachineDisplayLabel(input: {
   readonly isWsl: boolean;
   readonly wslDistro: string | null;
-  readonly platformOs: ExecutionEnvironmentPlatformOs | undefined;
+  readonly platformOs: ExecutionMachinePlatformOs | undefined;
   readonly fallbackLabel: string;
 }): string {
   if (input.isWsl) {
@@ -722,18 +722,18 @@ export function deriveEnvironmentDisplayLabel(input: {
   }
 }
 
-export type EnvironmentUpdateConnectionState = "connecting" | "ready" | "disconnected" | "error";
+export type MachineUpdateConnectionState = "connecting" | "ready" | "disconnected" | "error";
 
-export interface LocalEnvironmentProvidersInput {
-  readonly environmentId: EnvironmentId;
+export interface LocalMachineProvidersInput {
+  readonly machineId: MachineId;
   readonly label: string;
   readonly isPrimary: boolean;
-  readonly connectionState: EnvironmentUpdateConnectionState;
+  readonly connectionState: MachineUpdateConnectionState;
   readonly providers: ReadonlyArray<ServerProvider>;
 }
 
-export interface LocalEnvironmentUpdateGroup {
-  readonly environmentId: EnvironmentId;
+export interface LocalMachineUpdateGroup {
+  readonly machineId: MachineId;
   readonly label: string;
   readonly isPrimary: boolean;
   readonly isSettling: boolean;
@@ -741,41 +741,41 @@ export interface LocalEnvironmentUpdateGroup {
   readonly providers: ReadonlyArray<ServerProvider>;
 }
 
-export function buildLocalEnvironmentUpdateGroups(
-  environments: ReadonlyArray<LocalEnvironmentProvidersInput>,
-): { groups: LocalEnvironmentUpdateGroup[]; isAnySettling: boolean } {
-  const groups = environments.map((environment) => ({
-    environmentId: environment.environmentId,
-    label: environment.label,
-    isPrimary: environment.isPrimary,
-    isSettling: environment.connectionState === "connecting",
-    candidates: collectProviderUpdateCandidates(environment.providers).filter((candidate) =>
-      canOneClickUpdateProviderCandidate(candidate, environment.providers),
+export function buildLocalMachineUpdateGroups(
+  machines: ReadonlyArray<LocalMachineProvidersInput>,
+): { groups: LocalMachineUpdateGroup[]; isAnySettling: boolean } {
+  const groups = machines.map((machine) => ({
+    machineId: machine.machineId,
+    label: machine.label,
+    isPrimary: machine.isPrimary,
+    isSettling: machine.connectionState === "connecting",
+    candidates: collectProviderUpdateCandidates(machine.providers).filter((candidate) =>
+      canOneClickUpdateProviderCandidate(candidate, machine.providers),
     ),
-    providers: environment.providers,
+    providers: machine.providers,
   }));
-  const isAnySettling = environments.some(
-    (environment) => environment.connectionState === "connecting",
+  const isAnySettling = machines.some(
+    (machine) => machine.connectionState === "connecting",
   );
   return { groups, isAnySettling };
 }
 
-export function environmentGroupsWithUpdates(
-  groups: ReadonlyArray<LocalEnvironmentUpdateGroup>,
-): LocalEnvironmentUpdateGroup[] {
+export function machineGroupsWithUpdates(
+  groups: ReadonlyArray<LocalMachineUpdateGroup>,
+): LocalMachineUpdateGroup[] {
   return groups.filter((group) => group.candidates.length > 0);
 }
 
-export function localEnvironmentUpdateNotificationKey(
-  groups: ReadonlyArray<LocalEnvironmentUpdateGroup>,
+export function localMachineUpdateNotificationKey(
+  groups: ReadonlyArray<LocalMachineUpdateGroup>,
 ): string | null {
-  const parts = environmentGroupsWithUpdates(groups)
+  const parts = machineGroupsWithUpdates(groups)
     .map((group) => {
       const providerParts = group.candidates
         .map((candidate) => `${candidate.driver}:${candidate.versionAdvisory.latestVersion}`)
         .toSorted()
         .join(",");
-      return `${group.environmentId}=${providerParts}`;
+      return `${group.machineId}=${providerParts}`;
     })
     .toSorted();
   return parts.length > 0 ? parts.join("|") : null;
@@ -788,14 +788,14 @@ export interface ProviderUpdateRowStatus {
   readonly text: string;
 }
 
-function environmentProviderNames(group: LocalEnvironmentUpdateGroup): string {
+function machineProviderNames(group: LocalMachineUpdateGroup): string {
   return group.candidates
     .map((candidate) => PROVIDER_DISPLAY_NAMES[candidate.driver] ?? candidate.driver)
     .join(", ");
 }
 
-export function resolveEnvironmentUpdateRowStatus(input: {
-  readonly group: LocalEnvironmentUpdateGroup;
+export function resolveMachineUpdateRowStatus(input: {
+  readonly group: LocalMachineUpdateGroup;
   readonly error: string | undefined;
   readonly result: ProviderUpdateToastView | undefined;
   readonly pill: ProviderUpdateSidebarPillView | null;
@@ -829,5 +829,5 @@ export function resolveEnvironmentUpdateRowStatus(input: {
   if (input.result || input.isPending) {
     return { kind: "loading", text: "Updating…" };
   }
-  return { kind: "idle", text: environmentProviderNames(input.group) };
+  return { kind: "idle", text: machineProviderNames(input.group) };
 }

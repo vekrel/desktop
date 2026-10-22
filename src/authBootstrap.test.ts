@@ -1,5 +1,5 @@
 import {
-  EnvironmentAuthInvalidError,
+  MachineAuthInvalidError,
   type AuthBrowserSessionResult,
   type AuthCreatePairingCredentialInput,
   type AuthSessionState,
@@ -10,7 +10,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { installEnvironmentHttpTest } from "../test/environmentHttpTest";
+import { installMachineHttpTest } from "../test/machineHttpTest";
 import { __setPrimaryHttpRunnerForTests } from "./lib/runtime";
 
 type TestWindow = {
@@ -95,7 +95,7 @@ async function installAuthApi(input: {
   readonly session?: () => AuthSessionState;
   readonly browserSession?: (
     credential: string,
-  ) => Effect.Effect<AuthBrowserSessionResult, EnvironmentAuthInvalidError>;
+  ) => Effect.Effect<AuthBrowserSessionResult, MachineAuthInvalidError>;
   readonly pairingCredential?: (payload: AuthCreatePairingCredentialInput) => Effect.Effect<{
     readonly id: string;
     readonly credential: string;
@@ -103,7 +103,7 @@ async function installAuthApi(input: {
     readonly expiresAt: DateTime.Utc;
   }>;
 }) {
-  const testApi = await installEnvironmentHttpTest({
+  const testApi = await installMachineHttpTest({
     ...(input.session ? { session: () => Effect.succeed(input.session!()) } : {}),
     ...(input.browserSession
       ? { browserSession: (payload) => input.browserSession!(payload.credential) }
@@ -126,7 +126,7 @@ describe("resolveInitialServerAuthGateState", () => {
   afterEach(async () => {
     await disposeHttpTest?.();
     disposeHttpTest = undefined;
-    const { __resetServerAuthBootstrapForTests } = await import("./environments/primary");
+    const { __resetServerAuthBootstrapForTests } = await import("./machines/primary");
     __resetServerAuthBootstrapForTests();
     __setPrimaryHttpRunnerForTests();
     vi.unstubAllEnvs();
@@ -146,7 +146,7 @@ describe("resolveInitialServerAuthGateState", () => {
 
     const testWindow = installTestBrowser("http://localhost/");
     testWindow.desktopBridge = {
-      getLocalEnvironmentBootstraps: () => [
+      getLocalMachineBootstraps: () => [
         {
           id: "primary",
           label: "Windows",
@@ -157,7 +157,7 @@ describe("resolveInitialServerAuthGateState", () => {
       ],
     } as unknown as DesktopBridge;
 
-    const { resolveInitialServerAuthGateState } = await import("./environments/primary");
+    const { resolveInitialServerAuthGateState } = await import("./machines/primary");
 
     await Promise.all([resolveInitialServerAuthGateState(), resolveInitialServerAuthGateState()]);
 
@@ -167,7 +167,7 @@ describe("resolveInitialServerAuthGateState", () => {
 
   it("takes a pairing token from the location hash and strips it immediately", async () => {
     const testWindow = installTestBrowser("http://localhost/#token=pairing-token");
-    const { takePairingTokenFromUrl } = await import("./environments/primary");
+    const { takePairingTokenFromUrl } = await import("./machines/primary");
 
     expect(takePairingTokenFromUrl()).toBe("pairing-token");
     expect(testWindow.location.hash).toBe("");
@@ -196,8 +196,8 @@ describe("resolveInitialServerAuthGateState", () => {
         resolveInitialServerAuthGateState,
         submitServerAuthCredential,
         takePairingTokenFromUrl,
-      } = await import("./environments/primary");
-      const { fetchSessionState } = await import("./environments/primary/auth");
+      } = await import("./machines/primary");
+      const { fetchSessionState } = await import("./machines/primary/auth");
 
       if (cached) {
         await expect(resolveInitialServerAuthGateState()).resolves.toEqual({
@@ -242,7 +242,7 @@ describe("resolveInitialServerAuthGateState", () => {
           Effect.gen(function* () {
             exchangeStarted.resolve();
             yield* Effect.promise(() => finishExchange.promise);
-            return yield* new EnvironmentAuthInvalidError({
+            return yield* new MachineAuthInvalidError({
               code: "auth_invalid",
               reason: "invalid_credential",
               traceId: "trace-invalid-replacement",
@@ -254,8 +254,8 @@ describe("resolveInitialServerAuthGateState", () => {
         resolveInitialServerAuthGateState,
         submitServerAuthCredential,
         takePairingTokenFromUrl,
-      } = await import("./environments/primary");
-      const { fetchSessionState } = await import("./environments/primary/auth");
+      } = await import("./machines/primary");
+      const { fetchSessionState } = await import("./machines/primary/auth");
       if (cached) {
         await resolveInitialServerAuthGateState();
       }
@@ -284,7 +284,7 @@ describe("resolveInitialServerAuthGateState", () => {
         expect(gateLoads).toHaveLength(1);
         await expect(gateLoads[0]).resolves.toEqual(requiresAuth);
         const rejected = expect(submitServerAuthCredential(token!)).rejects.toMatchObject({
-          _tag: "PrimaryEnvironmentPairingCredentialRejectedError",
+          _tag: "PrimaryMachinePairingCredentialRejectedError",
           message: "Invalid pairing token. Check the token and try again.",
         });
         await exchangeStarted.promise;
@@ -327,7 +327,7 @@ describe("resolveInitialServerAuthGateState", () => {
         return Effect.promise(() => exchangeRelease).pipe(
           Effect.andThen(
             Effect.fail(
-              new EnvironmentAuthInvalidError({
+              new MachineAuthInvalidError({
                 code: "auth_invalid",
                 reason: "invalid_credential",
                 traceId: "trace-rejected-queued-credential",
@@ -338,7 +338,7 @@ describe("resolveInitialServerAuthGateState", () => {
       },
     });
     const testWindow = installTestBrowser("http://localhost/");
-    const { resolveInitialServerAuthGateState } = await import("./environments/primary");
+    const { resolveInitialServerAuthGateState } = await import("./machines/primary");
 
     const initialBootstrap = resolveInitialServerAuthGateState();
     testWindow.location = new URL("http://localhost/#token=reusable-token");
@@ -369,7 +369,7 @@ describe("resolveInitialServerAuthGateState", () => {
   });
 
   it("reports a rejected URL token without caching false success", async () => {
-    const cause = new EnvironmentAuthInvalidError({
+    const cause = new MachineAuthInvalidError({
       code: "auth_invalid",
       reason: "invalid_credential",
       traceId: "trace-invalid-url-credential",
@@ -383,7 +383,7 @@ describe("resolveInitialServerAuthGateState", () => {
       browserSession: () => Effect.fail(cause),
     });
     installTestBrowser("http://localhost/#token=rejected-token");
-    const { resolveInitialServerAuthGateState } = await import("./environments/primary");
+    const { resolveInitialServerAuthGateState } = await import("./machines/primary");
 
     await expect(resolveInitialServerAuthGateState()).resolves.toEqual({
       status: "requires-auth",

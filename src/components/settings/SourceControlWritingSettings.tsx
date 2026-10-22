@@ -29,7 +29,7 @@ import {
   resolveAppModelSelectionState,
   selectsPlanAgent,
 } from "../../modelSelection";
-import { useEnvironmentProviders } from "../../state/environments";
+import { useMachineProviders } from "../../state/machines";
 import { EMPTY_SERVER_PROVIDERS } from "../../state/server";
 import { ProviderModelPicker } from "../chat/ProviderModelPicker";
 import { TraitsPicker } from "../chat/TraitsPicker";
@@ -69,13 +69,13 @@ export function SourceControlWritingSettingsSection() {
   const updateSettings = useUpdateScopedSettings();
   const mixedReviewGuidesEnabled = useScopedSettingsMixed(["reviewGuidesEnabled"]);
   const navigate = useNavigate();
-  const { environment, connectedEnvironments, targets, target } = useSettingsScope();
-  const environmentId = environment?.environmentId ?? null;
-  const hasServerTargets = connectedEnvironments.length > 0;
-  const providersByEnvironment = useEnvironmentProviders();
+  const { machine, connectedMachines, targets, target } = useSettingsScope();
+  const machineId = machine?.machineId ?? null;
+  const hasServerTargets = connectedMachines.length > 0;
+  const providersByMachine = useMachineProviders();
   const serverProviders =
-    (environment?.serverConfig
-      ? providersByEnvironment.get(environment.environmentId)
+    (machine?.serverConfig
+      ? providersByMachine.get(machine.machineId)
       : undefined) ?? EMPTY_SERVER_PROVIDERS;
   const styleFieldMixed = (field: keyof ServerSettings["sourceControlWritingStyle"]) => {
     const first = targets[0];
@@ -96,7 +96,7 @@ export function SourceControlWritingSettingsSection() {
   const mixedReviewGuideModel = useScopedSettingsMixed(["reviewGuideModelSelection"]);
   const mixedReviewGuideInstructions = useScopedSettingsMixed(["reviewGuideInstructions"]);
   const reviewGuideInstructionsEdited = useRef(false);
-  const scopeKey = targets.map((target) => `${target.environmentId}:${target.projectId}`).join(",");
+  const scopeKey = targets.map((target) => `${target.machineId}:${target.projectId}`).join(",");
   const customInstructionsRef = useRef<HTMLTextAreaElement>(null);
   const [editingAllInstructions, setEditingAllInstructions] = useState(false);
   const [allInstructions, setAllInstructions] = useState<string | null>(null);
@@ -243,8 +243,8 @@ export function SourceControlWritingSettingsSection() {
                   value={allInstructions ?? ""}
                   onChange={(event) => setAllInstructions(event.target.value)}
                   rows={4}
-                  aria-label="Custom source control instructions for all selected environments"
-                  placeholder="Write the instructions each selected environment should use."
+                  aria-label="Custom source control instructions for all selected machines"
+                  placeholder="Write the instructions each selected machine should use."
                 />
                 <Button
                   size="sm"
@@ -338,11 +338,11 @@ export function SourceControlWritingSettingsSection() {
         serverScoped
         settingKeys={["sourceControlWriterModelSelection"]}
         {...searchableSetting("source-control-writer-model")}
-        description="Model for source control text and branch or bookmark names. Off uses the environment's text generation model."
+        description="Model for source control text and branch or bookmark names. Off uses the machine's text generation model."
         control={
           !hasServerTargets ? (
             <span className="text-sm text-muted-foreground">
-              Connect an environment to choose its source control writer model.
+              Connect a machine to choose its source control writer model.
             </span>
           ) : (
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -353,7 +353,7 @@ export function SourceControlWritingSettingsSection() {
               ) : null}
               {usesDedicatedModel && canEnableDedicatedModel ? (
                 <ProviderModelPicker
-                  environmentId={environmentId}
+                  machineId={machineId}
                   activeInstanceId={activeSelection.instanceId}
                   model={activeSelection.model}
                   lockedProvider={null}
@@ -362,12 +362,12 @@ export function SourceControlWritingSettingsSection() {
                   triggerClassName={SETTINGS_PICKER_TRIGGER_CLASSNAME}
                   triggerAriaLabel="Source control writer model"
                   {...(mixedWriterModel ? { triggerLabel: "Mixed" } : {})}
-                  {...(environmentId
+                  {...(machineId
                     ? {
                         onOpenProviderSetup: (instanceId: ProviderInstanceId) => {
                           void navigate({
                             to: "/settings/providers",
-                            search: { environmentId, instanceId },
+                            search: { machineId, instanceId },
                           });
                         },
                       }
@@ -461,13 +461,13 @@ export function SourceControlWritingSettingsSection() {
             control={
               !hasServerTargets ? (
                 <span className="text-sm text-muted-foreground">
-                  Connect an environment to choose its review guide model.
+                  Connect a machine to choose its review guide model.
                 </span>
               ) : (
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {(usesReviewGuideModel || mixedReviewGuideModel) && canEnableDedicatedModel ? (
                     <ProviderModelPicker
-                      environmentId={environmentId}
+                      machineId={machineId}
                       activeInstanceId={reviewGuideSelection.instanceId}
                       model={reviewGuideSelection.model}
                       lockedProvider={null}

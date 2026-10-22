@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const readPreparedConnection = vi.fn();
@@ -10,12 +10,12 @@ vi.mock("~/env", () => env);
 describe("browser target resolver", () => {
   beforeEach(() => readPreparedConnection.mockReset());
 
-  it("maps environment ports onto a private network host", async () => {
+  it("maps machine ports onto a private network host", async () => {
     readPreparedConnection.mockReturnValue({ httpBaseUrl: "http://192.168.1.25:3773" });
     const { resolveBrowserNavigationTarget } = await import("./browserTargetResolver");
     expect(
-      resolveBrowserNavigationTarget(EnvironmentId.make("environment-1"), {
-        kind: "environment-port",
+      resolveBrowserNavigationTarget(MachineId.make("machine-1"), {
+        kind: "machine-port",
         port: 5173,
         path: "/dashboard",
       }),
@@ -23,15 +23,15 @@ describe("browser target resolver", () => {
       requestedUrl: "http://localhost:5173/dashboard",
       resolvedUrl: "http://192.168.1.25:5173/dashboard",
       resolutionKind: "direct-private-network",
-      environmentId: "environment-1",
+      machineId: "machine-1",
     });
   });
 
-  it("preserves explicit loopback URL navigation for a remote Tailscale environment", async () => {
+  it("preserves explicit loopback URL navigation for a remote Tailscale machine", async () => {
     readPreparedConnection.mockReturnValue({ httpBaseUrl: "http://100.65.180.100:3773" });
     const { resolveBrowserNavigationTarget } = await import("./browserTargetResolver");
     expect(
-      resolveBrowserNavigationTarget(EnvironmentId.make("environment-1"), {
+      resolveBrowserNavigationTarget(MachineId.make("machine-1"), {
         kind: "url",
         url: "http://localhost:5173/dashboard?mode=test#results",
       }),
@@ -39,7 +39,7 @@ describe("browser target resolver", () => {
       requestedUrl: "http://localhost:5173/dashboard?mode=test#results",
       resolvedUrl: "http://localhost:5173/dashboard?mode=test#results",
       resolutionKind: "direct",
-      environmentId: "environment-1",
+      machineId: "machine-1",
     });
   });
 
@@ -47,18 +47,18 @@ describe("browser target resolver", () => {
     readPreparedConnection.mockReturnValue({ httpBaseUrl: "http://100.65.180.100:3773" });
     const { resolveBrowserNavigationTarget } = await import("./browserTargetResolver");
     expect(
-      resolveBrowserNavigationTarget(EnvironmentId.make("environment-1"), {
+      resolveBrowserNavigationTarget(MachineId.make("machine-1"), {
         kind: "url",
         url: "http://user:p%40ss@localhost:5173/dashboard",
       }).resolvedUrl,
     ).toBe("http://user:p%40ss@localhost:5173/dashboard");
   });
 
-  it("preserves schemeless localhost navigation for a remote environment", async () => {
+  it("preserves schemeless localhost navigation for a remote machine", async () => {
     readPreparedConnection.mockReturnValue({ httpBaseUrl: "http://192.168.1.25:3773" });
     const { resolveBrowserNavigationTarget } = await import("./browserTargetResolver");
     expect(
-      resolveBrowserNavigationTarget(EnvironmentId.make("environment-1"), {
+      resolveBrowserNavigationTarget(MachineId.make("machine-1"), {
         kind: "url",
         url: "localhost:3000/app",
       }).resolvedUrl,
@@ -69,13 +69,13 @@ describe("browser target resolver", () => {
     readPreparedConnection.mockReturnValue({ httpBaseUrl: "https://relay.example.com" });
     const { resolveBrowserNavigationTarget } = await import("./browserTargetResolver");
     expect(() =>
-      resolveBrowserNavigationTarget(EnvironmentId.make("environment-1"), {
-        kind: "environment-port",
+      resolveBrowserNavigationTarget(MachineId.make("machine-1"), {
+        kind: "machine-port",
         port: 5173,
       }),
     ).toThrow(/authenticated preview gateway/);
     expect(
-      resolveBrowserNavigationTarget(EnvironmentId.make("environment-1"), {
+      resolveBrowserNavigationTarget(MachineId.make("machine-1"), {
         kind: "url",
         url: "http://localhost:5173",
       }),
@@ -85,19 +85,19 @@ describe("browser target resolver", () => {
   it("normalizes schemeless localhost server-picker values", async () => {
     readPreparedConnection.mockReturnValue({ httpBaseUrl: "http://localhost:3773" });
     const { resolveDiscoveredServerUrl } = await import("./browserTargetResolver");
-    expect(resolveDiscoveredServerUrl(EnvironmentId.make("environment-1"), "localhost:5173")).toBe(
+    expect(resolveDiscoveredServerUrl(MachineId.make("machine-1"), "localhost:5173")).toBe(
       "http://localhost:5173/",
     );
     expect(
-      resolveDiscoveredServerUrl(EnvironmentId.make("environment-1"), "0.0.0.0:3000/app"),
+      resolveDiscoveredServerUrl(MachineId.make("machine-1"), "0.0.0.0:3000/app"),
     ).toBe("http://localhost:3000/app");
   });
 
-  it("maps discovered loopback servers onto a remote environment host", async () => {
+  it("maps discovered loopback servers onto a remote machine host", async () => {
     readPreparedConnection.mockReturnValue({ httpBaseUrl: "http://192.168.1.25:3773" });
     const { resolveDiscoveredServerUrl } = await import("./browserTargetResolver");
     expect(
-      resolveDiscoveredServerUrl(EnvironmentId.make("environment-1"), "localhost:3000/app"),
+      resolveDiscoveredServerUrl(MachineId.make("machine-1"), "localhost:3000/app"),
     ).toBe("http://192.168.1.25:3000/app");
   });
 
@@ -113,7 +113,7 @@ describe("browser target resolver", () => {
       ]) {
         readPreparedConnection.mockReturnValue({ httpBaseUrl: "http://172.24.66.27:3773", target });
         expect(
-          resolveDiscoveredServerUrl(EnvironmentId.make("environment-1"), "localhost:3001/"),
+          resolveDiscoveredServerUrl(MachineId.make("machine-1"), "localhost:3001/"),
         ).toBe("http://localhost:3001/");
       }
       readPreparedConnection.mockReturnValue({
@@ -121,7 +121,7 @@ describe("browser target resolver", () => {
         target: { _tag: "BearerConnectionTarget", connectionId: "saved:remote" },
       });
       expect(
-        resolveDiscoveredServerUrl(EnvironmentId.make("environment-1"), "localhost:3001/"),
+        resolveDiscoveredServerUrl(MachineId.make("machine-1"), "localhost:3001/"),
       ).toBe("http://192.168.1.25:3001/");
     } finally {
       env.isElectron = false;

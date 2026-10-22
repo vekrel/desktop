@@ -2,8 +2,8 @@ import { useComposerTypingGuard } from "./useComposerTypingGuard";
 import { insertAttachmentReferencesForDraft } from "./composerAttachmentReferences";
 import { DESKTOP_PASTE_AS_TEXT_EVENT } from "../../lib/desktopPasteAsText";
 import { runtimeModeConfig, runtimeModeOptions as runtimeModes } from "./runtimeModeConfig";
-import { isLocalEnvironmentDisabled } from "../../localEnvironment";
-import { usePrimaryEnvironmentId } from "../../state/environments";
+import { isLocalMachineDisabled } from "../../localMachine";
+import { usePrimaryMachineId } from "../../state/machines";
 import { useRightPanelStore } from "~/rightPanelStore";
 import { importPastedComposerText, readPastedComposerContext } from "../composerInlineTokenPaste";
 import {
@@ -16,7 +16,7 @@ import type {
   AssistantCitation,
   ChatAttachment as ContractChatAttachment,
   ChatFileAttachment,
-  EnvironmentId,
+  MachineId,
   ModelSelection,
   ProjectId,
   PreviewAnnotationPayload,
@@ -31,13 +31,13 @@ import type {
   ThreadId,
 } from "@vekrel/contracts";
 import {
-  EnvironmentRequestInvalidError,
+  MachineRequestInvalidError,
   AuthOrchestrationOperateScope,
   ProviderDriverKind,
   ProviderInstanceId,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
 } from "@vekrel/contracts";
-import type { EnvironmentConnectionPresentation } from "@vekrel/client-runtime/connection";
+import type { MachineConnectionPresentation } from "@vekrel/client-runtime/connection";
 import { settlePromise, squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
 import * as Schema from "effect/Schema";
 import { isPasteAsTextShortcut } from "@vekrel/client-runtime/text-paste";
@@ -241,7 +241,7 @@ import {
 } from "./composerScrollGesture";
 import { observeResize } from "~/lib/observeResize";
 
-const isEnvironmentRequestInvalidError = Schema.is(EnvironmentRequestInvalidError);
+const isMachineRequestInvalidError = Schema.is(MachineRequestInvalidError);
 
 const COMPOSER_SCROLL_COLLAPSE_THRESHOLD_PX = 24;
 const COMPOSER_SCROLL_GESTURE_RESET_MS = 120;
@@ -279,7 +279,7 @@ import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useSoftwareKeyboardOpen } from "../../hooks/useSoftwareKeyboardOpen";
 import { useStableCallback } from "../../hooks/useStableCallback";
 import { usePanelAnimationSettings } from "../../panelAnimations";
-import { readEnvironmentScope } from "../../state/session";
+import { readMachineScope } from "../../state/session";
 import type { ReviewCommentContext } from "../../reviewCommentContext";
 import { useComposerRestingTransition } from "./useComposerRestingTransition";
 import { ComposerCommandMenuLayer } from "./ComposerCommandMenuLayer";
@@ -365,7 +365,7 @@ export interface ChatComposerHandle {
 
 export interface ChatComposerProps {
   composerDraftTarget: ScopedThreadRef | DraftId;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   canOperateThread: boolean;
   attachmentUploadsCapabilityKnown: boolean;
   supportsAttachmentUploads: boolean;
@@ -381,7 +381,7 @@ export interface ChatComposerProps {
   >;
 
   activeThreadId: ThreadId | null;
-  activeThreadEnvironmentId: EnvironmentId | undefined;
+  activeThreadMachineId: MachineId | undefined;
   activeThread: Thread | undefined;
   activeThreadShell: ThreadShell | null;
   promptHistoryMessages: ReadonlyArray<ChatMessage>;
@@ -404,9 +404,9 @@ export interface ChatComposerProps {
   keepFullHistory: boolean;
   onToggleKeepFullHistory: () => void;
   onUsageLimitsCommand?: (() => void) | undefined;
-  environmentUnavailable: {
+  machineUnavailable: {
     readonly label: string;
-    readonly connection: EnvironmentConnectionPresentation;
+    readonly connection: MachineConnectionPresentation;
   } | null;
 
   activePendingApproval: PendingApproval | null;
@@ -534,7 +534,7 @@ const NO_PROVIDER_SLASH_COMMANDS: ServerProvider["slashCommands"] = [];
 export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps) {
   const {
     composerDraftTarget,
-    environmentId,
+    machineId,
     canOperateThread,
     attachmentUploadsCapabilityKnown,
     supportsAttachmentUploads,
@@ -547,7 +547,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     supportsMultipleModels,
     onMultipleModelSelectionsChange: setMultipleModelSelections,
     activeThreadId,
-    activeThreadEnvironmentId: _activeThreadEnvironmentId,
+    activeThreadMachineId: _activeThreadMachineId,
     activeThread,
     promptHistoryMessages,
     isServerThread: _isServerThread,
@@ -563,7 +563,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     sendDisabledReason: externalSendDisabledReason,
     isPreparingWorktree,
     isCompacting,
-    environmentUnavailable,
+    machineUnavailable,
     activePendingApproval: incomingPendingApproval,
     pendingApprovals,
     pendingUserInputs: incomingPendingUserInputs,
@@ -637,7 +637,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     editingQueuedAttachments,
     onRemoveEditingQueuedAttachment,
   } = props;
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const primaryMachineId = usePrimaryMachineId();
   const composerDraftTargetKey = composerTargetKey(composerDraftTarget);
   const {
     heldRequestIds,
@@ -672,7 +672,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const questionAttachmentTarget =
     pendingUserInputs[0] && activePendingProgress?.activeQuestion
       ? questionAttachmentDraftId(
-          environmentId,
+          machineId,
           activeThreadId!,
           pendingUserInputs[0].requestId,
           activePendingProgress.activeQuestion.id,
@@ -692,7 +692,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       draftId: questionAttachmentTarget,
       requestKeys: questionRequest.questions.map((question) =>
         questionAttachmentDraftId(
-          environmentId,
+          machineId,
           activeThreadId!,
           questionRequest.requestId,
           question.id,
@@ -701,7 +701,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     });
   }, [
     activeThreadId,
-    environmentId,
+    machineId,
     questionAttachmentTarget,
     questionRequest,
     questionTakesSnapShots,
@@ -728,11 +728,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     );
   })();
   const composerVideos = composerFiles.filter((file) =>
-    isPreviewableComposerVideo(file, environmentId),
+    isPreviewableComposerVideo(file, machineId),
   );
   const composerOtherFiles = composerOtherFilesForPresentation(
     composerFiles,
-    environmentId,
+    machineId,
     inlineFileIdSet,
   );
   const composerTerminalContexts = composerDraft.terminalContexts;
@@ -752,7 +752,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const [previewFileId, setPreviewFileId] = useState<string | null>(null);
   const previewFile = composerFiles.find((file) => file.id === previewFileId);
   const composerContextActions = {
-    environmentId,
+    machineId,
     cwd: gitCwd ?? undefined,
     expandImage: (imageId: string) => {
       const preview = buildExpandedImagePreview(composerImages, imageId);
@@ -768,10 +768,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         onExpandImage(localPreview);
         return;
       }
-      if (file.uploadedAttachmentId === undefined || file.uploadEnvironmentId !== environmentId) {
+      if (file.uploadedAttachmentId === undefined || file.uploadMachineId !== machineId) {
         return;
       }
-      const persistedPreview = buildAttachmentVideoPreview(environmentId, {
+      const persistedPreview = buildAttachmentVideoPreview(machineId, {
         type: "file",
         id: file.uploadedAttachmentId,
         name: file.name,
@@ -820,7 +820,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         : attachmentUploadBlockReason({
             imageIds: [...composerImages, ...composerFiles].map((attachment) => attachment.id),
             uploadsByImageId,
-            environmentId,
+            machineId,
           })
       : null);
   const setComposerDraftPrompt = useComposerDraftStore((store) => store.setPrompt);
@@ -883,7 +883,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         continue;
       }
       startAttachmentUpload({
-        environmentId,
+        machineId,
         image: attachment,
         draftTarget: attachmentDraftTarget,
       });
@@ -894,7 +894,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     canOperateThread,
     composerFiles,
     composerImages,
-    environmentId,
+    machineId,
     maxFileAttachmentBytes,
     supportsAttachmentUploads,
   ]);
@@ -910,11 +910,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         continue;
       }
       const upload = uploadsByImageId[file.id];
-      if (upload?.status === "ready" && upload.environmentId === environmentId) {
+      if (upload?.status === "ready" && upload.machineId === machineId) {
         setComposerDraftFileUpload(
           attachmentDraftTarget,
           file.id,
-          environmentId,
+          machineId,
           upload.attachmentId,
         );
       }
@@ -923,7 +923,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     attachmentUploadsCapabilityKnown,
     attachmentDraftTarget,
     composerFiles,
-    environmentId,
+    machineId,
     maxFileAttachmentBytes,
     setComposerDraftFileUpload,
     supportsAttachmentUploads,
@@ -1003,7 +1003,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     ? resolveProviderSlashCommandsForCwd(selectedProviderStatus, gitCwd)
     : NO_PROVIDER_SLASH_COMMANDS;
   const refreshWorkspaceSnapshotOnTyping = useProviderWorkspaceSnapshotRefresh({
-    environmentId,
+    machineId,
     gitCwd,
     selectedProviderEntry,
     selectedProviderStatus: selectedProviderStatus,
@@ -1197,7 +1197,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     emptyState: composerMenuEmptyState,
   } = useComposerMenuItems({
     composerTrigger,
-    environmentId,
+    machineId,
     gitCwd,
     activeThreadId,
     pullRequestProjectId,
@@ -1311,7 +1311,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     isConnecting ||
     noProviderAvailable ||
     projectSelectionRequired ||
-    environmentUnavailable !== null ||
+    machineUnavailable !== null ||
     (!composerSendState.hasSendableContent && !showResumeAction);
   const collapsedComposerPrimaryActionLabel = showResumeAction
     ? "Resume thread"
@@ -1407,10 +1407,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     if (records.length === 0) return null;
     const fragment = encodeComposerContextFragment({
       version: 1,
-      source: { environmentId, ...(activeThread ? { threadId: activeThread.id } : {}) },
+      source: { machineId, ...(activeThread ? { threadId: activeThread.id } : {}) },
       records,
     });
-    if (fragment) rememberCopiedComposerAttachments(environmentId, copiedFiles);
+    if (fragment) rememberCopiedComposerAttachments(machineId, copiedFiles);
     return fragment;
   };
   const buildContextClipboardFragmentStable = useStableCallback(buildContextClipboardFragment);
@@ -1422,7 +1422,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     importContextFragment,
     importContextFragmentStable,
   } = useComposerContextImport({
-    environmentId,
+    machineId,
     activeThread,
     activeThreadId,
     composerDraftTarget,
@@ -1927,7 +1927,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     const { snapshot, trigger } = resolveActiveComposerTrigger();
     if (!trigger) return;
     if (item.type === "path") {
-      if (!isPathSuggestionCurrent(item.searchTarget, trigger, environmentId, gitCwd)) return;
+      if (!isPathSuggestionCurrent(item.searchTarget, trigger, machineId, gitCwd)) return;
       const replacement = `${serializeComposerFileLink(item.path)} `;
       const replacementRangeEnd = extendReplacementRangeForTrailingSpace(
         snapshot.value,
@@ -2096,7 +2096,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       isSendDisabled ||
       isConnecting ||
       noProviderAvailable ||
-      environmentUnavailable !== null ||
+      machineUnavailable !== null ||
       phase === "running"
     ) {
       return false;
@@ -2115,7 +2115,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     if (
       noProviderAvailable ||
       isSendDisabled ||
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)
+      !readMachineScope(machineId, AuthOrchestrationOperateScope)
     ) {
       event?.preventDefault();
       return;
@@ -2204,7 +2204,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const saveCitationDraftToPromptStable = useStableCallback(saveCitationDraftToPrompt);
   const compactThreadContext = () => {
     if (
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||
+      !readMachineScope(machineId, AuthOrchestrationOperateScope) ||
       compactDisabled ||
       noProviderAvailable ||
       activePendingApproval !== null ||
@@ -2290,7 +2290,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     deleteStashEntryStable,
     toggleStashMenuStable,
   } = useComposerStash({
-    environmentId,
+    machineId,
     composerDraftTarget,
     promptRef,
     composerImagesRef,
@@ -2343,11 +2343,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   ) : null;
   const hasImageAttachmentAttention = standaloneComposerImages.some((image) => {
     const upload = uploadsByImageId[image.id];
-    const failedInCurrentEnvironment =
+    const failedInCurrentMachine =
       supportsAttachmentUploads &&
       upload?.status === "failed" &&
-      upload.environmentId === environmentId;
-    return nonPersistedComposerImageIdSet.has(image.id) && !failedInCurrentEnvironment;
+      upload.machineId === machineId;
+    return nonPersistedComposerImageIdSet.has(image.id) && !failedInCurrentMachine;
   });
   const composerHasExpandedChrome =
     showComposerTopDrawer ||
@@ -2358,7 +2358,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     isPreparingWorktree ||
     showProviderUnavailable ||
     projectSelectionRequired ||
-    environmentUnavailable !== null ||
+    machineUnavailable !== null ||
     composerSubmissionError !== null ||
     providerInputSubmissionError !== null ||
     hasImageAttachmentAttention;
@@ -2544,7 +2544,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     : expandedControlsIconOnlyBlockCount;
   const composerControls = (
     <ComposerControlsBar
-      environmentId={environmentId}
+      machineId={machineId}
       routeKind={routeKind}
       routeThreadRef={routeThreadRef}
       draftId={draftId}
@@ -2763,14 +2763,14 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
 
   const addComposerFolders = (folders: File[]) => {
     const target = folderDropTarget({
-      localEnvironmentDisabled: isLocalEnvironmentDisabled(),
-      environmentId,
-      primaryEnvironmentId,
+      localMachineDisabled: isLocalMachineDisabled(),
+      machineId,
+      primaryMachineId,
     });
     if (target === "remote") {
       toastManager.add({
         type: "error",
-        title: "Folders can only be referenced in the local desktop environment",
+        title: "Folders can only be referenced in the local desktop machine",
       });
       return;
     }
@@ -2889,13 +2889,13 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           countReservedAttachments: countReservedAttachmentsStable,
           load: async () => {
             const result = await loadThreadTranscript({
-              environmentId: ref.environmentId,
+              machineId: ref.machineId,
               input: { threadId: ref.threadId },
             });
             if (result._tag !== "Success") {
               throw squashAtomCommandFailure(result);
             }
-            return threadContextAttachment(ref.environmentId, result.value);
+            return threadContextAttachment(ref.machineId, result.value);
           },
           isActive,
           attach: attachDroppedThreadFile,
@@ -2915,10 +2915,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           type: "error",
           title: "Unable to read the dropped thread",
           description:
-            isEnvironmentRequestInvalidError(error) &&
+            isMachineRequestInvalidError(error) &&
             error.reason === "thread_transcript_too_large"
               ? "This thread exceeds the attachment size limit. Try a shorter thread."
-              : "Check that its environment is connected and up to date, then try again.",
+              : "Check that its machine is connected and up to date, then try again.",
         });
       }
       toastManager.close(loadingToast);
@@ -2926,9 +2926,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     },
   );
 
-  useThreadContextDrop(composerFormRef, environmentId, attachmentTargetKey, (refs, isActive) => {
+  useThreadContextDrop(composerFormRef, machineId, attachmentTargetKey, (refs, isActive) => {
     const records = refs.flatMap((ref) => {
-      if (ref.environmentId !== environmentId) {
+      if (ref.machineId !== machineId) {
         void importDroppedThread(
           ref,
           () => isActive() && attachmentTargetKeyRef.current === attachmentTargetKey,
@@ -3325,8 +3325,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       composerPreviewAnnotations,
       composerReviewComments,
       focusComposer,
-      environmentId,
-      primaryEnvironmentId,
+      machineId,
+      primaryMachineId,
       isConnecting,
       isChoiceOnlyPendingQuestion,
       isLiteralPendingAnswer,
@@ -3379,7 +3379,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         snapShotAnimations={settings.snapShotAnimations}
         supportsAttachmentUploads={supportsAttachmentUploads}
         maxFileAttachmentBytes={maxFileAttachmentBytes}
-        environmentId={environmentId}
+        machineId={machineId}
         attachmentDraftTarget={attachmentDraftTarget}
         canOperateThread={canOperateThread}
         onExpandImage={onExpandImage}
@@ -3396,7 +3396,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         supportsAttachmentUploads={supportsAttachmentUploads}
         maxFileAttachmentBytes={maxFileAttachmentBytes}
         fileStagingLimit={fileStagingLimit}
-        environmentId={environmentId}
+        machineId={machineId}
         attachmentDraftTarget={attachmentDraftTarget}
         canOperateThread={canOperateThread}
         onPreviewFile={setPreviewFileId}
@@ -3841,8 +3841,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       isSendBusy={isSendBusy}
                       sendDisabledReason={sendDisabledReason}
                       isConnecting={isConnecting}
-                      isEnvironmentUnavailable={
-                        environmentUnavailable !== null ||
+                      isMachineUnavailable={
+                        machineUnavailable !== null ||
                         noProviderAvailable ||
                         projectSelectionRequired
                       }
@@ -3934,8 +3934,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     isSendBusy={isSendBusy}
                     sendDisabledReason={sendDisabledReason}
                     isConnecting={isConnecting}
-                    isEnvironmentUnavailable={
-                      environmentUnavailable !== null ||
+                    isMachineUnavailable={
+                      machineUnavailable !== null ||
                       noProviderAvailable ||
                       projectSelectionRequired
                     }

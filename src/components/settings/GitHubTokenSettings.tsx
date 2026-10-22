@@ -1,10 +1,10 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { ExternalLinkIcon } from "lucide-react";
 import { useState } from "react";
 
-import { useEnvironmentSettings } from "../../hooks/useSettings";
+import { useMachineSettings } from "../../hooks/useSettings";
 import { readGitHubSettings } from "@vekrel/client-runtime/source-control-clients";
-import { serverEnvironment } from "../../state/server";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button, InlineButton } from "../ui/button";
 import { Input } from "../ui/input";
@@ -18,14 +18,14 @@ function newTokenUrl(host: string): string {
 }
 
 export function GitHubTokenSettings({
-  environmentId,
+  machineId,
   onSaved,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly onSaved: () => void;
 }) {
-  const { tokens } = useEnvironmentSettings(environmentId, readGitHubSettings);
-  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
+  const { tokens } = useMachineSettings(machineId, readGitHubSettings);
+  const updateSettings = useAtomCommand(serverMachine.updateSettings, {
     label: "save GitHub token",
   });
   const [host, setHost] = useState(DEFAULT_HOST);
@@ -40,7 +40,7 @@ export function GitHubTokenSettings({
   const save = async (target: string, token: string) => {
     setSaving(true);
     const result = await updateSettings({
-      environmentId,
+      machineId,
       // The map travels whole: every other saved token as its redaction marker, which keeps it.
       input: {
         patch: { sourceControlHosts: { github: { tokens: { ...tokens, [target]: token } } } },
@@ -83,9 +83,9 @@ export function GitHubTokenSettings({
         </p>
         <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
           <div className="grid gap-1.5">
-            <Label htmlFor={`github-token-host-${environmentId}`}>Host</Label>
+            <Label htmlFor={`github-token-host-${machineId}`}>Host</Label>
             <Input
-              id={`github-token-host-${environmentId}`}
+              id={`github-token-host-${machineId}`}
               autoComplete="off"
               size="sm"
               placeholder={DEFAULT_HOST}
@@ -94,9 +94,9 @@ export function GitHubTokenSettings({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor={`github-token-${environmentId}`}>Token</Label>
+            <Label htmlFor={`github-token-${machineId}`}>Token</Label>
             <SecretInput
-              id={`github-token-${environmentId}`}
+              id={`github-token-${machineId}`}
               size="sm"
               configured={isSaved}
               value={draft}

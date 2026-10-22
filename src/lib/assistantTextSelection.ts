@@ -25,7 +25,7 @@ export function findAssistantCitationSourceAnchor(
   ].find(
     (element) =>
       element.dataset.assistantCitationSource === citation.messageId &&
-      element.dataset.assistantCitationEnvironment === citation.environmentId &&
+      element.dataset.assistantCitationMachine === citation.machineId &&
       element.dataset.assistantCitationThread === citation.threadId,
   );
   const viewport = source?.closest<HTMLElement>("[data-assistant-citation-viewport]");

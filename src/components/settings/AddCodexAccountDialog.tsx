@@ -1,18 +1,18 @@
 import { AuthProvidersManageScope } from "@vekrel/contracts";
-import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { readMachineScope, useMachineScope } from "../../state/session";
 import { useAtomValue } from "@effect/atom-react";
 import {
   ProviderDriverKind,
   ProviderInstanceId,
-  type EnvironmentId,
+  type MachineId,
   type ServerProvider,
 } from "@vekrel/contracts";
 import { useEffect, useEffectEvent, useState, type ReactNode } from "react";
 import { usesChatGptSharing } from "@vekrel/shared/usageLimits";
 
-import { useEnvironmentSettings } from "../../hooks/useSettings";
+import { useMachineSettings } from "../../hooks/useSettings";
 import { randomUUID } from "../../lib/utils";
-import { serverEnvironment } from "../../state/server";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
@@ -21,22 +21,22 @@ import { WizardFooter, WizardHeader, WizardPanel, WizardPopup } from "../ui/wiza
 import { SettingsRow } from "./settingsLayout";
 
 export function AddCodexAccountDialog({
-  environmentId,
+  machineId,
   onClose,
   renderSetup,
   onAccountCreated,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly onClose: () => void;
   readonly onAccountCreated?:
     | ((instanceId: ProviderInstanceId, displayName: string) => void)
     | undefined;
   readonly renderSetup: (instanceId: ProviderInstanceId, provider: ServerProvider) => ReactNode;
 }) {
-  const canManageProviders = useEnvironmentScope(environmentId, AuthProvidersManageScope);
-  const settings = useEnvironmentSettings(environmentId);
-  const providers = useAtomValue(serverEnvironment.providersValueAtom(environmentId));
-  const update = useAtomCommand(serverEnvironment.updateSettings, "Add ChatGPT account");
+  const canManageProviders = useMachineScope(machineId, AuthProvidersManageScope);
+  const settings = useMachineSettings(machineId);
+  const providers = useAtomValue(serverMachine.providersValueAtom(machineId));
+  const update = useAtomCommand(serverMachine.updateSettings, "Add ChatGPT account");
   const [name, setName] = useState("Personal");
   const displayName = `ChatGPT - ${name.trim()}`;
   const [instanceId, setInstanceId] = useState<ProviderInstanceId | null>(null);
@@ -49,13 +49,13 @@ export function AddCodexAccountDialog({
   }, [connected]);
 
   const createAccount = async () => {
-    if (pending || !name.trim() || !readEnvironmentScope(environmentId, AuthProvidersManageScope))
+    if (pending || !name.trim() || !readMachineScope(machineId, AuthProvidersManageScope))
       return;
     setPending(true);
     // The ID is routing identity; the name is editable and need not be unique.
     const id = ProviderInstanceId.make(`codex_${randomUUID()}`);
     const result = await update({
-      environmentId,
+      machineId,
       input: {
         patch: {
           providerInstances: {

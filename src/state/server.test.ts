@@ -1,5 +1,5 @@
-import type { EnvironmentConnectionPhase } from "@vekrel/client-runtime/connection";
-import { EnvironmentId, type KeybindingRule, type ServerConfig } from "@vekrel/contracts";
+import type { MachineConnectionPhase } from "@vekrel/client-runtime/connection";
+import { MachineId, type KeybindingRule, type ServerConfig } from "@vekrel/contracts";
 import { compileResolvedKeybindingsConfig } from "@vekrel/shared/keybindings";
 import { Atom, AtomRegistry } from "effect/reactivity";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -7,9 +7,9 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { resolveShortcutCommand } from "../keybindings";
 import { createShortcutKeybindingsAtom } from "./server";
 
-const PRIMARY = EnvironmentId.make("primary");
-const A = EnvironmentId.make("a");
-const B = EnvironmentId.make("b");
+const PRIMARY = MachineId.make("primary");
+const A = MachineId.make("a");
+const B = MachineId.make("b");
 
 // The reporter's swap: Cmd+N opens a local thread instead of a regular one.
 const SWAPPED: KeybindingRule[] = [{ key: "mod+n", command: "chat.newLocal" }];
@@ -22,26 +22,26 @@ function config(rules: readonly KeybindingRule[]) {
   } as unknown as ServerConfig;
 }
 
-function environment(phase: EnvironmentConnectionPhase, serverConfig: ServerConfig | null) {
+function machine(phase: MachineConnectionPhase, serverConfig: ServerConfig | null) {
   return { connection: { phase, error: null, traceId: null }, serverConfig };
 }
 
-type Environment = ReturnType<typeof environment>;
+type Machine = ReturnType<typeof machine>;
 
 function makeHarness(input: {
-  primaryEnvironmentId?: EnvironmentId | null;
+  primaryMachineId?: MachineId | null;
   primaryConfig?: ServerConfig | null;
-  environments?: ReadonlyArray<readonly [EnvironmentId, Environment]>;
+  machines?: ReadonlyArray<readonly [MachineId, Machine]>;
 }) {
-  const primaryEnvironmentIdAtom = Atom.make(input.primaryEnvironmentId ?? null);
+  const primaryMachineIdAtom = Atom.make(input.primaryMachineId ?? null);
   const primaryConfigAtom = Atom.make(input.primaryConfig ?? null);
-  const environmentsAtom = Atom.make<ReadonlyMap<EnvironmentId, Environment>>(
-    new Map(input.environments ?? []),
+  const machinesAtom = Atom.make<ReadonlyMap<MachineId, Machine>>(
+    new Map(input.machines ?? []),
   );
   const keybindingsAtom = createShortcutKeybindingsAtom({
-    primaryEnvironmentIdAtom,
+    primaryMachineIdAtom,
     primaryConfigAtom,
-    environmentsAtom,
+    machinesAtom,
   });
   const registry = AtomRegistry.make();
   registries.push(registry);
@@ -49,9 +49,9 @@ function makeHarness(input: {
   registry.subscribe(keybindingsAtom, () => {});
   return {
     registry,
-    primaryEnvironmentIdAtom,
+    primaryMachineIdAtom,
     primaryConfigAtom,
-    environmentsAtom,
+    machinesAtom,
     keybindings: () => registry.get(keybindingsAtom),
     cmdN: () =>
       resolveShortcutCommand(
@@ -68,7 +68,7 @@ afterEach(() => {
 });
 
 describe("createShortcutKeybindingsAtom", () => {
-  it("updates shortcuts from the first connected, configured environment without a primary", () => {
+  it("updates shortcuts from the first connected, configured machine without a primary", () => {
     const harness = makeHarness({});
     const aConfig = config(STALE);
     const bConfig = config(SWAPPED);
@@ -77,25 +77,25 @@ describe("createShortcutKeybindingsAtom", () => {
 
     // One mounted consumer follows config loading, edits, disconnects and reconnects.
     for (const [a, b, command] of [
-      [environment("offline", aConfig), environment("connected", bConfig), "chat.newLocal"],
-      [environment("connected", null), environment("connected", bConfig), "chat.newLocal"],
+      [machine("offline", aConfig), machine("connected", bConfig), "chat.newLocal"],
+      [machine("connected", null), machine("connected", bConfig), "chat.newLocal"],
       [
-        environment("connected", aConfig),
-        environment("connected", bConfig),
+        machine("connected", aConfig),
+        machine("connected", bConfig),
         "chat.newWithoutProject",
       ],
-      [environment("connected", edited), environment("connected", bConfig), "sidebar.toggle"],
-      [environment("offline", edited), environment("connected", bConfig), "chat.newLocal"],
-      [environment("offline", edited), environment("offline", bConfig), "chat.new"],
-      [environment("reconnecting", edited), environment("offline", bConfig), "chat.new"],
+      [machine("connected", edited), machine("connected", bConfig), "sidebar.toggle"],
+      [machine("offline", edited), machine("connected", bConfig), "chat.newLocal"],
+      [machine("offline", edited), machine("offline", bConfig), "chat.new"],
+      [machine("reconnecting", edited), machine("offline", bConfig), "chat.new"],
       [
-        environment("connected", aConfig),
-        environment("offline", bConfig),
+        machine("connected", aConfig),
+        machine("offline", bConfig),
         "chat.newWithoutProject",
       ],
     ] as const) {
       harness.registry.set(
-        harness.environmentsAtom,
+        harness.machinesAtom,
         new Map([
           [A, a],
           [B, b],
@@ -107,11 +107,11 @@ describe("createShortcutKeybindingsAtom", () => {
 
   it("uses the primary config or defaults until the primary is removed", () => {
     const harness = makeHarness({
-      environments: [[B, environment("connected", config(SWAPPED))]],
+      machines: [[B, machine("connected", config(SWAPPED))]],
     });
     expect(harness.cmdN()).toBe("chat.newLocal");
 
-    harness.registry.set(harness.primaryEnvironmentIdAtom, PRIMARY);
+    harness.registry.set(harness.primaryMachineIdAtom, PRIMARY);
     expect(harness.cmdN()).toBe("chat.new");
 
     harness.registry.set(harness.primaryConfigAtom, config(STALE));
@@ -120,7 +120,7 @@ describe("createShortcutKeybindingsAtom", () => {
     harness.registry.set(harness.primaryConfigAtom, null);
     expect(harness.cmdN()).toBe("chat.new");
 
-    harness.registry.set(harness.primaryEnvironmentIdAtom, null);
+    harness.registry.set(harness.primaryMachineIdAtom, null);
     expect(harness.cmdN()).toBe("chat.newLocal");
   });
 });

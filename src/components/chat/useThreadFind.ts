@@ -1,11 +1,11 @@
 import type { InlineSkill } from "@vekrel/shared/inlineSkills";
 import type { OrchestrationV2SearchThreadResult, ScopedThreadRef } from "@vekrel/contracts";
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useStableCallback } from "~/hooks/useStableCallback";
-import { orchestrationEnvironment } from "~/state/orchestration";
+import { orchestrationMachine } from "~/state/orchestration";
 import { useThreadProjection } from "~/state/entities";
-import { useEnvironmentQuery } from "~/state/query";
+import { useMachineQuery } from "~/state/query";
 import { useDebouncedValue } from "~/state/queries";
 import {
   type ThreadFindPositionReader,
@@ -342,12 +342,12 @@ function useServerResults(
   const skillLabels = skills.map(({ name, displayName }) => ({ name, displayName }));
   const normalizedQuery = query.trim();
   const debouncedQuery = useDebouncedValue(normalizedQuery, 100);
-  const environmentId = thread?.environmentId;
+  const machineId = thread?.machineId;
   const threadId = thread?.threadId;
   const target =
-    environmentId && threadId && debouncedQuery && normalizedQuery === debouncedQuery
+    machineId && threadId && debouncedQuery && normalizedQuery === debouncedQuery
       ? {
-          environmentId,
+          machineId,
           input: {
             threadId,
             query: debouncedQuery,
@@ -369,9 +369,9 @@ function useServerResults(
     atom = resolveThreadFindAtom(target, progressive);
     setStoredAtom({ key: targetKey, atom });
   }
-  const result = useEnvironmentQuery(atom);
+  const result = useMachineQuery(atom);
   const key = thread
-    ? JSON.stringify([thread.environmentId, thread.threadId, normalizedQuery, skillLabels])
+    ? JSON.stringify([thread.machineId, thread.threadId, normalizedQuery, skillLabels])
     : null;
   const [previous, setPrevious] = useState({
     key,
@@ -403,11 +403,11 @@ function useServerResults(
 }
 
 function resolveThreadFindAtom(
-  target: Parameters<typeof orchestrationEnvironment.threadFind>[0] | null,
+  target: Parameters<typeof orchestrationMachine.threadFind>[0] | null,
   progressive: boolean,
 ) {
   if (!target) return null;
   return progressive
-    ? orchestrationEnvironment.threadFindProgressive(target)
-    : orchestrationEnvironment.threadFind(target);
+    ? orchestrationMachine.threadFindProgressive(target)
+    : orchestrationMachine.threadFind(target);
 }

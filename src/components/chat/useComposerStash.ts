@@ -1,7 +1,7 @@
 import type { ChatComposerProps } from "./ChatComposer";
 import {
   type ComposerContextRecord,
-  type EnvironmentId,
+  type MachineId,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
   type PreviewAnnotationPayload,
   type ThreadContextRecord,
@@ -65,7 +65,7 @@ import { useStableCallback } from "../../hooks/useStableCallback";
  * and the stash shortcut. Its state lives here so the composer body only wires it up.
  */
 export function useComposerStash(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly composerDraftTarget: ChatComposerProps["composerDraftTarget"];
   readonly promptRef: ChatComposerProps["promptRef"];
   readonly composerImagesRef: ChatComposerProps["composerImagesRef"];
@@ -93,13 +93,13 @@ export function useComposerStash(input: {
   readonly setComposerTrigger: ReturnType<typeof useComposerTriggerState>["setTrigger"];
   readonly importContextRecords: (
     records: ReadonlyArray<ComposerContextRecord>,
-    sourceEnvironmentId: EnvironmentId | null,
+    sourceMachineId: MachineId | null,
     threadDraftTarget?: ChatComposerProps["composerDraftTarget"],
   ) => ReadonlyMap<string, string>;
   readonly expandMobileComposer: () => void;
 }) {
   const {
-    environmentId,
+    machineId,
     composerDraftTarget,
     promptRef,
     composerImagesRef,
@@ -181,11 +181,11 @@ export function useComposerStash(input: {
 
   const restoreStashEntry = async (menuEntry: PromptStashEntry) => {
     const filesToVerify = menuEntry.files ?? [];
-    if (filesToVerify.some((file) => file.environmentId !== environmentId)) {
+    if (filesToVerify.some((file) => file.machineId !== machineId)) {
       toastManager.add({
         type: "error",
-        title: "Stashed files belong to another environment",
-        description: "Restore this prompt in the environment that received its files.",
+        title: "Stashed files belong to another machine",
+        description: "Restore this prompt in the machine that received its files.",
       });
       return;
     }
@@ -197,7 +197,7 @@ export function useComposerStash(input: {
     // await must still find it there after reload.
     const verifications = await Promise.all(
       filesToVerify.map((file) =>
-        verifyStashedAttachmentUpload({ environmentId, attachmentId: file.attachmentId }),
+        verifyStashedAttachmentUpload({ machineId, attachmentId: file.attachmentId }),
       ),
     );
     const expiredAttachmentIds = new Set(
@@ -287,7 +287,7 @@ export function useComposerStash(input: {
           ...(file.source ? { source: file.source } : {}),
           ...(expired
             ? {}
-            : { uploadedAttachmentId: file.attachmentId, uploadEnvironmentId: environmentId }),
+            : { uploadedAttachmentId: file.attachmentId, uploadMachineId: machineId }),
         };
         if (existingFileIds.has(file.id)) {
           if (!expired && !retainedUploadIds.has(file.attachmentId)) {
@@ -339,7 +339,7 @@ export function useComposerStash(input: {
         for (const file of duplicateFiles) {
           releasePersistedAttachmentUpload({
             id: file.id,
-            environmentId,
+            machineId,
             attachmentId: file.attachmentId,
           });
         }
@@ -347,7 +347,7 @@ export function useComposerStash(input: {
           if (file.uploadedAttachmentId) {
             releasePersistedAttachmentUpload({
               id: file.id,
-              environmentId,
+              machineId,
               attachmentId: file.uploadedAttachmentId,
             });
           }
@@ -450,7 +450,7 @@ export function useComposerStash(input: {
       for (const file of removed.files ?? []) {
         releasePersistedAttachmentUpload({
           id: file.id,
-          environmentId: file.environmentId,
+          machineId: file.machineId,
           attachmentId: file.attachmentId,
         });
       }
@@ -513,7 +513,7 @@ export function useComposerStash(input: {
         return;
       }
       const upload = readAttachmentUpload(file.id);
-      if (upload?.status !== "ready" || upload.environmentId !== environmentId) {
+      if (upload?.status !== "ready" || upload.machineId !== machineId) {
         toastManager.add({
           type: "error",
           title: "Wait for file uploads before stashing this prompt",
@@ -526,7 +526,7 @@ export function useComposerStash(input: {
         mimeType: file.mimeType,
         sizeBytes: file.sizeBytes,
         attachmentId: upload.attachmentId,
-        environmentId,
+        machineId,
         ...(file.source ? { source: file.source } : {}),
       });
     }
@@ -608,7 +608,7 @@ export function useComposerStash(input: {
         for (const file of evicted.files ?? []) {
           releasePersistedAttachmentUpload({
             id: file.id,
-            environmentId: file.environmentId,
+            machineId: file.machineId,
             attachmentId: file.attachmentId,
           });
         }

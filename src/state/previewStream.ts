@@ -4,41 +4,41 @@ import {
   type DeviceHubAccess,
   resolveDeviceHubAccess,
 } from "@vekrel/client-runtime/state/deviceHubAccess";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
 
 import { connectionAtomRuntime } from "../connection/runtime";
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { environmentSession } from "./session";
+import { machineSession } from "./session";
 
-const previewStreamAccessAtom = Atom.family((environmentId: EnvironmentId) =>
+const previewStreamAccessAtom = Atom.family((machineId: MachineId) =>
   connectionAtomRuntime
     .atom((get) => {
       const prepared = Option.getOrNull(
-        get(environmentSession.preparedConnectionValueAtom(environmentId)),
+        get(machineSession.preparedConnectionValueAtom(machineId)),
       );
       if (prepared === null) return Effect.never;
       return resolveDeviceHubAccess({ prepared, hubBasePath: PREVIEW_STREAM_BASE_PATH });
     })
-    .pipe(Atom.setIdleTTL(60_000), Atom.withLabel(`preview-stream-access:${environmentId}`)),
+    .pipe(Atom.setIdleTTL(60_000), Atom.withLabel(`preview-stream-access:${machineId}`)),
 );
 
-export function usePreviewStreamAccess(environmentId: EnvironmentId): DeviceHubAccess | null {
-  const result = useAtomValue(previewStreamAccessAtom(environmentId));
+export function usePreviewStreamAccess(machineId: MachineId): DeviceHubAccess | null {
+  const result = useAtomValue(previewStreamAccessAtom(machineId));
   return AsyncResult.isSuccess(result) ? result.value : null;
 }
 
-export function refreshPreviewStreamAccess(environmentId: EnvironmentId): void {
-  appAtomRegistry.refresh(previewStreamAccessAtom(environmentId));
+export function refreshPreviewStreamAccess(machineId: MachineId): void {
+  appAtomRegistry.refresh(previewStreamAccessAtom(machineId));
 }
 
 export function readPreviewStreamAccess(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   refresh: boolean,
 ): Promise<DeviceHubAccess | null> {
-  const atom = previewStreamAccessAtom(environmentId);
+  const atom = previewStreamAccessAtom(machineId);
   if (refresh) appAtomRegistry.refresh(atom);
   return Effect.runPromise(
     AtomRegistry.getResult(appAtomRegistry, atom, { suspendOnWaiting: true }).pipe(

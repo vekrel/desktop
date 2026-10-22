@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { splitFilePathPosition } from "@vekrel/shared/fileLinks";
 
 import {
@@ -8,11 +8,11 @@ import {
 import type { RemoteOpenMode } from "../../remoteOpen";
 
 export function canUseMarkdownFileShellActions(
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   remoteOpenMode: RemoteOpenMode,
   isRemoteOpenResolved: boolean,
 ): boolean {
-  return environmentId !== null && isRemoteOpenResolved && remoteOpenMode === "local-exec";
+  return machineId !== null && isRemoteOpenResolved && remoteOpenMode === "local-exec";
 }
 
 export function hasMarkdownFilePrimaryAction(input: {

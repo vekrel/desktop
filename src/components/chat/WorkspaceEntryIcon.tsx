@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { formatAttachmentSize } from "@vekrel/client-runtime/state/attachments";
 
 import { useFileMetadata } from "../../hooks/useFileMetadata";
@@ -6,11 +6,11 @@ import { PierreEntryIcon } from "./PierreEntryIcon";
 
 export function WorkspaceEntryIcon(props: {
   path: string;
-  environmentId?: EnvironmentId | null | undefined;
+  machineId?: MachineId | null | undefined;
   cwd?: string | undefined;
   theme: "light" | "dark";
 }) {
-  const metadata = useFileMetadata(props.environmentId, props.path, props.cwd);
+  const metadata = useFileMetadata(props.machineId, props.path, props.cwd);
   return (
     <PierreEntryIcon
       pathValue={props.path}
@@ -24,10 +24,10 @@ export function WorkspaceEntryIcon(props: {
 export function WorkspaceEntryTooltip(props: {
   path: string;
   label?: string;
-  environmentId?: EnvironmentId | null | undefined;
+  machineId?: MachineId | null | undefined;
   cwd?: string | undefined;
 }) {
-  const metadata = useFileMetadata(props.environmentId, props.path, props.cwd);
+  const metadata = useFileMetadata(props.machineId, props.path, props.cwd);
   return (
     <>
       {props.label ?? props.path}

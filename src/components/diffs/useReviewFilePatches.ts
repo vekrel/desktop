@@ -1,12 +1,12 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import type { FileDiffMetadata } from "@pierre/diffs";
-import type { EnvironmentId, ReviewDiffPreviewSource } from "@vekrel/contracts";
+import type { MachineId, ReviewDiffPreviewSource } from "@vekrel/contracts";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import * as Atom from "effect/reactivity/Atom";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useStableCallback } from "~/hooks/useStableCallback";
 import { getRenderablePatch, resolveFileDiffPath, type RenderablePatch } from "~/lib/diffRendering";
-import { reviewEnvironment } from "~/state/review";
+import { reviewMachine } from "~/state/review";
 
 const filePathCollator = new Intl.Collator(undefined, {
   numeric: true,
@@ -15,7 +15,7 @@ const filePathCollator = new Intl.Collator(undefined, {
 const DEFAULT_INDICES = [0, 1, 2, 3];
 
 export function useReviewFilePatches({
-  environmentId,
+  machineId,
   cwd,
   source,
   baseRef,
@@ -24,7 +24,7 @@ export function useReviewFilePatches({
   revision,
   preview,
 }: {
-  environmentId: EnvironmentId | undefined;
+  machineId: MachineId | undefined;
   cwd: string | undefined;
   source: ReviewDiffPreviewSource | null;
   baseRef: string | null;
@@ -35,7 +35,7 @@ export function useReviewFilePatches({
 }) {
   const registry = useContext(RegistryContext);
   const scope = JSON.stringify([
-    environmentId,
+    machineId,
     cwd,
     source?.kind,
     source?.diffHash,
@@ -44,7 +44,7 @@ export function useReviewFilePatches({
   ]);
   const [requested, setRequested] = useState(() => ({ scope, indices: DEFAULT_INDICES }));
   const queries = reviewFileQueries({
-    environmentId,
+    machineId,
     cwd,
     source,
     baseRef,
@@ -161,7 +161,7 @@ export function useReviewFilePatches({
 
 // The refresh effect keys on the identity of these queries.
 function reviewFileQueries({
-  environmentId,
+  machineId,
   cwd,
   source,
   baseRef,
@@ -169,7 +169,7 @@ function reviewFileQueries({
   scope,
   requested,
 }: {
-  environmentId: EnvironmentId | undefined;
+  machineId: MachineId | undefined;
   cwd: string | undefined;
   source: ReviewDiffPreviewSource | null;
   baseRef: string | null;
@@ -180,14 +180,14 @@ function reviewFileQueries({
   const indices = requested.scope === scope ? requested.indices : DEFAULT_INDICES;
   const files = sortedReviewFiles(source);
   const queries =
-    !environmentId || !cwd || !source
+    !machineId || !cwd || !source
       ? []
       : indices
           .filter((index) => index < files.length)
           .map((index) => {
             const file = files[index]!;
             const target: ReviewPatchTarget = {
-              environmentId,
+              machineId,
               input: {
                 cacheKey: scope,
                 request: {
@@ -202,7 +202,7 @@ function reviewFileQueries({
                 },
               },
             };
-            return { index, target, query: reviewEnvironment.diffFilePatch(target) };
+            return { index, target, query: reviewMachine.diffFilePatch(target) };
           });
   return queries;
 }
@@ -211,12 +211,12 @@ function sortedReviewFiles(source: ReviewDiffPreviewSource | null) {
   return source?.files?.toSorted((a, b) => filePathCollator.compare(a.path, b.path)) ?? [];
 }
 
-type ReviewPatchTarget = Parameters<typeof reviewEnvironment.diffFilePatch>[0];
+type ReviewPatchTarget = Parameters<typeof reviewMachine.diffFilePatch>[0];
 
 // Derived atoms parse each query result once, even when another file finishes loading.
 const parsedPatchAtom = Atom.family((key: string) => {
   const [theme, target] = JSON.parse(key) as ["light" | "dark", ReviewPatchTarget];
-  return Atom.map(reviewEnvironment.diffFilePatch(target), (result) =>
+  return Atom.map(reviewMachine.diffFilePatch(target), (result) =>
     AsyncResult.map(result, (source) => {
       let patch = getRenderablePatch(source.diff, `diff-panel:${theme}`, {
         compactPartialHunkOffsets: true,

@@ -5,7 +5,7 @@ import {
 import { pendingSubagentRequestsByThread } from "@vekrel/client-runtime/state/threads";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import type { EnvironmentId, OrchestrationV2ThreadShell, ThreadId } from "@vekrel/contracts";
+import type { MachineId, OrchestrationV2ThreadShell, ThreadId } from "@vekrel/contracts";
 import * as Option from "effect/Option";
 import {
   CircleAlertIcon,
@@ -16,8 +16,8 @@ import {
 import { useEffect, useRef } from "react";
 
 import { getClientSettings, useClientSettings } from "../hooks/useSettings";
-import { useEnvironmentIds } from "../state/environments";
-import { environmentShell } from "../state/shell";
+import { useMachineIds } from "../state/machines";
+import { machineShell } from "../state/shell";
 import {
   hasDesktopNotifications,
   hasNotificationSound,
@@ -30,30 +30,30 @@ import { resolveSidebarThreadStatus } from "./Sidebar.logic";
 import { toastManager } from "./ui/toast";
 
 export function ThreadNotificationCoordinator() {
-  const environmentIds = useEnvironmentIds();
+  const machineIds = useMachineIds();
   const mode = useClientSettings((settings) => settings.notificationMode);
   const inAppNotificationsEnabled = useClientSettings(
     (settings) => settings.inAppNotificationsEnabled,
   );
   const pending = useRef(
-    new Map<string, { environmentId: EnvironmentId; notification: Notification }>(),
+    new Map<string, { machineId: MachineId; notification: Notification }>(),
   );
-  const onNotification = (environmentId: EnvironmentId, notification: Notification) => {
+  const onNotification = (machineId: MachineId, notification: Notification) => {
     pending.current.get(notification.tag)?.notification.close();
-    pending.current.set(notification.tag, { environmentId, notification });
+    pending.current.set(notification.tag, { machineId, notification });
     setNotificationBadge(pending.current.size);
   };
 
   useEffect(() => {
-    const activeIds = new Set(environmentIds);
+    const activeIds = new Set(machineIds);
     const count = pending.current.size;
     for (const [tag, entry] of pending.current) {
-      if (activeIds.has(entry.environmentId)) continue;
+      if (activeIds.has(entry.machineId)) continue;
       entry.notification.close();
       pending.current.delete(tag);
     }
     if (count !== pending.current.size) setNotificationBadge(pending.current.size);
-  }, [environmentIds]);
+  }, [machineIds]);
 
   useEffect(() => {
     const clear = () => {
@@ -84,10 +84,10 @@ export function ThreadNotificationCoordinator() {
 
   if (mode === "off" && !inAppNotificationsEnabled) return null;
 
-  return environmentIds.map((environmentId) => (
-    <EnvironmentNotifications
-      key={environmentId}
-      environmentId={environmentId}
+  return machineIds.map((machineId) => (
+    <MachineNotifications
+      key={machineId}
+      machineId={machineId}
       onNotification={onNotification}
     />
   ));
@@ -100,14 +100,14 @@ interface NotificationState {
   readonly completion: number | null;
 }
 
-function EnvironmentNotifications({
-  environmentId,
+function MachineNotifications({
+  machineId,
   onNotification,
 }: {
-  environmentId: EnvironmentId;
-  onNotification: (environmentId: EnvironmentId, notification: Notification) => void;
+  machineId: MachineId;
+  onNotification: (machineId: MachineId, notification: Notification) => void;
 }) {
-  const shell = useAtomValue(environmentShell.stateValueAtom(environmentId));
+  const shell = useAtomValue(machineShell.stateValueAtom(machineId));
   const threads =
     shell.status === "live" && Option.isSome(shell.snapshot) ? shell.snapshot.value.threads : null;
   const mode = useClientSettings((settings) => settings.notificationMode);
@@ -115,7 +115,7 @@ function EnvironmentNotifications({
     (settings) => settings.inAppNotificationsEnabled,
   );
   const navigate = useNavigate();
-  const { environmentId: activeEnvironmentId, threadId: activeThreadId } = useParams({
+  const { machineId: activeMachineId, threadId: activeThreadId } = useParams({
     strict: false,
   });
   const previous = useRef(new Map<ThreadId, NotificationState>());
@@ -135,7 +135,7 @@ function EnvironmentNotifications({
         next.set(rawThread.id, prior);
         continue;
       }
-      const thread = presentThreadShell(environmentId, rawThread, subagentRequest);
+      const thread = presentThreadShell(machineId, rawThread, subagentRequest);
       let status = resolveSidebarThreadStatus(thread);
       if (status === "ready" && thread.latestRun?.status === "failed") status = "failed";
       const attention =
@@ -179,7 +179,7 @@ function EnvironmentNotifications({
         inAppNotificationsEnabled &&
         document.visibilityState === "visible" &&
         document.hasFocus() &&
-        (activeEnvironmentId !== environmentId || activeThreadId !== thread.id)
+        (activeMachineId !== machineId || activeThreadId !== thread.id)
       ) {
         const toastId = toastManager.add({
           type: kind === "completion" ? "success" : status === "failed" ? "error" : "warning",
@@ -203,8 +203,8 @@ function EnvironmentNotifications({
             onClick: () => {
               toastManager.close(toastId);
               void navigate({
-                to: "/$environmentId/$threadId",
-                params: { environmentId, threadId: thread.id },
+                to: "/$machineId/$threadId",
+                params: { machineId, threadId: thread.id },
               });
             },
           },
@@ -221,17 +221,17 @@ function EnvironmentNotifications({
       try {
         const notification = new Notification(title, {
           body: thread.title,
-          tag: threadNotificationTag(environmentId, thread.id),
+          tag: threadNotificationTag(machineId, thread.id),
           silent: true,
         });
-        onNotification(environmentId, notification);
+        onNotification(machineId, notification);
         notification.addEventListener("click", () => {
           notification.close();
           window.focus();
           void window.desktopBridge?.revealWindow?.().catch(() => undefined);
           void navigate({
-            to: "/$environmentId/$threadId",
-            params: { environmentId, threadId: thread.id },
+            to: "/$machineId/$threadId",
+            params: { machineId, threadId: thread.id },
           });
         });
       } catch {
@@ -240,9 +240,9 @@ function EnvironmentNotifications({
     }
     previous.current = next;
   }, [
-    activeEnvironmentId,
+    activeMachineId,
     activeThreadId,
-    environmentId,
+    machineId,
     inAppNotificationsEnabled,
     mode,
     navigate,

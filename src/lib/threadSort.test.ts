@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   DEFAULT_RUNTIME_MODE,
-  EnvironmentId,
+  MachineId,
   ProjectId,
   ProviderInstanceId,
   ThreadId,
@@ -10,13 +10,13 @@ import type { Thread } from "../types";
 import { makeThreadFixture, type ThreadFixtureOverrides } from "../test-fixtures";
 import { sortThreads } from "./threadSort";
 
-const LOCAL_ENVIRONMENT_ID = EnvironmentId.make("environment-local");
+const LOCAL_MACHINE_ID = MachineId.make("machine-local");
 const PROJECT_ID = ProjectId.make("project-1");
 
 function makeThread(overrides: ThreadFixtureOverrides = {}): Thread {
   return makeThreadFixture({
     id: ThreadId.make("thread-1"),
-    environmentId: LOCAL_ENVIRONMENT_ID,
+    machineId: LOCAL_MACHINE_ID,
     projectId: PROJECT_ID,
     title: "Thread",
     modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5.4" },

@@ -2,7 +2,7 @@ import {
   ConnectionTransientError,
   PrimaryConnectionTarget,
 } from "@vekrel/client-runtime/connection";
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { MachineId, ThreadId } from "@vekrel/contracts";
 import { ConnectionCatalogDocument, Persistence } from "@vekrel/client-runtime/platform";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -20,7 +20,7 @@ const emptyCatalog = {
   profiles: [],
   credentials: [],
   remoteDpopTokens: [],
-  disabledEnvironmentIds: [],
+  disabledMachineIds: [],
 } as const;
 const decodeCatalog = Schema.decodeUnknownSync(Schema.fromJsonString(ConnectionCatalogDocument));
 const encodeCatalog = Schema.encodeSync(Schema.fromJsonString(ConnectionCatalogDocument));
@@ -131,15 +131,15 @@ describe("IndexedDB connection recovery", () => {
       vi.stubGlobal("indexedDB", { open });
 
       yield* Effect.gen(function* () {
-        const cache = yield* Persistence.EnvironmentCacheStore;
-        const environmentId = EnvironmentId.make("env");
+        const cache = yield* Persistence.MachineCacheStore;
+        const machineId = MachineId.make("env");
         const threadId = ThreadId.make("thread");
-        expect(Option.isNone(yield* cache.loadThread(environmentId, threadId))).toBe(true);
+        expect(Option.isNone(yield* cache.loadThread(machineId, threadId))).toBe(true);
         expect(open).toHaveBeenCalledTimes(1);
 
         first.dispatchEvent(new Event("close"));
         const recovered = yield* Effect.all(
-          [cache.loadThread(environmentId, threadId), cache.loadThread(environmentId, threadId)],
+          [cache.loadThread(machineId, threadId), cache.loadThread(machineId, threadId)],
           { concurrency: 2 },
         );
         expect(recovered.every(Option.isNone)).toBe(true);
@@ -188,8 +188,8 @@ describe("IndexedDB connection closed without a close event", () => {
       vi.stubGlobal("indexedDB", { open });
 
       yield* Effect.gen(function* () {
-        const cache = yield* Persistence.EnvironmentCacheStore;
-        const loaded = yield* cache.loadThread(EnvironmentId.make("env"), ThreadId.make("thread"));
+        const cache = yield* Persistence.MachineCacheStore;
+        const loaded = yield* cache.loadThread(MachineId.make("env"), ThreadId.make("thread"));
         expect(Option.isNone(loaded)).toBe(true);
         expect(open).toHaveBeenCalledTimes(2);
       }).pipe(Effect.provide(ConnectionStorage.layer));
@@ -223,7 +223,7 @@ describe("browser GitHub routing permissions", () => {
       const second = ConnectionStorage.makeBrowserGitHubRoutingPermissions(secondBrowser);
       const entry = {
         target: new PrimaryConnectionTarget({
-          environmentId: EnvironmentId.make("first"),
+          machineId: MachineId.make("first"),
           label: "First",
           httpBaseUrl: "http://localhost:3000",
           wsBaseUrl: "ws://localhost:3000",
@@ -235,7 +235,7 @@ describe("browser GitHub routing permissions", () => {
         ...entry,
         target: new PrimaryConnectionTarget({
           ...entry.target,
-          environmentId: EnvironmentId.make("second"),
+          machineId: MachineId.make("second"),
         }),
       };
       expect(yield* first.get(entry)).toBe("off");
@@ -272,7 +272,7 @@ describe("browser GitHub routing permissions", () => {
       ).toBe("off");
 
       yield* first.set(entry, "read-write");
-      yield* second.forget(entry.target.environmentId);
+      yield* second.forget(entry.target.machineId);
       expect(yield* first.get(entry)).toBe("off");
       expect(yield* first.get(other)).toBe("read");
       vi.spyOn(localStorage, "setItem").mockImplementation(() => {

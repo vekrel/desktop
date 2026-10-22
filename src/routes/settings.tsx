@@ -14,7 +14,7 @@ import {
   SettingsScopeProvider,
   useSettingsScope,
 } from "../components/settings/SettingsScopeContext";
-import { useEnvironments } from "../state/environments";
+import { useMachines } from "../state/machines";
 import { SettingsScopeNotice } from "../components/settings/SettingsScopeNotice";
 import { SETTINGS_DEVICE_ONLY_PATHS } from "../components/settings/SettingsScopeSentence";
 import { SettingsPageContainer } from "../components/settings/settingsLayout";
@@ -44,12 +44,12 @@ function RestoreDeviceDefaultsButton({ onRestored }: { onRestored: () => void })
 }
 
 function SettingsScopeBoundary({ pathname, children }: { pathname: string; children: ReactNode }) {
-  const { scope, connectedEnvironments } = useSettingsScope();
-  const { environments } = useEnvironments();
+  const { scope, connectedMachines } = useSettingsScope();
+  const { machines } = useMachines();
   const hash = useLocation({ select: (location) => location.hash });
   const searchTarget = getSettingsSearchTargetScope(hash);
   const autoSettlementAvailability = searchTarget?.requiresThreadAutoSettlement
-    ? getThreadAutoSettlementSearchAvailability(environments, scope)
+    ? getThreadAutoSettlementSearchAvailability(machines, scope)
     : null;
   if (
     scope.kind !== "unavailable" &&
@@ -59,13 +59,13 @@ function SettingsScopeBoundary({ pathname, children }: { pathname: string; child
   ) {
     return (
       <SettingsScopeNotice
-        target="environment"
+        target="machine"
         targetId={hash}
-        eligibleEnvironmentIds={autoSettlementAvailability.eligibleEnvironmentIds}
+        eligibleMachineIds={autoSettlementAvailability.eligibleMachineIds}
       >
-        {autoSettlementAvailability.eligibleEnvironmentIds.length > 0
-          ? `${searchTarget.title} requires a supporting environment. Choose one to continue.`
-          : `${searchTarget.title} requires a supporting environment. Connect or update an environment to continue.`}
+        {autoSettlementAvailability.eligibleMachineIds.length > 0
+          ? `${searchTarget.title} requires a supporting machine. Choose one to continue.`
+          : `${searchTarget.title} requires a supporting machine. Connect or update a machine to continue.`}
       </SettingsScopeNotice>
     );
   }
@@ -75,7 +75,7 @@ function SettingsScopeBoundary({ pathname, children }: { pathname: string; child
     !isSettingsSearchScopeAvailable(searchTarget.scope, scope.kind)
   ) {
     const target =
-      searchTarget.scope === "environment" ||
+      searchTarget.scope === "machine" ||
       searchTarget.scope === "project" ||
       searchTarget.scope === "checkout"
         ? searchTarget.scope
@@ -95,7 +95,7 @@ function SettingsScopeBoundary({ pathname, children }: { pathname: string; child
         <p className="text-sm text-muted-foreground">{scope.message}</p>
       </SettingsPageContainer>
     );
-  if (scope.kind === "environment" && connectedEnvironments.length === 0) {
+  if (scope.kind === "machine" && connectedMachines.length === 0) {
     return (
       <SettingsPageContainer>
         <p className="text-sm text-muted-foreground">
@@ -111,10 +111,10 @@ function SettingsContentLayout() {
   const location = useLocation();
   const navigateToMainApp = useNavigateToMainApp();
   useEscapeToGoBack(navigateToMainApp);
-  const { search, environment } = useSettingsScope();
+  const { search, machine } = useSettingsScope();
   const contentScopeKey =
     location.pathname === "/settings/diagnostics" || location.pathname === "/settings/providers"
-      ? environment?.environmentId
+      ? machine?.machineId
       : JSON.stringify(search);
   const [restoreSignal, setRestoreSignal] = useState(0);
 
@@ -151,7 +151,7 @@ function SettingsRouteLayout() {
   return (
     <SettingsScopeProvider
       search={rawSearch}
-      singleEnvironment={pathname === "/settings/providers"}
+      singleMachine={pathname === "/settings/providers"}
       onChange={(next) => {
         // Send every axis so the retain middleware sees an explicit target
         // even when the choice is "all", which is the absence of a key.

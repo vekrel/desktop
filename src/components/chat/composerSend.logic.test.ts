@@ -1,5 +1,5 @@
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { MachineId, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { describe, expect, it } from "vite-plus/test";
 import { formatInlineContextReference } from "../../lib/composerContextReferences";
 import { threadContextRecord, threadContextReference } from "../../lib/composerContextRecords";
@@ -10,8 +10,8 @@ import {
   referencedThreadContexts,
 } from "./composerSend.logic";
 
-const local = EnvironmentId.make("local");
-const remote = EnvironmentId.make("remote");
+const local = MachineId.make("local");
+const remote = MachineId.make("remote");
 const localThread = threadContextRecord(scopeThreadRef(local, ThreadId.make("a")), "Local");
 const remoteThread = threadContextRecord(scopeThreadRef(remote, ThreadId.make("b")), "Remote");
 
@@ -30,7 +30,7 @@ describe("loadBalancingSendWarning", () => {
       loadBalancingSendWarning({
         pending: true,
         threadContexts: [localThread, remoteThread],
-        candidateEnvironmentIds: [],
+        candidateMachineIds: [],
       }).title,
     ).toBe("Checking machine resources");
   });
@@ -40,7 +40,7 @@ describe("loadBalancingSendWarning", () => {
       loadBalancingSendWarning({
         pending: false,
         threadContexts: [localThread, remoteThread],
-        candidateEnvironmentIds: [local, remote],
+        candidateMachineIds: [local, remote],
       }).description,
     ).toMatch(/No machine can read every attached thread/);
   });
@@ -50,7 +50,7 @@ describe("loadBalancingSendWarning", () => {
       loadBalancingSendWarning({
         pending: false,
         threadContexts: [localThread],
-        candidateEnvironmentIds: [remote, local],
+        candidateMachineIds: [remote, local],
       }).description,
     ).toMatch(/No eligible machine has available resources/);
   });

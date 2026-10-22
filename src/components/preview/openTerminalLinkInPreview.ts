@@ -15,7 +15,7 @@ import { applyPreviewServerSnapshot } from "~/previewStateStore";
 import { useRightPanelStore } from "~/rightPanelStore";
 
 const terminalLinkErrorContext = {
-  environmentId: Schema.String,
+  machineId: Schema.String,
   threadId: Schema.String,
   targetOrigin: Schema.String,
   cause: Schema.Defect(),
@@ -44,7 +44,7 @@ export async function openTerminalLinkInPreview<E>(
   const supportsPreview =
     !input.forceBrowser &&
     isWebUrl(input.url) &&
-    isPreviewAvailableFor(input.threadRef.environmentId) &&
+    isPreviewAvailableFor(input.threadRef.machineId) &&
     input.threadRef.threadId.length > 0 &&
     (await resolveBrowserLinkTargetPreference()) === "app";
 
@@ -54,15 +54,15 @@ export async function openTerminalLinkInPreview<E>(
   }
 
   const errorContext = {
-    environmentId: input.threadRef.environmentId,
+    machineId: input.threadRef.machineId,
     threadId: input.threadRef.threadId,
     targetOrigin: new URL(input.url).origin,
   };
 
   const defaults = await resolveBrowserDefaults();
-  const runtime = previewRuntimeFor(input.threadRef.environmentId);
+  const runtime = previewRuntimeFor(input.threadRef.machineId);
   const result = await input.openPreview({
-    environmentId: input.threadRef.environmentId,
+    machineId: input.threadRef.machineId,
     input: {
       threadId: input.threadRef.threadId,
       url: input.url,

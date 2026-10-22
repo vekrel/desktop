@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { serializeRenderedMarkdownFragment } from "./markdown-clipboard";
-import { EnvironmentId, MessageId, ThreadId } from "@vekrel/contracts";
+import { MachineId, MessageId, ThreadId } from "@vekrel/contracts";
 import {
   collectAssistantCitations,
   serializeAssistantCitation,
@@ -147,7 +147,7 @@ describe("serializeRenderedMarkdownFragment", () => {
   it("copies the complete quote, source, and comment instead of the comment-only chip label", () => {
     const citation = {
       version: 1 as const,
-      environmentId: EnvironmentId.make("environment-one"),
+      machineId: MachineId.make("machine-one"),
       threadId: ThreadId.make("thread-one"),
       messageId: MessageId.make("assistant-one"),
       text: "A complete quote, including the part hidden by the chip preview.",
@@ -159,7 +159,7 @@ describe("serializeRenderedMarkdownFragment", () => {
     };
     const anchor = new FakeElement("A", [], {
       "data-markdown-copy": serializeAssistantCitation(citation),
-      href: "/environment-one/thread-one#citation",
+      href: "/machine-one/thread-one#citation",
     }).append(new FakeText("What does this mean?…"));
     const chip = new FakeElement("SPAN", [], {
       "data-markdown-copy": serializeAssistantCitation(citation),

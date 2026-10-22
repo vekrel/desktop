@@ -1,7 +1,7 @@
-import type { EnvironmentId, PullRequestLinkedThreadsResult } from "@vekrel/contracts";
+import type { MachineId, PullRequestLinkedThreadsResult } from "@vekrel/contracts";
 
 export interface CommandPaletteLinkedThreads {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threads: PullRequestLinkedThreadsResult["threads"];
 }
 

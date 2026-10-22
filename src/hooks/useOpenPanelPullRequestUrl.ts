@@ -1,5 +1,5 @@
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
-import { EnvironmentId, ProjectId, type ScopedThreadRef } from "@vekrel/contracts";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
+import { MachineId, ProjectId, type ScopedThreadRef } from "@vekrel/contracts";
 
 import {
   readPullRequestDetailSnapshot,
@@ -8,8 +8,8 @@ import {
 import { gitHubPullRequestBrowserUrl } from "../lib/openPullRequestLink";
 import { selectActiveRightPanelSurface, useRightPanelStore } from "../rightPanelStore";
 import { useProject } from "../state/entities";
-import { pullRequestEnvironment } from "../state/pullRequests";
-import { useEnvironmentQuery } from "../state/query";
+import { pullRequestMachine } from "../state/pullRequests";
+import { useMachineQuery } from "../state/query";
 import { useSupportsMultiplePullRequests } from "./useSupportsMultiplePullRequests";
 
 type PanelPullRequestSurface = Extract<
@@ -44,13 +44,13 @@ export function useOpenPanelPullRequestUrl(threadRef: ScopedThreadRef | null) {
     selectActiveRightPanelSurface(state.byThreadKey, threadRef),
   );
   const requestedReference = surface?.kind === "pull-request" ? surface : null;
-  const environmentId = requestedReference?.environmentId
-    ? EnvironmentId.make(requestedReference.environmentId)
-    : threadRef?.environmentId;
-  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(environmentId ?? null);
+  const machineId = requestedReference?.machineId
+    ? MachineId.make(requestedReference.machineId)
+    : threadRef?.machineId;
+  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(machineId ?? null);
   const project = useProject(
-    requestedReference && environmentId
-      ? scopeProjectRef(environmentId, ProjectId.make(requestedReference.projectId))
+    requestedReference && machineId
+      ? scopeProjectRef(machineId, ProjectId.make(requestedReference.projectId))
       : null,
   );
   const reference = panelPullRequestReference(
@@ -62,10 +62,10 @@ export function useOpenPanelPullRequestUrl(threadRef: ScopedThreadRef | null) {
   // call on either after it would leave reference, and the detail atom it keys, uncached.
   // The snapshot is already checked against reference, so live detail just wins below.
   const cachedDetail =
-    reference && environmentId
+    reference && machineId
       ? readPullRequestDetailSnapshot(
           typeof window === "undefined" ? undefined : window.localStorage,
-          environmentId,
+          machineId,
           reference,
         )
       : null;
@@ -77,10 +77,10 @@ export function useOpenPanelPullRequestUrl(threadRef: ScopedThreadRef | null) {
         reference.number,
       ))
     : undefined;
-  const detail = useEnvironmentQuery(
-    reference && environmentId
-      ? pullRequestEnvironment.detail({
-          environmentId,
+  const detail = useMachineQuery(
+    reference && machineId
+      ? pullRequestMachine.detail({
+          machineId,
           input: reference,
         })
       : null,

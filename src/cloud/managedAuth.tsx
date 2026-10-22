@@ -8,7 +8,7 @@ import {
 import * as Effect from "effect/Effect";
 import { useEffect, useRef, type ReactNode } from "react";
 
-import { environmentCatalog } from "../connection/catalog";
+import { machineCatalog } from "../connection/catalog";
 import { runtime } from "../lib/runtime";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { useAtomCommand } from "../state/use-atom-command";
@@ -32,7 +32,7 @@ export function ManagedRelayAuthProvider({ children }: { readonly children: Reac
   const { getToken, isLoaded, isSignedIn, userId } = useAuth({
     treatPendingAsSignedOut: false,
   });
-  const removeRelayEnvironments = useAtomCommand(environmentCatalog.removeRelayEnvironments, {
+  const removeRelayMachines = useAtomCommand(machineCatalog.removeRelayMachines, {
     reportFailure: false,
     reportDefect: false,
   });
@@ -53,7 +53,7 @@ export function ManagedRelayAuthProvider({ children }: { readonly children: Reac
       const previousTransition = accountTransitionRef.current ?? Promise.resolve();
       accountTransitionRef.current = previousTransition.then(async () => {
         const results = await Promise.all([
-          removeRelayEnvironments(),
+          removeRelayMachines(),
           settleAsyncResult(() =>
             runtime.runPromiseExit(
               ManagedRelay.ManagedRelayClient.pipe(
@@ -100,7 +100,7 @@ export function ManagedRelayAuthProvider({ children }: { readonly children: Reac
     return () => {
       cancelled = true;
     };
-  }, [getToken, isLoaded, isSignedIn, removeRelayEnvironments, userId]);
+  }, [getToken, isLoaded, isSignedIn, removeRelayMachines, userId]);
 
   useEffect(() => () => deactivateManagedRelayAuthentication(), []);
 

@@ -14,7 +14,7 @@ import { getSourceControlPresentationForKind } from "~/sourceControlPresentation
 
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { PullRequestChecksPopover } from "./PullRequestChecksPopover";
-import type { EnvironmentPullRequestEntry } from "./pullRequestList.logic";
+import type { MachinePullRequestEntry } from "./pullRequestList.logic";
 import { openOnHostLabel, showPullRequestLinkContextMenu } from "./pullRequestLinkContextMenu";
 import {
   PULL_REQUEST_ROW_CLASS,
@@ -31,7 +31,7 @@ const LABEL_SLOTS = [
   { overflow: "" },
 ] as const;
 
-function PullRequestRowLabels({ labels }: { labels: EnvironmentPullRequestEntry["labels"] }) {
+function PullRequestRowLabels({ labels }: { labels: MachinePullRequestEntry["labels"] }) {
   if (labels.length === 0) return null;
   return (
     <span className="flex min-w-0 items-center gap-1">
@@ -64,8 +64,8 @@ function PullRequestRowLabels({ labels }: { labels: EnvironmentPullRequestEntry[
 const PAGE_ROW_CLASS = "px-3 py-2.5";
 
 export type PullRequestRowTarget = Pick<
-  EnvironmentPullRequestEntry,
-  "environmentId" | "projectId" | "host" | "repository" | "number"
+  MachinePullRequestEntry,
+  "machineId" | "projectId" | "host" | "repository" | "number"
 >;
 
 function PullRequestRowImpl({
@@ -73,7 +73,7 @@ function PullRequestRowImpl({
   selected,
   showProjectTitle,
   showProvider,
-  environmentLabel,
+  machineLabel,
   matchedElsewhere,
   statsKey,
   statsRef,
@@ -84,11 +84,11 @@ function PullRequestRowImpl({
   sweeping = false,
   onCloseSweepStart,
 }: {
-  entry: EnvironmentPullRequestEntry;
+  entry: MachinePullRequestEntry;
   selected: boolean;
   showProjectTitle: boolean;
   showProvider: boolean;
-  environmentLabel?: string;
+  machineLabel?: string;
   matchedElsewhere?: boolean;
   /** Used by the list's shared visibility observer to defer optional line-count reads. */
   statsKey?: string;
@@ -98,7 +98,7 @@ function PullRequestRowImpl({
   onActed: (result: PullRequestSpeedActionResult) => void;
   closing?: boolean;
   sweeping?: boolean;
-  onCloseSweepStart?: (entry: EnvironmentPullRequestEntry, event: PointerEvent) => void;
+  onCloseSweepStart?: (entry: MachinePullRequestEntry, event: PointerEvent) => void;
 }) {
   const { Icon, providerName } = getSourceControlPresentationForKind(entry.provider);
   return (
@@ -151,7 +151,7 @@ function PullRequestRowImpl({
               {entry.checksState === undefined ? null : (
                 <PullRequestChecksPopover
                   checksState={entry.checksState}
-                  environmentId={entry.environmentId}
+                  machineId={entry.machineId}
                   reference={{
                     projectId: entry.projectId,
                     repository: entry.repository,
@@ -168,7 +168,7 @@ function PullRequestRowImpl({
             <>
               {entry.stack ? (
                 <PullRequestStackPopover
-                  environmentId={entry.environmentId}
+                  machineId={entry.machineId}
                   reference={{
                     projectId: entry.projectId,
                     host: entry.host,
@@ -177,12 +177,12 @@ function PullRequestRowImpl({
                   }}
                   membership={entry.stack}
                   onSelect={(target) =>
-                    onSelect({ ...target, host: entry.host, environmentId: entry.environmentId })
+                    onSelect({ ...target, host: entry.host, machineId: entry.machineId })
                   }
                 />
               ) : null}
               <PullRequestChangeBreakdownStat
-                environmentId={entry.environmentId}
+                machineId={entry.machineId}
                 reference={{
                   projectId: entry.projectId,
                   host: entry.host,
@@ -228,8 +228,8 @@ function PullRequestRowImpl({
                 labelClassName="sr-only @xs/pr-row-meta:not-sr-only @xs/pr-row-meta:truncate"
               />
               {showProjectTitle ? <span className="truncate">{entry.repository}</span> : null}
-              {environmentLabel ? (
-                <span className="min-w-0 max-w-32 truncate">{environmentLabel}</span>
+              {machineLabel ? (
+                <span className="min-w-0 max-w-32 truncate">{machineLabel}</span>
               ) : null}
               {entry.labels.length > 0 ? <PullRequestRowLabels labels={entry.labels} /> : null}
             </>

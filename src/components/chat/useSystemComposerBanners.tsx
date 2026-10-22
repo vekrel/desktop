@@ -1,6 +1,6 @@
 import { useStableCallback } from "../../hooks/useStableCallback";
-import { type EnvironmentId } from "@vekrel/contracts";
-import { type EnvironmentConnectionPresentation } from "@vekrel/client-runtime/connection";
+import { type MachineId } from "@vekrel/contracts";
+import { type MachineConnectionPresentation } from "@vekrel/client-runtime/connection";
 import { useAtomValue } from "@effect/atom-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -10,16 +10,16 @@ import {
 } from "@vekrel/client-runtime/state/runtime";
 import { WifiOffIcon } from "lucide-react";
 import { stackedThreadToast, toastManager } from "../ui/toast";
-import { environmentCatalog } from "../../connection/catalog";
+import { machineCatalog } from "../../connection/catalog";
 import { ConnectionDiagnosisHeadline } from "../settings/ConnectionDiagnosisDetails";
 import { isDesktopLocalConnectionTarget } from "../../connection/desktopLocal";
-import { useEnvironmentDisconnectDelay } from "../../hooks/useEnvironmentDisconnectDelay";
-import { serverEnvironment } from "../../state/server";
-import { type EnvironmentPresentation } from "../../state/environments";
+import { useMachineDisconnectDelay } from "../../hooks/useMachineDisconnectDelay";
+import { serverMachine } from "../../state/server";
+import { type MachinePresentation } from "../../state/machines";
 import type { ComposerBannerStackItem } from "./ComposerBannerStack";
 import {
-  hasEnvironmentReconnectWarningGraceElapsed,
-  scheduleEnvironmentReconnectWarning,
+  hasMachineReconnectWarningGraceElapsed,
+  scheduleMachineReconnectWarning,
 } from "../ChatView.logic";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
@@ -40,21 +40,21 @@ import {
   supportsServerUpdateThreadContinuation,
 } from "../../versionSkew";
 
-export type EnvironmentUnavailableState = {
-  readonly environmentId: EnvironmentId;
+export type MachineUnavailableState = {
+  readonly machineId: MachineId;
   readonly label: string;
-  readonly connection: EnvironmentConnectionPresentation;
+  readonly connection: MachineConnectionPresentation;
 };
 
 interface SystemComposerBannersInput {
-  readonly activeEnvironment: EnvironmentPresentation | null;
-  readonly activeEnvironmentUnavailable: boolean;
-  readonly activeEnvironmentUnavailableState: EnvironmentUnavailableState | null;
-  readonly activeThreadEnvironmentId: EnvironmentId | null;
-  readonly serverConfig: EnvironmentPresentation["serverConfig"] | null;
-  readonly hasMultipleRegisteredEnvironments: boolean;
-  readonly automaticEnvironment: boolean;
-  readonly autoUpdateEnvironments: ReadonlyArray<EnvironmentPresentation>;
+  readonly activeMachine: MachinePresentation | null;
+  readonly activeMachineUnavailable: boolean;
+  readonly activeMachineUnavailableState: MachineUnavailableState | null;
+  readonly activeThreadMachineId: MachineId | null;
+  readonly serverConfig: MachinePresentation["serverConfig"] | null;
+  readonly hasMultipleRegisteredMachines: boolean;
+  readonly automaticMachine: boolean;
+  readonly autoUpdateMachines: ReadonlyArray<MachinePresentation>;
 }
 
 /**
@@ -63,76 +63,76 @@ interface SystemComposerBannersInput {
  */
 export function useSystemComposerBanners(input: SystemComposerBannersInput) {
   const {
-    activeEnvironment,
-    activeEnvironmentUnavailable,
-    activeEnvironmentUnavailableState,
-    activeThreadEnvironmentId,
+    activeMachine,
+    activeMachineUnavailable,
+    activeMachineUnavailableState,
+    activeThreadMachineId,
     serverConfig,
-    hasMultipleRegisteredEnvironments,
-    automaticEnvironment,
-    autoUpdateEnvironments,
+    hasMultipleRegisteredMachines,
+    automaticMachine,
+    autoUpdateMachines,
   } = input;
   const navigate = useNavigate();
-  const retryEnvironment = useAtomCommand(environmentCatalog.retryNow, { reportFailure: false });
-  const setEnvironmentEnabled = useAtomCommand(environmentCatalog.setEnabled, {
+  const retryMachine = useAtomCommand(machineCatalog.retryNow, { reportFailure: false });
+  const setMachineEnabled = useAtomCommand(machineCatalog.setEnabled, {
     reportFailure: false,
   });
-  const activeEnvironmentConnectionPhase = activeEnvironment?.connection.phase ?? "available";
-  const activeReconnectingEnvironmentId =
-    activeEnvironmentConnectionPhase === "connecting" ||
-    activeEnvironmentConnectionPhase === "reconnecting"
-      ? (activeEnvironment?.environmentId ?? null)
+  const activeMachineConnectionPhase = activeMachine?.connection.phase ?? "available";
+  const activeReconnectingMachineId =
+    activeMachineConnectionPhase === "connecting" ||
+    activeMachineConnectionPhase === "reconnecting"
+      ? (activeMachine?.machineId ?? null)
       : null;
-  const [reconnectWarningGraceElapsedEnvironmentId, setReconnectWarningGraceElapsedEnvironmentId] =
-    useState<EnvironmentId | null>(null);
+  const [reconnectWarningGraceElapsedMachineId, setReconnectWarningGraceElapsedMachineId] =
+    useState<MachineId | null>(null);
   // Each reconnect attempt gets its own grace period, including a later one to
-  // the same environment.
-  const [graceReconnectingEnvironmentId, setGraceReconnectingEnvironmentId] = useState(
-    activeReconnectingEnvironmentId,
+  // the same machine.
+  const [graceReconnectingMachineId, setGraceReconnectingMachineId] = useState(
+    activeReconnectingMachineId,
   );
-  if (graceReconnectingEnvironmentId !== activeReconnectingEnvironmentId) {
-    setGraceReconnectingEnvironmentId(activeReconnectingEnvironmentId);
-    setReconnectWarningGraceElapsedEnvironmentId(null);
+  if (graceReconnectingMachineId !== activeReconnectingMachineId) {
+    setGraceReconnectingMachineId(activeReconnectingMachineId);
+    setReconnectWarningGraceElapsedMachineId(null);
   }
-  const reconnectWarningGraceElapsed = hasEnvironmentReconnectWarningGraceElapsed(
-    activeReconnectingEnvironmentId,
-    reconnectWarningGraceElapsedEnvironmentId,
+  const reconnectWarningGraceElapsed = hasMachineReconnectWarningGraceElapsed(
+    activeReconnectingMachineId,
+    reconnectWarningGraceElapsedMachineId,
   );
   useEffect(() => {
-    if (activeReconnectingEnvironmentId === null) return;
-    return scheduleEnvironmentReconnectWarning(() =>
-      setReconnectWarningGraceElapsedEnvironmentId(activeReconnectingEnvironmentId),
+    if (activeReconnectingMachineId === null) return;
+    return scheduleMachineReconnectWarning(() =>
+      setReconnectWarningGraceElapsedMachineId(activeReconnectingMachineId),
     );
-  }, [activeReconnectingEnvironmentId]);
-  const handleReconnectActiveEnvironment = async (environmentId: EnvironmentId) => {
-    const result = await retryEnvironment(environmentId);
+  }, [activeReconnectingMachineId]);
+  const handleReconnectActiveMachine = async (machineId: MachineId) => {
+    const result = await retryMachine(machineId);
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
       const error = squashAtomCommandFailure(result);
       toastManager.add(
         stackedThreadToast({
           type: "error",
-          title: "Could not reconnect environment",
+          title: "Could not reconnect machine",
           description: error instanceof Error ? error.message : "Failed to reconnect.",
         }),
       );
     }
   };
-  const handleReconnectActiveEnvironmentStable = useStableCallback(
-    handleReconnectActiveEnvironment,
+  const handleReconnectActiveMachineStable = useStableCallback(
+    handleReconnectActiveMachine,
   );
-  const disconnectDelayElapsed = useEnvironmentDisconnectDelay(
-    activeEnvironmentUnavailable && activeEnvironment ? activeEnvironment.environmentId : null,
+  const disconnectDelayElapsed = useMachineDisconnectDelay(
+    activeMachineUnavailable && activeMachine ? activeMachine.machineId : null,
   );
-  const canDisconnectActiveEnvironment =
+  const canDisconnectActiveMachine =
     disconnectDelayElapsed &&
-    activeEnvironment !== null &&
-    activeEnvironment.entry.target._tag !== "PrimaryConnectionTarget" &&
-    !isDesktopLocalConnectionTarget(activeEnvironment.entry.target);
-  const [disconnectingEnvironment, setDisconnectingEnvironment] = useState(false);
-  const handleDisconnectActiveEnvironment = async (environmentId: EnvironmentId) => {
-    setDisconnectingEnvironment(true);
-    const result = await setEnvironmentEnabled({ environmentId, enabled: false });
-    setDisconnectingEnvironment(false);
+    activeMachine !== null &&
+    activeMachine.entry.target._tag !== "PrimaryConnectionTarget" &&
+    !isDesktopLocalConnectionTarget(activeMachine.entry.target);
+  const [disconnectingMachine, setDisconnectingMachine] = useState(false);
+  const handleDisconnectActiveMachine = async (machineId: MachineId) => {
+    setDisconnectingMachine(true);
+    const result = await setMachineEnabled({ machineId, enabled: false });
+    setDisconnectingMachine(false);
     if (result._tag === "Failure") {
       if (!isAtomCommandInterrupted(result)) {
         const error = squashAtomCommandFailure(result);
@@ -148,14 +148,14 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
     }
     void navigate({ to: "/", replace: true });
   };
-  const handleDisconnectActiveEnvironmentStable = useStableCallback(
-    handleDisconnectActiveEnvironment,
+  const handleDisconnectActiveMachineStable = useStableCallback(
+    handleDisconnectActiveMachine,
   );
-  const autoBalanceUpdateBanner = useAutoBalanceUpdateBanner(autoUpdateEnvironments);
+  const autoBalanceUpdateBanner = useAutoBalanceUpdateBanner(autoUpdateMachines);
   const versionMismatch = resolveServerConfigVersionMismatch(serverConfig);
   const versionMismatchDismissKey =
-    versionMismatch && activeThreadEnvironmentId !== null
-      ? buildVersionMismatchDismissalKey(activeThreadEnvironmentId, versionMismatch)
+    versionMismatch && activeThreadMachineId !== null
+      ? buildVersionMismatchDismissalKey(activeThreadMachineId, versionMismatch)
       : null;
   const [dismissedVersionMismatchKey, setDismissedVersionMismatchKey] = useState<string | null>(
     null,
@@ -166,16 +166,16 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
   const showVersionMismatchBanner =
     versionMismatch !== null && versionMismatchDismissKey !== null && !versionMismatchDismissed;
   const versionMismatchServerLabel =
-    hasMultipleRegisteredEnvironments && activeThreadEnvironmentId !== null
-      ? `${activeEnvironment?.label ?? serverConfig?.environment.label ?? activeThreadEnvironmentId} server`
+    hasMultipleRegisteredMachines && activeThreadMachineId !== null
+      ? `${activeMachine?.label ?? serverConfig?.machine.label ?? activeThreadMachineId} server`
       : "server";
-  const serverUpdateEnvironmentId = activeThreadEnvironmentId;
+  const serverUpdateMachineId = activeThreadMachineId;
   const versionMismatchSelfUpdate = resolveServerSelfUpdateCapability(serverConfig);
-  const versionMismatchInstallation = serverConfig?.environment.capabilities.serverInstallation;
+  const versionMismatchInstallation = serverConfig?.machine.capabilities.serverInstallation;
   const versionMismatchDesktopAppUpdate = supportsDesktopAppUpdate(serverConfig);
   const versionMismatchThreadContinuation = supportsServerUpdateThreadContinuation(serverConfig);
   const serverUpdateState = useAtomValue(
-    serverEnvironment.updateStateAtom(serverUpdateEnvironmentId),
+    serverMachine.updateStateAtom(serverUpdateMachineId),
   );
   const [dismissedServerUpdateState, setDismissedServerUpdateState] = useState<
     typeof serverUpdateState | null
@@ -186,47 +186,47 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
   return (() => {
     const items: ComposerBannerStackItem[] = [];
     const updateRunning = serverUpdateState.status === "running";
-    const unavailableConnection = activeEnvironmentUnavailableState?.connection ?? null;
+    const unavailableConnection = activeMachineUnavailableState?.connection ?? null;
     const disconnectAction =
-      canDisconnectActiveEnvironment && activeEnvironmentUnavailableState ? (
+      canDisconnectActiveMachine && activeMachineUnavailableState ? (
         <Button
           size="xs"
           variant="ghost"
-          disabled={disconnectingEnvironment}
+          disabled={disconnectingMachine}
           title="Hide this server's threads. Switch it on again in Connections."
           onClick={() =>
-            void handleDisconnectActiveEnvironmentStable(
-              activeEnvironmentUnavailableState.environmentId,
+            void handleDisconnectActiveMachineStable(
+              activeMachineUnavailableState.machineId,
             )
           }
         >
           Disconnect server
         </Button>
       ) : undefined;
-    const environmentReconnecting =
+    const machineReconnecting =
       unavailableConnection !== null &&
       (unavailableConnection.phase === "connecting" ||
         unavailableConnection.phase === "reconnecting");
     const suppressUnavailableBanner =
-      environmentReconnecting && (updateRunning || !reconnectWarningGraceElapsed);
-    if (activeEnvironmentUnavailableState && unavailableConnection && !suppressUnavailableBanner) {
+      machineReconnecting && (updateRunning || !reconnectWarningGraceElapsed);
+    if (activeMachineUnavailableState && unavailableConnection && !suppressUnavailableBanner) {
       items.push({
-        id: `environment-unavailable:${activeEnvironmentUnavailableState.environmentId}`,
+        id: `machine-unavailable:${activeMachineUnavailableState.machineId}`,
         variant: unavailableConnection.phase === "error" ? "error" : "warning",
         icon: <WifiOffIcon />,
-        title: `${activeEnvironmentUnavailableState.label} is ${environmentReconnecting ? "reconnecting" : "offline"}`,
-        description: activeEnvironment ? (
-          <ConnectionDiagnosisHeadline environment={activeEnvironment} />
+        title: `${activeMachineUnavailableState.label} is ${machineReconnecting ? "reconnecting" : "offline"}`,
+        description: activeMachine ? (
+          <ConnectionDiagnosisHeadline machine={activeMachine} />
         ) : undefined,
         actions: (
           <>
-            {!environmentReconnecting ? (
+            {!machineReconnecting ? (
               <Button
                 size="xs"
                 variant="ghost"
                 onClick={() =>
-                  void handleReconnectActiveEnvironmentStable(
-                    activeEnvironmentUnavailableState.environmentId,
+                  void handleReconnectActiveMachineStable(
+                    activeMachineUnavailableState.machineId,
                   )
                 }
               >
@@ -239,8 +239,8 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
       });
     }
     if (
-      !automaticEnvironment &&
-      serverUpdateEnvironmentId &&
+      !automaticMachine &&
+      serverUpdateMachineId &&
       (serverUpdateState.status === "idle"
         ? showVersionMismatchBanner
         : !serverUpdateFailureDismissed)
@@ -248,7 +248,7 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
       const updateInProgress = serverUpdateState.status === "running";
       const updateFailed = serverUpdateState.status === "failed";
       items.push({
-        id: `server-version:${serverUpdateEnvironmentId}`,
+        id: `server-version:${serverUpdateMachineId}`,
         variant: updateFailed ? "error" : "default",
         priority: updateInProgress ? "urgent" : "notice",
         icon: <ComposerServerUpdateIcon status={serverUpdateState.status} />,
@@ -291,7 +291,7 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
           (versionMismatchSelfUpdate === "desktop-managed" &&
             !versionMismatchDesktopAppUpdate) ? undefined : (
           <ServerUpdateAction
-            environmentId={serverUpdateEnvironmentId}
+            machineId={serverUpdateMachineId}
             serverLabel={versionMismatchServerLabel}
             selfUpdate={versionMismatchSelfUpdate}
             installation={versionMismatchInstallation}

@@ -49,7 +49,7 @@ export interface ProviderInstanceEntry {
 export type ProviderCatalogAvailability = "loading" | "ready" | "unavailable" | "unconfigured";
 
 /**
- * Environment config streams are reactive: treating their initial `null` as a
+ * Machine config streams are reactive: treating their initial `null` as a
  * final empty list strands otherwise recoverable threads behind a misleading
  * "no providers" state.
  */
@@ -104,13 +104,13 @@ export function deriveProviderInstanceEntries(
 }
 
 /**
- * Instance ids are per-environment routing keys, and `defaultInstanceIdForDriver` makes the
- * default id literally the driver slug, so every environment running the same driver reports
- * the same id. Flattening across environments would clobber entries and mis-resolve accent
- * colors; lookups must stay scoped to the thread's own environment.
+ * Instance ids are per-machine routing keys, and `defaultInstanceIdForDriver` makes the
+ * default id literally the driver slug, so every machine running the same driver reports
+ * the same id. Flattening across machines would clobber entries and mis-resolve accent
+ * colors; lookups must stay scoped to the thread's own machine.
  */
-export function deriveProviderEntriesByEnvironment(
-  providersByEnvironment: Iterable<
+export function deriveProviderEntriesByMachine(
+  providersByMachine: Iterable<
     readonly [
       string,
       ReadonlyArray<ServerProvider>,
@@ -118,19 +118,19 @@ export function deriveProviderEntriesByEnvironment(
     ]
   >,
 ): ReadonlyMap<string, ReadonlyMap<string, ProviderInstanceEntry>> {
-  const byEnvironment = new Map<string, ReadonlyMap<string, ProviderInstanceEntry>>();
-  for (const [environmentId, providers, settings] of providersByEnvironment) {
+  const byMachine = new Map<string, ReadonlyMap<string, ProviderInstanceEntry>>();
+  for (const [machineId, providers, settings] of providersByMachine) {
     const derived = deriveProviderInstanceEntries(providers);
     // The snapshot includes instances enabled by any project; machine settings alone do not.
     const entries = settings
       ? derived.map((entry) => applyProviderInstanceBranding(entry, settings))
       : derived;
-    byEnvironment.set(
-      environmentId,
+    byMachine.set(
+      machineId,
       new Map(entries.map((entry) => [entry.instanceId as string, entry] as const)),
     );
   }
-  return byEnvironment;
+  return byMachine;
 }
 
 /**

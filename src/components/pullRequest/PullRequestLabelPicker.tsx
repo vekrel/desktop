@@ -1,10 +1,10 @@
 import { useAtomCommand } from "~/state/use-atom-command";
-import type { EnvironmentId, PullRequestLabelCandidate, PullRequestRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestLabelCandidate, PullRequestRef } from "@vekrel/contracts";
 import { CheckIcon, TagIcon } from "lucide-react";
 import { useState } from "react";
 
-import { pullRequestEnvironment } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestMachine } from "~/state/pullRequests";
+import { useMachineQuery } from "~/state/query";
 import { squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
 
 import { toastManager } from "../ui/toast";
@@ -22,11 +22,11 @@ function matches(candidate: PullRequestLabelCandidate, query: string): boolean {
 }
 
 export function PullRequestLabelPicker({
-  environmentId,
+  machineId,
   reference,
   allowed,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   allowed: boolean;
 }) {
@@ -34,10 +34,10 @@ export function PullRequestLabelPicker({
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<string | null>(null);
 
-  const candidatesQuery = useEnvironmentQuery(
-    open ? pullRequestEnvironment.labelCandidates({ environmentId, input: reference }) : null,
+  const candidatesQuery = useMachineQuery(
+    open ? pullRequestMachine.labelCandidates({ machineId, input: reference }) : null,
   );
-  const setLabels = useAtomCommand(pullRequestEnvironment.setLabels, {
+  const setLabels = useAtomCommand(pullRequestMachine.setLabels, {
     reportFailure: false,
   });
 
@@ -49,7 +49,7 @@ export function PullRequestLabelPicker({
     if (pending !== null) return;
     setPending(candidate.name);
     const result = await setLabels({
-      environmentId,
+      machineId,
       input: { ...reference, labels: [candidate.name], applied: !candidate.isApplied },
     });
     setPending(null);

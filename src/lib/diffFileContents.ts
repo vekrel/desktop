@@ -4,7 +4,7 @@ import {
   type AtomCommandResult,
 } from "@vekrel/client-runtime/state/runtime";
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestDiffFileContentsInput,
   PullRequestDiffFileContentsResult,
   PullRequestRef,
@@ -16,7 +16,7 @@ import type {
 import { resolveFileDiffPath } from "./diffRendering";
 
 interface GitDiffFileContentsSource {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly cwd: string;
   readonly sourceKind: ReviewDiffPreviewSourceKind;
   readonly baseRef: string | null;
@@ -25,19 +25,19 @@ interface GitDiffFileContentsSource {
 }
 
 interface PullRequestDiffFileContentsSource {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly reference: PullRequestRef;
   readonly commit: string | null;
   readonly cacheKey: string;
 }
 
 type GetDiffFileContents<E> = (request: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly input: ReviewDiffFileContentsInput;
 }) => Promise<AtomCommandResult<ReviewDiffFileContentsResult, E>>;
 
 type GetPullRequestDiffFileContents<E> = (request: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly input: PullRequestDiffFileContentsInput;
 }) => Promise<AtomCommandResult<PullRequestDiffFileContentsResult, E>>;
 
@@ -80,7 +80,7 @@ export function createGitDiffFileContentsLoader<E>(
 ): FileDiffContentsLoader {
   return createDiffFileContentsLoader(async ({ changeType, oldPath, newPath }) => {
     const result = await getDiffFileContents({
-      environmentId: source.environmentId,
+      machineId: source.machineId,
       input: {
         cwd: source.cwd,
         sourceKind: source.sourceKind,
@@ -104,7 +104,7 @@ export function createPullRequestDiffFileContentsLoader<E>(
 ): FileDiffContentsLoader {
   return createDiffFileContentsLoader(async ({ changeType, oldPath, newPath }) => {
     const result = await getDiffFileContents({
-      environmentId: source.environmentId,
+      machineId: source.machineId,
       input: {
         ...source.reference,
         ...(source.commit === null ? {} : { commit: source.commit }),

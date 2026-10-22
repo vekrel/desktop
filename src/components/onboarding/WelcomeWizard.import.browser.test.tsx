@@ -2,10 +2,10 @@ import { RegistryContext } from "@effect/atom-react";
 import {
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
-  EnvironmentId,
+  MachineId,
   ProjectId,
   type AgentSessionProjectCandidate,
-  type AuthEnvironmentScope,
+  type AuthMachineScope,
   type AuthSessionState,
 } from "@vekrel/contracts";
 import { AsyncResult, Atom } from "effect/reactivity";
@@ -15,13 +15,13 @@ import "~/index.css";
 import { act, render } from "../../../test/render";
 
 type SessionResult = AsyncResult.AsyncResult<AuthSessionState, Error>;
-type Project = { id: ProjectId; environmentId: EnvironmentId; workspaceRoot: string };
+type Project = { id: ProjectId; machineId: MachineId; workspaceRoot: string };
 type CreateProjectInput = {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   input: { projectId: ProjectId; workspaceRoot: string };
 };
 const state = vi.hoisted(() => ({
-  selectedEnvironment: "primary",
+  selectedMachine: "primary",
   sessions: new Map<string, unknown>(),
   projects: null as unknown,
   providers: null as unknown,
@@ -44,9 +44,9 @@ vi.mock(import("@vekrel/client-runtime/state/session"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    createEnvironmentSessionAtoms: ((runtime: never) => ({
-      ...actual.createEnvironmentSessionAtoms(runtime),
-      sessionStateAtom: (id: EnvironmentId) => state.sessions.get(id),
+    createMachineSessionAtoms: ((runtime: never) => ({
+      ...actual.createMachineSessionAtoms(runtime),
+      sessionStateAtom: (id: MachineId) => state.sessions.get(id),
     })) as never,
   };
 });
@@ -58,26 +58,26 @@ vi.mock(import("../../onboarding/firstRun"), async (original) => ({
   ...(await original()),
   completeOnboarding: state.completeOnboarding,
 }));
-vi.mock(import("../../state/environments"), async (original) => {
-  const environment = (environmentId: string) => ({
-    environmentId,
-    label: environmentId,
+vi.mock(import("../../state/machines"), async (original) => {
+  const machine = (machineId: string) => ({
+    machineId,
+    label: machineId,
     connection: { phase: "connected" },
     entry: { enabled: true, target: { _tag: "DirectConnectionTarget" } },
   });
-  const primary = environment("primary");
+  const primary = machine("primary");
   return {
     ...(await original()),
-    usePrimaryEnvironment: (() => primary) as never,
-    useEnvironments: (() => ({ environments: [environment(state.selectedEnvironment)] })) as never,
+    usePrimaryMachine: (() => primary) as never,
+    useMachines: (() => ({ machines: [machine(state.selectedMachine)] })) as never,
   };
 });
 vi.mock(import("../../state/server"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    serverEnvironment: {
-      ...actual.serverEnvironment,
+    serverMachine: {
+      ...actual.serverMachine,
       providersValueAtom: (() => state.providers) as never,
       configValueAtom: (() => state.config) as never,
       refreshProviders: "refreshProviders" as never,
@@ -94,7 +94,7 @@ vi.mock(import("../../state/entities"), async (original) => {
 });
 vi.mock(import("../../state/projects"), async (original) => ({
   ...(await original()),
-  projectEnvironment: { create: "createProject" } as never,
+  projectMachine: { create: "createProject" } as never,
 }));
 vi.mock(import("../../state/agentSessions"), async (original) => ({
   ...(await original()),
@@ -102,11 +102,11 @@ vi.mock(import("../../state/agentSessions"), async (original) => ({
 }));
 vi.mock(import("../../onboarding/useProjectScans"), async (original) => ({
   ...(await original()),
-  useProjectScans: (ids: readonly EnvironmentId[]) =>
-    ids.map((environmentId) => {
-      state.scan({ environmentId });
+  useProjectScans: (ids: readonly MachineId[]) =>
+    ids.map((machineId) => {
+      state.scan({ machineId });
       return {
-        environmentId,
+        machineId,
         data: { candidates: state.candidates, truncated: false } as never,
         isPending: false,
         error: null,
@@ -132,11 +132,11 @@ vi.mock(import("../settings/ChatGptWelcomeCoordinator"), async (original) => ({
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { WelcomeWizard } from "./WelcomeWizard";
 
-const primaryId = EnvironmentId.make("primary");
-const remoteId = EnvironmentId.make("remote");
+const primaryId = MachineId.make("primary");
+const remoteId = MachineId.make("remote");
 const permissionMessage = "This connection cannot import projects or thread history.";
 
-function session(scopes: ReadonlyArray<AuthEnvironmentScope>): AuthSessionState {
+function session(scopes: ReadonlyArray<AuthMachineScope>): AuthSessionState {
   return {
     authenticated: true,
     scopes: [AuthOrchestrationReadScope, ...scopes],
@@ -149,17 +149,17 @@ function session(scopes: ReadonlyArray<AuthEnvironmentScope>): AuthSessionState 
   };
 }
 
-function sessionAtom(environmentId: EnvironmentId) {
-  return state.sessions.get(environmentId) as Atom.Writable<SessionResult>;
+function sessionAtom(machineId: MachineId) {
+  return state.sessions.get(machineId) as Atom.Writable<SessionResult>;
 }
 
 function projectsAtom() {
   return state.projects as Atom.Writable<ReadonlyArray<Project>>;
 }
 
-function setGrant(environmentId: EnvironmentId, allowed: boolean) {
+function setGrant(machineId: MachineId, allowed: boolean) {
   appAtomRegistry.set(
-    sessionAtom(environmentId),
+    sessionAtom(machineId),
     AsyncResult.success(session(allowed ? [AuthOrchestrationOperateScope] : [])),
   );
 }
@@ -178,10 +178,10 @@ function candidate(path: string): AgentSessionProjectCandidate {
   };
 }
 
-function recordProject({ environmentId, input }: CreateProjectInput) {
+function recordProject({ machineId, input }: CreateProjectInput) {
   appAtomRegistry.set(projectsAtom(), [
     ...appAtomRegistry.get(projectsAtom()),
-    { id: input.projectId, environmentId, workspaceRoot: input.workspaceRoot },
+    { id: input.projectId, machineId, workspaceRoot: input.workspaceRoot },
   ]);
   return AsyncResult.success(undefined);
 }
@@ -213,7 +213,7 @@ async function click(label: string) {
 }
 
 async function mountImport(remote = false) {
-  state.selectedEnvironment = remote ? "remote" : "primary";
+  state.selectedMachine = remote ? "remote" : "primary";
   await using stack = new AsyncDisposableStack();
   const screen = stack.use(
     await render(

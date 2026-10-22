@@ -1,9 +1,9 @@
 import { isAtomCommandInterrupted } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentId, PullRequestRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef } from "@vekrel/contracts";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { pullRequestEnvironment } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestMachine } from "~/state/pullRequests";
+import { useMachineQuery } from "~/state/query";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { useStableCallback } from "~/hooks/useStableCallback";
 
@@ -34,20 +34,20 @@ export interface PullRequestFilesViewedView {
 }
 
 export function usePullRequestFilesViewed(options: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly reference: PullRequestRef;
   readonly enabled: boolean;
 }): PullRequestFilesViewedView {
-  const { environmentId, reference, enabled } = options;
-  const query = useEnvironmentQuery(
-    enabled ? pullRequestEnvironment.filesViewed({ environmentId, input: reference }) : null,
+  const { machineId, reference, enabled } = options;
+  const query = useMachineQuery(
+    enabled ? pullRequestMachine.filesViewed({ machineId, input: reference }) : null,
   );
   const refresh = query.refresh;
   const states = toFileViewedStates(query.data);
   const truncated = query.data?.truncated === true;
   const error = query.error;
   const [overlay, setOverlay] = useState<FileViewedOverlay>(NO_OVERLAY);
-  const setFilesViewed = useAtomCommand(pullRequestEnvironment.setFilesViewed, {
+  const setFilesViewed = useAtomCommand(pullRequestMachine.setFilesViewed, {
     reportFailure: false,
   });
 
@@ -56,10 +56,10 @@ export function usePullRequestFilesViewed(options: {
   const requests = useRef(0);
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Everything held here belongs to one change request on one environment. The environment is
+  // Everything held here belongs to one change request on one machine. The machine is
   // part of that: two of them can hand out the same project id, and a press made against one
   // must never be answered for by the other.
-  const scopeKey = `${environmentId} ${reference.projectId} ${reference.repository} ${reference.number}`;
+  const scopeKey = `${machineId} ${reference.projectId} ${reference.repository} ${reference.number}`;
   const scope = useRef(scopeKey);
 
   // The host's answer as it stood when a completed write was acknowledged, per path. The first
@@ -83,7 +83,7 @@ export function usePullRequestFilesViewed(options: {
 
   // Takes the target explicitly so a scope being left still sends its last presses to itself.
   const flush = (target: {
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly reference: PullRequestRef;
   }) => {
     flushTimer.current = null;
@@ -94,7 +94,7 @@ export function usePullRequestFilesViewed(options: {
     const request = ++requests.current;
     for (const file of batch) sentBy.current.set(file.path, request);
     void setFilesViewed({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { ...target.reference, files: batch },
     }).then((result) => {
       const mine = batch
@@ -118,10 +118,10 @@ export function usePullRequestFilesViewed(options: {
     });
   };
 
-  const currentTarget = useEffectEvent(() => ({ environmentId, reference }));
+  const currentTarget = useEffectEvent(() => ({ machineId, reference }));
   const flushTarget = useEffectEvent(flush);
 
-  // Leaving a change request, the environment it lives on, or the page itself records what was
+  // Leaving a change request, the machine it lives on, or the page itself records what was
   // pressed and then drops the rest, sending those last presses to the scope being left.
   useEffect(() => {
     const leaving = currentTarget();
@@ -143,7 +143,7 @@ export function usePullRequestFilesViewed(options: {
     setOverlay((current) => new Map(current).set(path, viewed));
     queued.current.set(path, viewed);
     if (flushTimer.current !== null) clearTimeout(flushTimer.current);
-    const target = { environmentId, reference };
+    const target = { machineId, reference };
     flushTimer.current = setTimeout(() => flush(target), FLUSH_DELAY_MS);
   });
 

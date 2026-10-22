@@ -1,5 +1,5 @@
 import {
-  type EnvironmentId,
+  type MachineId,
   PROVIDER_WORKSPACE_SNAPSHOT_TTL_MS,
   type ServerProvider,
 } from "@vekrel/contracts";
@@ -8,7 +8,7 @@ import {
   hasCompleteProviderWorkspaceSnapshot,
   hasCurrentProviderWorkspaceSnapshot,
 } from "@vekrel/client-runtime/providerSkills";
-import { serverEnvironment } from "../../state/server";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useStableCallback } from "../../hooks/useStableCallback";
@@ -20,13 +20,13 @@ const WORKSPACE_SNAPSHOT_RETRY_COOLDOWN_MS = 10_000;
  * cwd. Returns a check to run when the user types.
  */
 export function useProviderWorkspaceSnapshotRefresh(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly gitCwd: string | null;
   readonly selectedProviderEntry: ProviderInstanceEntry | undefined;
   readonly selectedProviderStatus: ServerProvider | null;
 }) {
-  const { environmentId, gitCwd, selectedProviderEntry, selectedProviderStatus } = input;
-  const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
+  const { machineId, gitCwd, selectedProviderEntry, selectedProviderStatus } = input;
+  const refreshProviders = useAtomCommand(serverMachine.refreshProviders, {
     reportFailure: false,
   });
   // The last scan this composer asked for. A request inside the TTL is not
@@ -38,7 +38,7 @@ export function useProviderWorkspaceSnapshotRefresh(input: {
   } | null>(null);
   const workspaceRefreshScopeKey =
     gitCwd && selectedProviderEntry
-      ? `${environmentId}:${selectedProviderEntry.instanceId}:${gitCwd}`
+      ? `${machineId}:${selectedProviderEntry.instanceId}:${gitCwd}`
       : null;
   const workspaceSlashCommandsPending =
     selectedProviderStatus?.workspaceSnapshots?.some(
@@ -103,7 +103,7 @@ export function useProviderWorkspaceSnapshotRefresh(input: {
       });
     };
     void refreshProviders({
-      environmentId,
+      machineId,
       input: { instanceId: selectedProviderEntry.instanceId, cwd: gitCwd },
     }).then((result) => {
       const refreshedSnapshot =

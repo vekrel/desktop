@@ -19,7 +19,7 @@ import { isUsageLimitsCommand } from "@vekrel/shared/usageLimits";
 import {
   AuthOrchestrationOperateScope,
   DEFAULT_MODEL,
-  type EnvironmentId,
+  type MachineId,
   type ModelSelection,
   type PreviewAnnotationPayload,
   type ThreadId,
@@ -38,7 +38,7 @@ import {
   scopedThreadKey,
   scopeProjectRef,
   scopeThreadRef,
-} from "@vekrel/client-runtime/environment";
+} from "@vekrel/client-runtime/machine";
 import { createModelSelection } from "@vekrel/shared/model";
 import { type SetStateAction, useLayoutEffect, useRef } from "react";
 import { flushSync } from "react-dom";
@@ -79,11 +79,11 @@ import {
   buildMessageContext,
   previewAnnotationContextReference,
 } from "../../lib/composerContextRecords";
-import { environmentServerConfigsAtom } from "../../state/server";
-import { threadEnvironment } from "../../state/threads";
+import { machineServerConfigsAtom } from "../../state/server";
+import { threadMachine } from "../../state/threads";
 import { runMobileComposerTransition } from "./draftHeroTransition";
-import { useClientSettingsHydrated, useEnvironmentSettings } from "../../hooks/useSettings";
-import { environmentPresentations } from "../../state/presentation";
+import { useClientSettingsHydrated, useMachineSettings } from "../../hooks/useSettings";
+import { machinePresentations } from "../../state/presentation";
 import {
   approvalRedirectNotice,
   loadBalancingSendWarning,
@@ -103,11 +103,11 @@ import {
 } from "../../lib/attachmentUploadQueue";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { fileAttachmentCapabilityBlockReason } from "./composerAttachmentFiles";
-import { readEnvironmentScope } from "../../state/session";
+import { readMachineScope } from "../../state/session";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import {
   ATTACHMENT_ONLY_BOOTSTRAP_PROMPT,
-  threadContextsOutsideEnvironment,
+  threadContextsOutsideMachine,
 } from "@vekrel/shared/composerContextReferences";
 import {
   draftSendState,
@@ -117,8 +117,8 @@ import {
   restoreComposerDraft,
 } from "./chatViewSend";
 import type {
-  EnvironmentProject,
-  EnvironmentThreadShell,
+  MachineProject,
+  MachineThreadShell,
 } from "@vekrel/client-runtime/state/shell";
 import type { UnifiedSettings } from "@vekrel/contracts";
 import type { Dispatch } from "react";
@@ -127,9 +127,9 @@ import type { ProviderInstanceEntry } from "../../providerInstances";
 import type { SessionPhase } from "../../types";
 import type { DraftSessionState } from "../../composerDraftStore";
 import type { ComposerHandleRef } from "../../composerHandleContext";
-import type { useLogicalProjectEnvironments } from "../../hooks/useLogicalProjectEnvironments";
+import type { useLogicalProjectMachines } from "../../hooks/useLogicalProjectMachines";
 import type { LatestProposedPlanState } from "../../session-logic";
-import type { useDraftEnvironmentRouting } from "./useDraftEnvironmentRouting";
+import type { useDraftMachineRouting } from "./useDraftMachineRouting";
 import type { useLocalDispatchState } from "./useLocalDispatchState";
 import type { usePendingThreadRequests } from "./usePendingThreadRequests";
 import type { useQueuedRunEdit } from "./useQueuedRunEdit";
@@ -137,12 +137,12 @@ import type { useTimelineFollow } from "./useTimelineFollow";
 import type { useUsageLimitsPanel } from "./useUsageLimitsPanel";
 import type { useWorktreeSetup } from "./useWorktreeSetup";
 
-const ENVIRONMENT_UNAVAILABLE_SEND_TOAST_TRAIL_SIZE = 3;
+const MACHINE_UNAVAILABLE_SEND_TOAST_TRAIL_SIZE = 3;
 
 const selectPlanModeEnabled = (settings: UnifiedSettings) => settings.planModeEnabled;
 
-function readEnvironmentPresentation(environmentId: EnvironmentId) {
-  return appAtomRegistry.get(environmentPresentations.presentationsAtom).get(environmentId);
+function readMachinePresentation(machineId: MachineId) {
+  return appAtomRegistry.get(machinePresentations.presentationsAtom).get(machineId);
 }
 
 function draftHasNonPromptContent(target: ComposerThreadTarget) {
@@ -152,20 +152,20 @@ function draftHasNonPromptContent(target: ComposerThreadTarget) {
 
 type PendingThreadRequests = ReturnType<typeof usePendingThreadRequests>;
 type LocalDispatchState = ReturnType<typeof useLocalDispatchState>;
-type DraftEnvironmentRouting = ReturnType<typeof useDraftEnvironmentRouting>;
+type DraftMachineRouting = ReturnType<typeof useDraftMachineRouting>;
 type UsageLimitsPanel = ReturnType<typeof useUsageLimitsPanel>;
 type TimelineFollow = ReturnType<typeof useTimelineFollow>;
 
 interface ComposerSendInput {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly routeThreadKey: string;
   readonly currentRouteThreadKeyRef: { readonly current: string | null };
   readonly draftId: DraftId | null;
   readonly draftThread: DraftSessionState | null;
-  readonly activeThread: EnvironmentThreadShell | undefined;
+  readonly activeThread: MachineThreadShell | undefined;
   readonly activeThreadKey: string | null;
   readonly activeThreadBranch: string | null;
-  readonly activeProject: EnvironmentProject | null;
+  readonly activeProject: MachineProject | null;
   readonly activeProjectDefaultModelSelection: ModelSelection | null;
   readonly activeProposedPlan: LatestProposedPlanState | null;
   readonly activeMessageCount: number;
@@ -180,7 +180,7 @@ interface ComposerSendInput {
     readonly threadBranch: string;
     readonly currentBranch: string;
   } | null;
-  readonly logicalProjectEnvironments: ReturnType<typeof useLogicalProjectEnvironments>;
+  readonly logicalProjectMachines: ReturnType<typeof useLogicalProjectMachines>;
   readonly providerInstanceEntries: ReadonlyArray<ProviderInstanceEntry>;
   readonly composerRef: ComposerHandleRef;
   readonly composerDraftTarget: ComposerThreadTarget;
@@ -193,7 +193,7 @@ interface ComposerSendInput {
   readonly isConnecting: boolean;
   readonly isRevertingCheckpoint: boolean;
   readonly threadDetailLoading: boolean;
-  readonly activeEnvironmentUnavailable: boolean;
+  readonly activeMachineUnavailable: boolean;
   readonly isSendBusy: boolean;
   readonly sendQueuesBehindSetup: boolean;
   readonly isDraftHeroState: boolean;
@@ -207,8 +207,8 @@ interface ComposerSendInput {
   readonly openUsageLimits: UsageLimitsPanel["open"];
   readonly clearUsageLimitsFor: UsageLimitsPanel["clearFor"];
   readonly needsLoadBalancing: boolean;
-  readonly loadBalancing: DraftEnvironmentRouting["loadBalancing"];
-  readonly readPendingEnvironmentChange: DraftEnvironmentRouting["readPendingEnvironmentChange"];
+  readonly loadBalancing: DraftMachineRouting["loadBalancing"];
+  readonly readPendingMachineChange: DraftMachineRouting["readPendingMachineChange"];
   readonly pendingApprovals: PendingThreadRequests["pendingApprovals"];
   readonly respondingRequestIds: PendingThreadRequests["respondingRequestIds"];
   readonly activePendingProgress: PendingThreadRequests["activePendingProgress"];
@@ -247,7 +247,7 @@ interface ComposerSendInput {
  */
 export function useComposerSend(input: ComposerSendInput) {
   const {
-    environmentId,
+    machineId,
     routeThreadKey,
     currentRouteThreadKeyRef,
     draftId,
@@ -267,7 +267,7 @@ export function useComposerSend(input: ComposerSendInput) {
     sendEnvMode,
     startFromOrigin,
     localCheckoutBranchMismatch,
-    logicalProjectEnvironments,
+    logicalProjectMachines,
     providerInstanceEntries,
     composerRef,
     composerDraftTarget,
@@ -280,7 +280,7 @@ export function useComposerSend(input: ComposerSendInput) {
     isConnecting,
     isRevertingCheckpoint,
     threadDetailLoading,
-    activeEnvironmentUnavailable,
+    activeMachineUnavailable,
     isSendBusy,
     sendQueuesBehindSetup,
     isDraftHeroState,
@@ -295,7 +295,7 @@ export function useComposerSend(input: ComposerSendInput) {
     clearUsageLimitsFor,
     needsLoadBalancing,
     loadBalancing,
-    readPendingEnvironmentChange,
+    readPendingMachineChange,
     pendingApprovals,
     respondingRequestIds,
     activePendingProgress,
@@ -320,11 +320,11 @@ export function useComposerSend(input: ComposerSendInput) {
   const handleNewThread = useNewThreadHandler();
   const navigate = useNavigate();
   const clientSettingsHydrated = useClientSettingsHydrated();
-  const planModeEnabled = useEnvironmentSettings(environmentId, selectPlanModeEnabled);
-  const startThreadTurn = useOrchestrationCommand(threadEnvironment.startTurn, {
+  const planModeEnabled = useMachineSettings(machineId, selectPlanModeEnabled);
+  const startThreadTurn = useOrchestrationCommand(threadMachine.startTurn, {
     reportFailure: false,
   });
-  const uploadThreadFeedback = useOrchestrationCommand(threadEnvironment.uploadFeedback, {
+  const uploadThreadFeedback = useOrchestrationCommand(threadMachine.uploadFeedback, {
     reportFailure: false,
   });
   const setComposerDraftPrompt = useComposerDraftStore((store) => store.setPrompt);
@@ -338,7 +338,7 @@ export function useComposerSend(input: ComposerSendInput) {
   const setComposerDraftThreadContexts = useComposerDraftStore((store) => store.setThreadContexts);
   const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
   const sendToMultipleModels = useMultipleModelSend({
-    environmentId,
+    machineId,
     routeThreadKey,
     currentRouteThreadKeyRef,
     draftId,
@@ -351,7 +351,7 @@ export function useComposerSend(input: ComposerSendInput) {
     setThreadError,
   });
   const submitPlanFollowUp = usePlanFollowUpSend({
-    environmentId,
+    machineId,
     routeThreadKey,
     activeThread,
     activeThreadBranch,
@@ -371,7 +371,7 @@ export function useComposerSend(input: ComposerSendInput) {
   });
   const { sendInFlight: sendInFlightRef } = draftSendState(routeThreadKey);
   const composerSendGenerationRef = useRef(0);
-  const environmentUnavailableSendToastSlotRef = useRef(0);
+  const machineUnavailableSendToastSlotRef = useRef(0);
   // A send awaits uploads before it declines, so it reads the approvals pending by then.
   const pendingApprovalsRef = useRef(pendingApprovals);
   const respondingRequestIdsRef = useRef(respondingRequestIds);
@@ -419,14 +419,14 @@ export function useComposerSend(input: ComposerSendInput) {
       );
     };
     if (
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||
+      !readMachineScope(machineId, AuthOrchestrationOperateScope) ||
       !activeThread ||
       (isSendBusy && !sendQueuesBehindSetup) ||
       isConnecting ||
       isRevertingCheckpoint ||
       !clientSettingsHydrated ||
       threadDetailLoading ||
-      readPendingEnvironmentChange() !== null ||
+      readPendingMachineChange() !== null ||
       sendInFlightRef.current ||
       feedbackUploadsInFlightRef.current.has(routeThreadKey)
     ) {
@@ -440,24 +440,24 @@ export function useComposerSend(input: ComposerSendInput) {
         ...loadBalancingSendWarning({
           pending: loadBalancing.pending,
           threadContexts: draft ? referencedThreadContexts(draft) : [],
-          candidateEnvironmentIds: logicalProjectEnvironments.map(
-            (candidate) => candidate.environmentId,
+          candidateMachineIds: logicalProjectMachines.map(
+            (candidate) => candidate.machineId,
           ),
         }),
       });
       return;
     }
-    if (activeEnvironmentUnavailable) {
-      const toastSlot = environmentUnavailableSendToastSlotRef.current;
-      environmentUnavailableSendToastSlotRef.current =
-        (toastSlot + 1) % ENVIRONMENT_UNAVAILABLE_SEND_TOAST_TRAIL_SIZE;
+    if (activeMachineUnavailable) {
+      const toastSlot = machineUnavailableSendToastSlotRef.current;
+      machineUnavailableSendToastSlotRef.current =
+        (toastSlot + 1) % MACHINE_UNAVAILABLE_SEND_TOAST_TRAIL_SIZE;
       toastManager.add({
         ...stackedThreadToast({
           type: "warning",
           title: "Not connected: message not sent",
-          description: "Reconnecting to the environment. Try again once it is connected.",
+          description: "Reconnecting to the machine. Try again once it is connected.",
         }),
-        id: `chat-send-environment-unavailable:${toastSlot}`,
+        id: `chat-send-machine-unavailable:${toastSlot}`,
       });
       return;
     }
@@ -481,7 +481,7 @@ export function useComposerSend(input: ComposerSendInput) {
         : multipleModelSendBlock({
             selectionCount: multipleModelSelections.length,
             serverSupportsWorktreeBootstrap:
-              readEnvironmentPresentation(activeThread.environmentId)?.serverConfig?.environment
+              readMachinePresentation(activeThread.machineId)?.serverConfig?.machine
                 .capabilities.requiredWorktreeBootstrap === true,
             isLocalDraftThread,
             isGitRepo,
@@ -531,14 +531,14 @@ export function useComposerSend(input: ComposerSendInput) {
           previewAnnotationContextReference(directAnnotation.annotation),
         ])
       : promptRef.current;
-    const strandedThread = threadContextsOutsideEnvironment({
+    const strandedThread = threadContextsOutsideMachine({
       text: promptForSend,
       records: composerThreadContexts,
-      environmentId,
+      machineId,
     })[0];
     if (strandedThread) {
       const owner =
-        readEnvironmentPresentation(strandedThread.environmentId)?.entry.target.label ??
+        readMachinePresentation(strandedThread.machineId)?.entry.target.label ??
         "its machine";
       toastManager.add(
         stackedThreadToast({
@@ -627,7 +627,7 @@ export function useComposerSend(input: ComposerSendInput) {
         },
         upload: () =>
           uploadThreadFeedback({
-            environmentId: activeThread.environmentId,
+            machineId: activeThread.machineId,
             input: { threadId: activeThread.id, ...feedbackCommand },
           }),
       }).finally(() => {
@@ -823,9 +823,9 @@ export function useComposerSend(input: ComposerSendInput) {
     }
 
     const readLiveAttachmentCapabilities = () => {
-      const config = appAtomRegistry.get(environmentServerConfigsAtom).get(environmentId) ?? null;
+      const config = appAtomRegistry.get(machineServerConfigsAtom).get(machineId) ?? null;
       const liveSupportsAttachmentUploads =
-        config?.environment.capabilities.attachmentUploads === true;
+        config?.machine.capabilities.attachmentUploads === true;
       return {
         supportsAttachmentUploads: liveSupportsAttachmentUploads,
         fileBlockReason: fileAttachmentCapabilityBlockReason({
@@ -833,7 +833,7 @@ export function useComposerSend(input: ComposerSendInput) {
           attachmentUploadsCapabilityKnown: config !== null,
           supportsAttachmentUploads: liveSupportsAttachmentUploads,
           maxFileAttachmentBytes:
-            config?.environment.capabilities.fileAttachments?.maxUploadBytes ?? null,
+            config?.machine.capabilities.fileAttachments?.maxUploadBytes ?? null,
         }),
       };
     };
@@ -865,7 +865,7 @@ export function useComposerSend(input: ComposerSendInput) {
     const turnUsesAttachmentUploads =
       composerFilesSnapshot.length > 0
         ? attachmentCapabilitiesBeforeUpload.supportsAttachmentUploads
-        : readEnvironmentPresentation(environmentId)?.serverConfig?.environment.capabilities
+        : readMachinePresentation(machineId)?.serverConfig?.machine.capabilities
             .attachmentUploads === true;
     if (turnUsesAttachmentUploads && composerAttachmentsSnapshot.length > 0) {
       for (const attachment of composerAttachmentsSnapshot) {
@@ -874,7 +874,7 @@ export function useComposerSend(input: ComposerSendInput) {
             ? retryAttachmentUpload
             : startAttachmentUpload;
         upload({
-          environmentId,
+          machineId,
           image: attachment,
           draftTarget: composerDraftTarget,
         });
@@ -886,7 +886,7 @@ export function useComposerSend(input: ComposerSendInput) {
         setThreadError(threadIdForSend, attachmentCapabilitiesAfterUpload.fileBlockReason);
         return;
       }
-      if (getUploadedAttachments({ environmentId, images: composerAttachmentsSnapshot }) === null) {
+      if (getUploadedAttachments({ machineId, images: composerAttachmentsSnapshot }) === null) {
         sendInFlightRef.current = false;
         setThreadError(threadIdForSend, "Retry or remove failed uploads before sending.");
         return;
@@ -921,7 +921,7 @@ export function useComposerSend(input: ComposerSendInput) {
 
     const attachmentCapabilitiesBeforeDispatch = readLiveAttachmentCapabilities();
     if (
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||
+      !readMachineScope(machineId, AuthOrchestrationOperateScope) ||
       attachmentCapabilitiesBeforeDispatch.fileBlockReason !== null
     ) {
       sendInFlightRef.current = false;
@@ -1035,13 +1035,13 @@ export function useComposerSend(input: ComposerSendInput) {
       });
       beginWorktreeSetup(
         multipleModelSelections === null && baseBranchForWorktree
-          ? { environmentId: activeThread.environmentId, threadId: threadIdForSend }
+          ? { machineId: activeThread.machineId, threadId: threadIdForSend }
           : null,
       );
     }
 
     const turnAttachmentsPromise = prepareTurnAttachments({
-      environmentId,
+      machineId,
       attachments: composerAttachmentsSnapshot,
       usesAttachmentUploads: turnUsesAttachmentUploads,
     });
@@ -1065,7 +1065,7 @@ export function useComposerSend(input: ComposerSendInput) {
     const optimisticAttachments = optimisticMessageAttachments(composerAttachmentsSnapshot);
     if (!shouldQueueBehindActiveRun) {
       anchorNewTurn(
-        scopedThreadKey(scopeThreadRef(activeThread.environmentId, threadIdForSend)),
+        scopedThreadKey(scopeThreadRef(activeThread.machineId, threadIdForSend)),
         messageIdForSend,
       );
     }
@@ -1103,7 +1103,7 @@ export function useComposerSend(input: ComposerSendInput) {
       );
     }
     const sentDraftThreadRef = isLocalDraftThread
-      ? scopeThreadRef(environmentId, threadIdForSend)
+      ? scopeThreadRef(machineId, threadIdForSend)
       : null;
     // Keep new-thread flows from reusing this draft while attachments and worktree setup settle.
     if (sentDraftThreadRef) markPromotedDraftThreadByRef(sentDraftThreadRef);
@@ -1153,7 +1153,7 @@ export function useComposerSend(input: ComposerSendInput) {
 
     if (failure === null && compactBeforeSend) {
       const compactResult = await startThreadTurn({
-        environmentId,
+        machineId,
         input: {
           threadId: threadIdForSend,
           message: { messageId: newMessageId(), role: "user", text: "/compact", attachments: [] },
@@ -1201,11 +1201,11 @@ export function useComposerSend(input: ComposerSendInput) {
           : undefined;
       const backgroundThreadRef =
         submissionIntent === "background" && isLocalDraftThread
-          ? scopeThreadRef(environmentId, threadIdForSend)
+          ? scopeThreadRef(machineId, threadIdForSend)
           : null;
       if (backgroundThreadRef) beginBackgroundDraftSubmissionByRef(backgroundThreadRef);
       const startPromise = startThreadTurn({
-        environmentId,
+        machineId,
         input: {
           threadId: threadIdForSend,
           message: {
@@ -1220,7 +1220,7 @@ export function useComposerSend(input: ComposerSendInput) {
               // Read at dispatch time: the upload and persistence awaits above can
               // span a server reconnect that changes it.
               supportsInlineMessageContext:
-                appAtomRegistry.get(environmentServerConfigsAtom).get(environmentId)?.environment
+                appAtomRegistry.get(machineServerConfigsAtom).get(machineId)?.machine
                   .capabilities.inlineMessageContext === true,
             }),
           },
@@ -1237,7 +1237,7 @@ export function useComposerSend(input: ComposerSendInput) {
         try {
           backgroundDraftOpened = Boolean(
             await handleNewThread(
-              scopeProjectRef(activeProject.environmentId, activeProject.id),
+              scopeProjectRef(activeProject.machineId, activeProject.id),
               resolveBackgroundDraftWorkspaceOptions({
                 envMode: sendEnvMode,
                 branch: activeThreadBranch,
@@ -1286,7 +1286,7 @@ export function useComposerSend(input: ComposerSendInput) {
                   children: "Open",
                   onClick: () => {
                     void navigate({
-                      to: "/$environmentId/$threadId",
+                      to: "/$machineId/$threadId",
                       params: buildThreadRouteParams(backgroundThreadRef),
                     });
                   },
@@ -1312,7 +1312,7 @@ export function useComposerSend(input: ComposerSendInput) {
             ? newThreadId()
             : threadIdForSend,
         );
-        clearBackgroundDraftSubmissionByRef(scopeThreadRef(environmentId, threadIdForSend));
+        clearBackgroundDraftSubmissionByRef(scopeThreadRef(machineId, threadIdForSend));
       }
       if (
         !composerDraftHasUserContent(

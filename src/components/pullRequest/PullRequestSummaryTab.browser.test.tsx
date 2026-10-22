@@ -1,5 +1,5 @@
 import { SourceControlProviderKind } from "@vekrel/contracts";
-import { EnvironmentId, ProjectId, type PullRequestDetailView } from "@vekrel/contracts";
+import { MachineId, ProjectId, type PullRequestDetailView } from "@vekrel/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 
@@ -68,7 +68,7 @@ const detail: PullRequestDetailView = {
 const tab = (value = detail) => (
   <PullRequestSummaryTab
     scrollerRef={() => {}}
-    environmentId={EnvironmentId.make("environment")}
+    machineId={MachineId.make("machine")}
     threadRef={null}
     reference={value}
     detail={value}

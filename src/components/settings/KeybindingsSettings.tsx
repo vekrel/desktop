@@ -1,5 +1,5 @@
-import { useEnvironmentScope } from "../../state/session";
-import { useEnvironmentsWithScope, readEnvironmentScope } from "../../state/session";
+import { useMachineScope } from "../../state/session";
+import { useMachinesWithScope, readMachineScope } from "../../state/session";
 import {
   ChevronDownIcon,
   CircleXIcon,
@@ -38,7 +38,7 @@ import { isElectron } from "../../env";
 import { useOpenInPreferredEditor } from "../../editorPreferences";
 import { formatShortcutLabel } from "../../keybindings";
 import { cn } from "../../lib/utils";
-import { serverEnvironment } from "../../state/server";
+import { serverMachine } from "../../state/server";
 import { useSettingsScope } from "./SettingsScopeContext";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -1280,7 +1280,7 @@ function keybindingAnchorIds(rows: ReturnType<typeof buildKeybindingRows>) {
 // inline, the compiler joins them to the query's cache scope (filtering might
 // mutate them), and every keystroke rebuilds and re-renders every row.
 function useKeybindingCatalog() {
-  const serverKeybindings = useSettingsScope().environment?.serverConfig?.keybindings;
+  const serverKeybindings = useSettingsScope().machine?.serverConfig?.keybindings;
   const merged = mergeWithDefaultKeybindings(serverKeybindings ?? []);
   return {
     commandOptions: buildKeybindingCommandOptions(merged),
@@ -1289,25 +1289,25 @@ function useKeybindingCatalog() {
 }
 
 export function KeybindingsSettingsPanel() {
-  const { environment: primaryEnvironment, connectedEnvironments } = useSettingsScope();
-  const canOpenKeybindingsFile = useEnvironmentScope(
-    primaryEnvironment?.environmentId ?? null,
+  const { machine: primaryMachine, connectedMachines } = useSettingsScope();
+  const canOpenKeybindingsFile = useMachineScope(
+    primaryMachine?.machineId ?? null,
     AuthOrchestrationOperateScope,
   );
-  const writableIds = useEnvironmentsWithScope(connectedEnvironments, AuthSettingsWriteScope);
+  const writableIds = useMachinesWithScope(connectedMachines, AuthSettingsWriteScope);
   const canWriteSettings =
-    connectedEnvironments.length > 0 &&
-    connectedEnvironments.every((target) => writableIds.has(target.environmentId));
-  const keybindingsConfigPath = primaryEnvironment?.serverConfig?.keybindingsConfigPath ?? null;
-  const availableEditors = primaryEnvironment?.serverConfig?.availableEditors ?? [];
-  const upsertKeybinding = useAtomCommand(serverEnvironment.upsertKeybinding, {
+    connectedMachines.length > 0 &&
+    connectedMachines.every((target) => writableIds.has(target.machineId));
+  const keybindingsConfigPath = primaryMachine?.serverConfig?.keybindingsConfigPath ?? null;
+  const availableEditors = primaryMachine?.serverConfig?.availableEditors ?? [];
+  const upsertKeybinding = useAtomCommand(serverMachine.upsertKeybinding, {
     reportFailure: false,
   });
-  const removeKeybindingMutation = useAtomCommand(serverEnvironment.removeKeybinding, {
+  const removeKeybindingMutation = useAtomCommand(serverMachine.removeKeybinding, {
     reportFailure: false,
   });
   const openInPreferredEditor = useOpenInPreferredEditor(
-    primaryEnvironment?.environmentId ?? null,
+    primaryMachine?.machineId ?? null,
     availableEditors,
   );
   const [query, setQuery] = useState("");
@@ -1330,8 +1330,8 @@ export function KeybindingsSettingsPanel() {
   const openKeybindingsFile = () => {
     if (
       !keybindingsConfigPath ||
-      !primaryEnvironment ||
-      !readEnvironmentScope(primaryEnvironment.environmentId, AuthOrchestrationOperateScope)
+      !primaryMachine ||
+      !readMachineScope(primaryMachine.machineId, AuthOrchestrationOperateScope)
     )
       return;
     void (async () => {
@@ -1351,9 +1351,9 @@ export function KeybindingsSettingsPanel() {
 
   const saveKeybinding = (input: ServerUpsertKeybindingInput) => {
     if (
-      !primaryEnvironment ||
-      !connectedEnvironments.every((target) =>
-        readEnvironmentScope(target.environmentId, AuthSettingsWriteScope),
+      !primaryMachine ||
+      !connectedMachines.every((target) =>
+        readMachineScope(target.machineId, AuthSettingsWriteScope),
       )
     )
       return;
@@ -1366,8 +1366,8 @@ export function KeybindingsSettingsPanel() {
     };
     void (async () => {
       const results = await Promise.all(
-        connectedEnvironments.map((target) =>
-          upsertKeybinding({ environmentId: target.environmentId, input: payload }),
+        connectedMachines.map((target) =>
+          upsertKeybinding({ machineId: target.machineId, input: payload }),
         ),
       );
       setSavingCommand(null);
@@ -1389,18 +1389,18 @@ export function KeybindingsSettingsPanel() {
 
   const removeKeybinding = (row: KeybindingRow) => {
     if (
-      !primaryEnvironment ||
-      !connectedEnvironments.every((target) =>
-        readEnvironmentScope(target.environmentId, AuthSettingsWriteScope),
+      !primaryMachine ||
+      !connectedMachines.every((target) =>
+        readMachineScope(target.machineId, AuthSettingsWriteScope),
       )
     )
       return;
     setSavingCommand(row.command);
     void (async () => {
       const results = await Promise.all(
-        connectedEnvironments.map((target) =>
+        connectedMachines.map((target) =>
           removeKeybindingMutation({
-            environmentId: target.environmentId,
+            machineId: target.machineId,
             input: rowKeybindingTarget(row),
           }),
         ),
@@ -1481,8 +1481,8 @@ export function KeybindingsSettingsPanel() {
 
       {!canWriteSettings ? (
         <p className="text-xs text-muted-foreground">
-          {connectedEnvironments.length === 0
-            ? "Connect an environment to change keybindings."
+          {connectedMachines.length === 0
+            ? "Connect a machine to change keybindings."
             : "This connection can view keybindings but cannot change them."}
         </p>
       ) : null}

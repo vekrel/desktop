@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import { EnvironmentId, MessageId, ThreadId } from "@vekrel/contracts";
+import { MachineId, MessageId, ThreadId } from "@vekrel/contracts";
 import {
   collectAssistantCitations,
   serializeAssistantCitation,
@@ -89,7 +89,7 @@ describe("promptStashStore", () => {
   it("restores citations and bound comments from a persisted stash", () => {
     const citation = {
       version: 1 as const,
-      environmentId: EnvironmentId.make("remote-source"),
+      machineId: MachineId.make("remote-source"),
       threadId: ThreadId.make("source-thread"),
       messageId: MessageId.make("source-message"),
       text: "A quote to revisit later.",
@@ -180,7 +180,7 @@ describe("promptStashStore", () => {
       mimeType: "application/pdf",
       sizeBytes: 42,
       attachmentId: "pending-report-pdf",
-      environmentId: EnvironmentId.make("environment-1"),
+      machineId: MachineId.make("machine-1"),
     };
 
     writePromptStashStorageForTest(

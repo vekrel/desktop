@@ -1,4 +1,4 @@
-import { EnvironmentId, ProjectId, type AgentSessionProjectCandidate } from "@vekrel/contracts";
+import { MachineId, ProjectId, type AgentSessionProjectCandidate } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -136,8 +136,8 @@ describe("groupOnboardingProjects", () => {
 });
 
 describe("resolveOnboardingProjectId", () => {
-  const localEnvironmentId = EnvironmentId.make("local");
-  const remoteEnvironmentId = EnvironmentId.make("remote");
+  const localMachineId = MachineId.make("local");
+  const remoteMachineId = MachineId.make("remote");
   const localProjectId = ProjectId.make("local-project");
 
   it("uses the scanned project ID when the client still has an older project at that root", () => {
@@ -146,48 +146,48 @@ describe("resolveOnboardingProjectId", () => {
         [
           {
             id: ProjectId.make("stale-project"),
-            environmentId: localEnvironmentId,
+            machineId: localMachineId,
             workspaceRoot: "/projects/repo",
           },
         ],
-        localEnvironmentId,
+        localMachineId,
         candidate("/projects/repo", { projectId: localProjectId }),
       ),
     ).toBe(localProjectId);
   });
 
-  it("finds an existing project by normalized root in the target environment", () => {
+  it("finds an existing project by normalized root in the target machine", () => {
     expect(
       resolveOnboardingProjectId(
         [
           {
             id: ProjectId.make("remote-project"),
-            environmentId: remoteEnvironmentId,
+            machineId: remoteMachineId,
             workspaceRoot: "C:\\Work\\Repo",
           },
           {
             id: localProjectId,
-            environmentId: localEnvironmentId,
+            machineId: localMachineId,
             workspaceRoot: "C:\\Work\\Repo\\",
           },
         ],
-        localEnvironmentId,
+        localMachineId,
         candidate("c:/work/repo"),
       ),
     ).toBe(localProjectId);
   });
 
-  it("does not reuse a project from another environment", () => {
+  it("does not reuse a project from another machine", () => {
     expect(
       resolveOnboardingProjectId(
         [
           {
             id: ProjectId.make("remote-project"),
-            environmentId: remoteEnvironmentId,
+            machineId: remoteMachineId,
             workspaceRoot: "/projects/repo",
           },
         ],
-        localEnvironmentId,
+        localMachineId,
         candidate("/projects/repo"),
       ),
     ).toBeNull();
@@ -200,16 +200,16 @@ describe("resolveOnboardingProjectId", () => {
         [
           {
             id: localProjectId,
-            environmentId: localEnvironmentId,
+            machineId: localMachineId,
             workspaceRoot: "/projects/other",
           },
           {
             id: recreatedProjectId,
-            environmentId: localEnvironmentId,
+            machineId: localMachineId,
             workspaceRoot: "/projects/repo",
           },
         ],
-        localEnvironmentId,
+        localMachineId,
         candidate("/projects/repo"),
       ),
     ).toBe(recreatedProjectId);
@@ -253,8 +253,8 @@ describe("resolveOnboardingLandingProject", () => {
 
 describe("projects on multiple computers", () => {
   it("keeps identical paths independent when selecting a landing project after partial imports", () => {
-    const first = onboardingProjectKey(EnvironmentId.make("first"), "/code/app");
-    const second = onboardingProjectKey(EnvironmentId.make("second"), "/code/app");
+    const first = onboardingProjectKey(MachineId.make("first"), "/code/app");
+    const second = onboardingProjectKey(MachineId.make("second"), "/code/app");
     const completed = new Map([[first, "first-project"]]);
     expect(completed.has(second)).toBe(false);
     expect(resolveOnboardingLandingProject([second], completed, completed)).toBeUndefined();
@@ -266,8 +266,8 @@ describe("projects on multiple computers", () => {
 
   // regression: #10465 multi-computer onboarding mixed up which computer a project came from
   it("preserves computer identity when choosing recent projects", () => {
-    const first = { ...candidate("/code/app"), environmentId: "first" };
-    const second = { ...candidate("/code/app"), environmentId: "second" };
+    const first = { ...candidate("/code/app"), machineId: "first" };
+    const second = { ...candidate("/code/app"), machineId: "second" };
     expect(partitionOnboardingProjects([first, second], now).recent).toEqual([first, second]);
   });
 });

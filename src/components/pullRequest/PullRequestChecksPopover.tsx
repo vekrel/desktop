@@ -1,6 +1,6 @@
 import type * as React from "react";
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestCheck,
   PullRequestChecksState,
   PullRequestRef,
@@ -10,8 +10,8 @@ import { useState } from "react";
 
 import { useOpenLink } from "~/browser/useOpenLink";
 import { cn } from "~/lib/utils";
-import { pullRequestEnvironment } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestMachine } from "~/state/pullRequests";
+import { useMachineQuery } from "~/state/query";
 
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Button } from "../ui/button";
@@ -32,16 +32,16 @@ import {
  * hundred.
  */
 function LazyChecksBody({
-  environmentId,
+  machineId,
   reference,
   threadRef,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   threadRef: ScopedThreadRef | null;
 }) {
-  const detailQuery = useEnvironmentQuery(
-    pullRequestEnvironment.detail({ environmentId, input: reference }),
+  const detailQuery = useMachineQuery(
+    pullRequestMachine.detail({ machineId, input: reference }),
   );
   if (detailQuery.error !== null) {
     return <p className="text-muted-foreground text-xs">{detailQuery.error}</p>;
@@ -133,7 +133,7 @@ export function PullRequestChecksPopover({
   checksState,
   checks,
   stale = false,
-  environmentId,
+  machineId,
   reference,
   threadRef = null,
   variant = "icon",
@@ -143,7 +143,7 @@ export function PullRequestChecksPopover({
   checksState: PullRequestChecksState;
   checks?: ReadonlyArray<PullRequestCheck>;
   stale?: boolean;
-  environmentId?: EnvironmentId;
+  machineId?: MachineId;
   reference?: PullRequestRef;
   threadRef?: ScopedThreadRef | null;
   variant?: "icon" | "count";
@@ -205,9 +205,9 @@ export function PullRequestChecksPopover({
           </p>
         ) : checks !== undefined ? (
           <ChecksBody checks={checks} threadRef={threadRef} />
-        ) : environmentId !== undefined && reference !== undefined ? (
+        ) : machineId !== undefined && reference !== undefined ? (
           <LazyChecksBody
-            environmentId={environmentId}
+            machineId={machineId}
             reference={reference}
             threadRef={threadRef}
           />

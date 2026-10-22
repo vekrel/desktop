@@ -1,5 +1,5 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import { type EnvironmentId, RunId, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import { type MachineId, RunId, ThreadId } from "@vekrel/contracts";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
 import { useClosedViewStore } from "./closedViewStore";
@@ -15,8 +15,8 @@ import {
   useRightPanelStore,
 } from "./rightPanelStore";
 
-const refA = scopeThreadRef("env-1" as EnvironmentId, ThreadId.make("thread-A"));
-const refB = scopeThreadRef("env-1" as EnvironmentId, ThreadId.make("thread-B"));
+const refA = scopeThreadRef("env-1" as MachineId, ThreadId.make("thread-A"));
+const refB = scopeThreadRef("env-1" as MachineId, ThreadId.make("thread-B"));
 
 beforeEach(() => {
   useClosedViewStore.setState({ entries: [] });
@@ -394,8 +394,8 @@ describe("rightPanelStore", () => {
     expect(store.openProactive(refA, completedDiff, store.getUserActionRevision(refA))).toBe(false);
     expect(selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, refA)).toBeNull();
 
-    const otherEnvironment = scopeThreadRef("env-2" as EnvironmentId, refA.threadId);
-    for (const ref of [refB, otherEnvironment]) {
+    const otherMachine = scopeThreadRef("env-2" as MachineId, refA.threadId);
+    for (const ref of [refB, otherMachine]) {
       expect(store.openProactive(ref, completedDiff, store.getUserActionRevision(ref))).toBe(true);
       expect(selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, ref)).toBe("diff");
     }
@@ -445,17 +445,17 @@ describe("rightPanelStore", () => {
     expect(selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, refA)).toBe("diff");
   });
 
-  it("keeps manual choices scoped to their thread and environment", () => {
-    const otherEnvironment = scopeThreadRef("env-2" as EnvironmentId, refA.threadId);
+  it("keeps manual choices scoped to their thread and machine", () => {
+    const otherMachine = scopeThreadRef("env-2" as MachineId, refA.threadId);
     const store = useRightPanelStore.getState();
     const revision = store.getUserActionRevision(refA);
     store.openFile(refB, "src/app.ts");
-    store.openFile(otherEnvironment, "src/app.ts");
+    store.openFile(otherMachine, "src/app.ts");
 
     expect(store.openProactive(refA, completedDiff, revision)).toBe(true);
     expect(selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, refB)).toBe("file");
     expect(
-      selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, otherEnvironment),
+      selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, otherMachine),
     ).toBe("file");
   });
 
@@ -996,14 +996,14 @@ describe("rightPanelStore", () => {
     expect(state.surfaces[1]).not.toHaveProperty("url");
   });
 
-  it("restores each environment, thread and PR surface's detail tab after reload and URL reopen", async () => {
+  it("restores each machine, thread and PR surface's detail tab after reload and URL reopen", async () => {
     const pr = { projectId: "project-a", repository: "pingdotgg/t3code", number: 4909 };
     const otherPr = { ...pr, projectId: "project-b" };
-    const otherEnvironment = scopeThreadRef("env-2" as EnvironmentId, refA.threadId);
+    const otherMachine = scopeThreadRef("env-2" as MachineId, refA.threadId);
     const selections = [
       [refA, pr, "code"],
       [refB, pr, "guide"],
-      [otherEnvironment, pr, "timeline"],
+      [otherMachine, pr, "timeline"],
       [refA, otherPr, "summary"],
     ] as const;
     const store = useRightPanelStore.getState();
@@ -1066,15 +1066,15 @@ describe("rightPanelStore", () => {
 
   it("keeps the page's panel tabs reachable when the set of connected servers changes", () => {
     const panelId = ThreadId.make("pull-requests-panel");
-    const stableRef = scopeThreadRef("pull-requests-panel" as EnvironmentId, panelId);
+    const stableRef = scopeThreadRef("pull-requests-panel" as MachineId, panelId);
     const fromServerA = {
-      environmentId: "server-a",
+      machineId: "server-a",
       projectId: "project-a",
       repository: "pingdotgg/t3code",
       number: 1,
     };
     const fromServerB = {
-      environmentId: "server-b",
+      machineId: "server-b",
       projectId: "project-b",
       repository: "pingdotgg/t3code",
       number: 2,
@@ -1089,8 +1089,8 @@ describe("rightPanelStore", () => {
       pullRequestSurfaceId(fromServerB),
     ]);
 
-    const refWhileBothConnected = scopeThreadRef("server-a" as EnvironmentId, panelId);
-    const refAfterServerADisconnects = scopeThreadRef("server-b" as EnvironmentId, panelId);
+    const refWhileBothConnected = scopeThreadRef("server-a" as MachineId, panelId);
+    const refAfterServerADisconnects = scopeThreadRef("server-b" as MachineId, panelId);
     expect(refWhileBothConnected).not.toEqual(refAfterServerADisconnects);
     expect(
       selectThreadRightPanelState(

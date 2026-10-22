@@ -1,6 +1,6 @@
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vite-plus/test";
-import { EnvironmentId, type DeviceHostSummary } from "@vekrel/contracts";
+import { MachineId, type DeviceHostSummary } from "@vekrel/contracts";
 import {
   checkDeviceHostConnections,
   parseDeviceHostDraft,
@@ -9,10 +9,10 @@ import {
 } from "./deviceHostConnectionChecks";
 
 const host = { kind: "ssh" as const, id: "mac", label: "Mac mini", target: "user@mac" };
-const ids = ["a", "b", "c", "d"].map((id) => EnvironmentId.make(id));
-const targets = ids.map((environmentId, index) => ({
-  environmentId,
-  label: environmentId,
+const ids = ["a", "b", "c", "d"].map((id) => MachineId.make(id));
+const targets = ids.map((machineId, index) => ({
+  machineId,
+  label: machineId,
   connected: index !== 3,
 }));
 const summary: DeviceHostSummary = {
@@ -25,7 +25,7 @@ const summary: DeviceHostSummary = {
 };
 
 describe("device host connection checks", () => {
-  it("starts all connected environments and retains success, local, failure, and offline results", async () => {
+  it("starts all connected machines and retains success, local, failure, and offline results", async () => {
     const calls: string[] = [];
     const pending = new Map<
       string,
@@ -35,11 +35,11 @@ describe("device host connection checks", () => {
     const run = checkDeviceHostConnections(
       targets,
       host,
-      (environmentId) => {
-        calls.push(environmentId);
-        return new Promise((resolve, reject) => pending.set(environmentId, { resolve, reject }));
+      (machineId) => {
+        calls.push(machineId);
+        return new Promise((resolve, reject) => pending.set(machineId, { resolve, reject }));
       },
-      (environmentId, result) => results.set(environmentId, result),
+      (machineId, result) => results.set(machineId, result),
     );
     expect(calls).toEqual(ids.slice(0, 3));
     expect(results.get(ids[0]!)).toEqual({ status: "pending" });
@@ -51,7 +51,7 @@ describe("device host connection checks", () => {
       { status: "connected", platforms: summary.platforms },
       { status: "local" },
       { status: "failed", error: "SSH key rejected" },
-      { status: "failed", error: "Environment disconnected" },
+      { status: "failed", error: "Machine disconnected" },
     ]);
   });
 
@@ -65,7 +65,7 @@ describe("device host connection checks", () => {
       expect(deviceHostConnectionKey(changed)).not.toBe(key);
     }
     expect(
-      deviceHostConnectionKey({ ...host, id: "another-environment-id", label: "Renamed" }),
+      deviceHostConnectionKey({ ...host, id: "another-machine-id", label: "Renamed" }),
     ).toBe(key);
   });
   it("validates SSH targets and normalizes optional identity files through the host contract", () => {

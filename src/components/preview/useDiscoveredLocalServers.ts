@@ -1,7 +1,7 @@
 import type { DiscoveredLocalServer } from "@vekrel/contracts";
 import { isLoopbackHost } from "@vekrel/shared/preview";
 
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { resolveDiscoveredServerUrl } from "~/browser/browserTargetResolver";
 import { useDiscoveredPortsState } from "~/portDiscoveryState";
 
@@ -9,25 +9,25 @@ export interface PreviewableServer extends DiscoveredLocalServer {
   source: "scanner" | "configured";
   /**
    * Pre-resolution loopback url. `url` is the resolved navigation target
-   * (volatile on a remote environment); history must key off this instead.
+   * (volatile on a remote machine); history must key off this instead.
    */
   requestedUrl: string;
 }
 
 interface UseDiscoveredLocalServersInput {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   configuredUrls?: ReadonlyArray<string> | undefined;
 }
 
 export function useDiscoveredLocalServers(
   input: UseDiscoveredLocalServersInput,
 ): ReadonlyArray<PreviewableServer> {
-  const scannerState = useDiscoveredPortsState(input.environmentId, input.configuredUrls);
+  const scannerState = useDiscoveredPortsState(input.machineId, input.configuredUrls);
 
   return mergeServers({
     scanner: scannerState.servers.map((server) => ({
       ...server,
-      url: resolveDiscoveredServerUrl(input.environmentId, server.url),
+      url: resolveDiscoveredServerUrl(input.machineId, server.url),
       requestedUrl: server.url,
     })),
     configuredUrls: input.configuredUrls ?? [],

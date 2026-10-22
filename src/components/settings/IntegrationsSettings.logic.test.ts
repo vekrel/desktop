@@ -1,20 +1,20 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 
 import { clearBrowserProfileData, importFailureReason } from "./IntegrationsSettings";
 
-const environmentId = "environment-a" as EnvironmentId;
-const secondEnvironmentId = "environment-b" as EnvironmentId;
+const machineId = "machine-a" as MachineId;
+const secondMachineId = "machine-b" as MachineId;
 
 describe("clearBrowserProfileData", () => {
-  it("does not report success without an environment or bridge", async () => {
+  it("does not report success without a machine or bridge", async () => {
     const bridge = {
       clearCookies: vi.fn().mockResolvedValue(undefined),
       clearCache: vi.fn().mockResolvedValue(undefined),
     };
 
     await expect(clearBrowserProfileData(bridge, [], "profile-a")).rejects.toThrow();
-    await expect(clearBrowserProfileData(null, [environmentId], "profile-a")).rejects.toThrow();
+    await expect(clearBrowserProfileData(null, [machineId], "profile-a")).rejects.toThrow();
     expect(bridge.clearCookies).not.toHaveBeenCalled();
     expect(bridge.clearCache).not.toHaveBeenCalled();
   });
@@ -23,11 +23,11 @@ describe("clearBrowserProfileData", () => {
 describe("clearBrowserProfileData with server browsers", () => {
   it("clears server-hosted profiles without a desktop bridge", async () => {
     const clear = vi.fn().mockResolvedValue(undefined);
-    await clearBrowserProfileData(null, [environmentId, secondEnvironmentId], "profile-a", {
-      environmentIds: [secondEnvironmentId],
+    await clearBrowserProfileData(null, [machineId, secondMachineId], "profile-a", {
+      machineIds: [secondMachineId],
       clear,
     });
-    expect(clear).toHaveBeenCalledExactlyOnceWith(secondEnvironmentId, "profile-a");
+    expect(clear).toHaveBeenCalledExactlyOnceWith(secondMachineId, "profile-a");
   });
 
   it("clears both copies and fails when the server copy fails", async () => {
@@ -37,12 +37,12 @@ describe("clearBrowserProfileData with server browsers", () => {
     };
     const failure = new Error("server failed");
     await expect(
-      clearBrowserProfileData(bridge, [environmentId], "profile-a", {
-        environmentIds: [environmentId],
+      clearBrowserProfileData(bridge, [machineId], "profile-a", {
+        machineIds: [machineId],
         clear: vi.fn().mockRejectedValue(failure),
       }),
     ).rejects.toBe(failure);
-    expect(bridge.clearCookies).toHaveBeenCalledWith(environmentId, "profile-a");
+    expect(bridge.clearCookies).toHaveBeenCalledWith(machineId, "profile-a");
   });
 });
 

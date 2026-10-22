@@ -1,27 +1,27 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import * as Option from "effect/Option";
 import { AsyncResult } from "effect/reactivity";
 import { useContext } from "react";
 
 import { agentSessionScan } from "../state/agentSessions";
-import { environmentAtomList, environmentIdsKey } from "../state/environmentAtomList";
-import { formatEnvironmentQueryError } from "../state/query";
+import { machineAtomList, machineIdsKey } from "../state/machineAtomList";
+import { formatMachineQueryError } from "../state/query";
 
-const scanAtom = (environmentId: EnvironmentId) => agentSessionScan({ environmentId, input: {} });
-const projectScansAtom = environmentAtomList("web-project-scans", scanAtom);
+const scanAtom = (machineId: MachineId) => agentSessionScan({ machineId, input: {} });
+const projectScansAtom = machineAtomList("web-project-scans", scanAtom);
 
-export function useProjectScans(environmentIds: readonly EnvironmentId[]) {
+export function useProjectScans(machineIds: readonly MachineId[]) {
   const registry = useContext(RegistryContext);
-  const results = useAtomValue(projectScansAtom(environmentIdsKey(environmentIds)));
-  return environmentIds.map((environmentId, index) => {
+  const results = useAtomValue(projectScansAtom(machineIdsKey(machineIds)));
+  return machineIds.map((machineId, index) => {
     const result = results[index]!;
     return {
-      environmentId,
+      machineId,
       data: Option.getOrNull(AsyncResult.value(result)),
-      error: result._tag === "Failure" ? formatEnvironmentQueryError(result.cause) : null,
+      error: result._tag === "Failure" ? formatMachineQueryError(result.cause) : null,
       isPending: result.waiting || result._tag === "Initial",
-      refresh: () => registry.refresh(scanAtom(environmentId)),
+      refresh: () => registry.refresh(scanAtom(machineId)),
     };
   });
 }

@@ -1,13 +1,13 @@
 import { useAtomValue } from "@effect/atom-react";
 import {
-  AuthEnvironmentMaintainScope,
+  AuthMachineMaintainScope,
   type AuthSessionState,
   sessionGrantsScope,
 } from "@vekrel/contracts";
 import type { AsyncResult } from "effect/reactivity";
-import { environmentSession } from "~/state/session";
+import { machineSession } from "~/state/session";
 import type {
-  EnvironmentId,
+  MachineId,
   ServerInstallation,
   ServerSelfUpdateCapability,
 } from "@vekrel/contracts";
@@ -22,8 +22,8 @@ import { type ComponentProps, useRef, useState } from "react";
 
 import { requestConfirmDialog } from "~/confirmDialog";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
-import { useEnvironmentSettings } from "~/hooks/useSettings";
-import { serverEnvironment, updateOutdatedServer } from "~/state/server";
+import { useMachineSettings } from "~/hooks/useSettings";
+import { serverMachine, updateOutdatedServer } from "~/state/server";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { manualServerUpdateCommand } from "~/versionSkew";
@@ -36,7 +36,7 @@ const UPDATE_STAGE_LABELS: Record<ServerUpdateStage, string> = {
   installing: "Downloading…",
   resuming: "Restarting…",
 };
-const pendingUpdateEnvironmentIds = new Set<EnvironmentId>();
+const pendingUpdateMachineIds = new Set<MachineId>();
 
 export function serverUpdateStageLabel(stage: ServerUpdateStage): string {
   return UPDATE_STAGE_LABELS[stage];
@@ -47,7 +47,7 @@ function updateFailureMessage(error: unknown): string {
 }
 
 export interface ServerUpdateTarget {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly serverLabel: string;
   readonly selfUpdate: ServerSelfUpdateCapability | null;
   readonly installation?: ServerInstallation | undefined;
@@ -68,20 +68,20 @@ export type ServerUpdateOutcome =
 
 /** Toasts its success or failure unless `quiet`; never rejects. */
 export function useServerUpdate() {
-  const updateServer = useAtomCommand(serverEnvironment.updateServer, { reportFailure: false });
+  const updateServer = useAtomCommand(serverMachine.updateServer, { reportFailure: false });
   return async (
     target: ServerUpdateTarget,
     { quiet = false }: { readonly quiet?: boolean } = {},
   ): Promise<ServerUpdateOutcome> => {
-    const { environmentId, serverLabel, selfUpdate, targetVersion } = target;
+    const { machineId, serverLabel, selfUpdate, targetVersion } = target;
     if (
-      !canUpdateServer(appAtomRegistry.get(environmentSession.sessionStateAtom(environmentId))) ||
-      pendingUpdateEnvironmentIds.has(environmentId)
+      !canUpdateServer(appAtomRegistry.get(machineSession.sessionStateAtom(machineId))) ||
+      pendingUpdateMachineIds.has(machineId)
     )
       return { status: "skipped" };
-    pendingUpdateEnvironmentIds.add(environmentId);
+    pendingUpdateMachineIds.add(machineId);
     const result = await updateServer({
-      environmentId,
+      machineId,
       input: {
         targetVersion,
         ...(target.threadContinuation && target.continueThreadsAfterServerUpdate
@@ -89,7 +89,7 @@ export function useServerUpdate() {
           : {}),
       },
     });
-    pendingUpdateEnvironmentIds.delete(environmentId);
+    pendingUpdateMachineIds.delete(machineId);
     if (result._tag === "Failure") {
       if (isAtomCommandInterrupted(result)) return { status: "skipped" };
       const message = updateFailureMessage(squashAtomCommandFailure(result));
@@ -139,7 +139,7 @@ export function ServerUpdatesAction({
     setIsPending(true);
     await settlePromise(async () => {
       const available = eligible.filter(
-        (target) => !pendingUpdateEnvironmentIds.has(target.environmentId),
+        (target) => !pendingUpdateMachineIds.has(target.machineId),
       );
       const desktopTargets = available.filter((target) => target.selfUpdate === "desktop-managed");
       if (desktopTargets.length > 0) {
@@ -171,7 +171,7 @@ export function canUpdateServer(
   result: AsyncResult.AsyncResult<AuthSessionState, unknown>,
 ): boolean {
   if (result._tag !== "Success" || !result.value.authenticated) return false;
-  return sessionGrantsScope(result.value, AuthEnvironmentMaintainScope);
+  return sessionGrantsScope(result.value, AuthMachineMaintainScope);
 }
 
 export function ServerUpdateProgress({
@@ -203,7 +203,7 @@ export function ServerUpdateProgress({
  * during reconnect without losing operation state.
  */
 export function ServerUpdateAction({
-  environmentId,
+  machineId,
   serverLabel,
   selfUpdate,
   installation,
@@ -217,10 +217,10 @@ export function ServerUpdateAction({
   appearance = "button",
 }: Omit<ServerUpdateTarget, "continueThreadsAfterServerUpdate"> & UpdateButtonProps) {
   const isDesktopAppUpdate = selfUpdate === "desktop-managed";
-  const sessionStateAtom = environmentSession.sessionStateAtom(environmentId);
+  const sessionStateAtom = machineSession.sessionStateAtom(machineId);
   const canUpdate = canUpdateServer(useAtomValue(sessionStateAtom));
-  const continueThreadsAfterServerUpdate = useEnvironmentSettings(
-    environmentId,
+  const continueThreadsAfterServerUpdate = useMachineSettings(
+    machineId,
     (settings) => settings.continueThreadsAfterServerUpdate,
   );
   const update = useServerUpdate();
@@ -249,7 +249,7 @@ export function ServerUpdateAction({
   const handleUpdate = async () => {
     if (
       !canUpdateServer(appAtomRegistry.get(sessionStateAtom)) ||
-      pendingUpdateEnvironmentIds.has(environmentId)
+      pendingUpdateMachineIds.has(machineId)
     ) {
       return;
     }
@@ -264,7 +264,7 @@ export function ServerUpdateAction({
     }
     if (!canUpdateServer(appAtomRegistry.get(sessionStateAtom))) return;
     await update({
-      environmentId,
+      machineId,
       serverLabel,
       selfUpdate,
       desktopAppUpdate,
@@ -334,13 +334,13 @@ export function ServerUpdateAction({
  * Its version comes from the host descriptor because the host never delivers a server config.
  */
 export function OutdatedServerUpdateAction({
-  environmentId,
+  machineId,
   serverLabel,
   fromVersion,
   targetVersion,
   label = "Update",
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly serverLabel: string;
   readonly fromVersion: string | undefined;
   readonly targetVersion: string;
@@ -348,14 +348,14 @@ export function OutdatedServerUpdateAction({
 }) {
   const update = useAtomCommand(updateOutdatedServer, { reportFailure: false });
   const handleUpdate = async () => {
-    if (pendingUpdateEnvironmentIds.has(environmentId)) return;
-    pendingUpdateEnvironmentIds.add(environmentId);
+    if (pendingUpdateMachineIds.has(machineId)) return;
+    pendingUpdateMachineIds.add(machineId);
     const result = await update({
-      environmentId,
+      machineId,
       input: { targetVersion },
       ...(fromVersion === undefined ? {} : { fromVersion }),
     });
-    pendingUpdateEnvironmentIds.delete(environmentId);
+    pendingUpdateMachineIds.delete(machineId);
     if (result._tag === "Failure") {
       if (isAtomCommandInterrupted(result)) return;
       toastManager.add({

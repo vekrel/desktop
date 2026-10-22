@@ -56,10 +56,10 @@ export type ThemeFile = Readonly<{
 }>;
 
 /**
- * The environment's palettes are not saved: they are republished by the server
+ * The machine's palettes are not saved: they are republished by the server
  * on every change and would go stale the moment the machine's theme moved on.
  */
-let environmentThemeDefinitions: ReadonlyArray<ThemeDefinition> = [];
+let machineThemeDefinitions: ReadonlyArray<ThemeDefinition> = [];
 
 const customThemeListeners = new Set<() => void>();
 type CustomThemeLibrarySnapshot =
@@ -240,8 +240,8 @@ export function getCustomThemes(): ReadonlyArray<ThemeDefinition> {
   return snapshot.status === "ready" ? snapshot.themes : EMPTY_CUSTOM_THEMES;
 }
 
-export function getEnvironmentThemes(): ReadonlyArray<ThemeDefinition> {
-  return environmentThemeDefinitions;
+export function getMachineThemes(): ReadonlyArray<ThemeDefinition> {
+  return machineThemeDefinitions;
 }
 
 /**
@@ -249,9 +249,9 @@ export function getEnvironmentThemes(): ReadonlyArray<ThemeDefinition> {
  * fresh arrays on every reconnect, and a repaint for identical colors is the
  * kind of wasted work users of this product notice.
  */
-export function setEnvironmentThemes(themes: ReadonlyArray<ThemeDefinition>): boolean {
-  if (Equal.equals(environmentThemeDefinitions, themes)) return false;
-  environmentThemeDefinitions = themes;
+export function setMachineThemes(themes: ReadonlyArray<ThemeDefinition>): boolean {
+  if (Equal.equals(machineThemeDefinitions, themes)) return false;
+  machineThemeDefinitions = themes;
   notifyCustomThemeListeners();
   return true;
 }
@@ -1032,7 +1032,7 @@ export function getThemeDefinition(theme: ThemePreference): ThemeDefinition | nu
   return (
     BUILT_IN_THEME_DEFINITIONS.find((definition) => definition.id === themeId) ??
     getCustomThemes().find((definition) => definition.id === themeId) ??
-    environmentThemeDefinitions.find((definition) => definition.id === themeId) ??
+    machineThemeDefinitions.find((definition) => definition.id === themeId) ??
     null
   );
 }

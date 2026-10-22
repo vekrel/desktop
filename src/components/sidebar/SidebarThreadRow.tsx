@@ -13,15 +13,15 @@ import {
 } from "@vekrel/client-runtime/state/thread-settled";
 import { formatDiffCount } from "@vekrel/client-runtime/diff-count";
 import { resolveSettledThreadTimestamp } from "@vekrel/client-runtime/state/thread-sort";
-import { type EnvironmentThreadSearchMatch } from "@vekrel/client-runtime/state/thread-search";
+import { type MachineThreadSearchMatch } from "@vekrel/client-runtime/state/thread-search";
 import {
   formatWorkingDurationLabel,
   resolveThreadProviderStack,
 } from "@vekrel/client-runtime/state/models";
-import { scopeThreadRef, scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef, scopedThreadKey } from "@vekrel/client-runtime/machine";
 import {
   AuthOrchestrationOperateScope,
-  type EnvironmentMachineKind,
+  type MachineKind,
   type ScopedThreadRef,
 } from "@vekrel/contracts";
 
@@ -63,15 +63,15 @@ import { useUiStateStore } from "../../uiStateStore";
 import { useThreadSelectionStore } from "../../threadSelectionStore";
 import { useNowMinute } from "../../hooks/useNowMinute";
 import { useNowSecond } from "../../hooks/useNowSecond";
-import { vcsEnvironment } from "../../state/vcs";
-import { useEnvironmentQuery } from "../../state/query";
-import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { vcsMachine } from "../../state/vcs";
+import { useMachineQuery } from "../../state/query";
+import { readMachineScope, useMachineScope } from "../../state/session";
 import { formatRelativeTimeLabel, parseTimestampDate } from "../../timestampFormat";
 import type { SidebarThreadSummary } from "../../types";
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 import { cn } from "~/lib/utils";
 import { textDirection } from "~/textDirection";
-import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import { MachineIcon } from "../MachineIcon";
 import {
   animateSidebarLayoutChanges,
   hasUnseenCompletion,
@@ -113,7 +113,7 @@ import { useThreadHasUnsentDraft } from "../../composerDraftStore";
 
 // The fields thread rows show. Provider status pushes refresh `checkedAt`,
 // status and auth on every provider; leaving those out keeps each
-// environment's map, and every memoized row, stable across them.
+// machine's map, and every memoized row, stable across them.
 export type SidebarProviderEntry = Pick<
   ProviderInstanceEntry,
   | "instanceId"
@@ -227,8 +227,8 @@ function SidebarThreadTooltip({
   thread,
   project,
   projectDisplayName,
-  environmentLabel,
-  environmentMachine,
+  machineLabel,
+  machine,
   providerEntry,
   providerEntryByInstanceId,
   showInstanceBadge,
@@ -241,8 +241,8 @@ function SidebarThreadTooltip({
   thread: SidebarThreadSummary;
   project: ProjectFaviconProject | null;
   projectDisplayName: string | null;
-  environmentLabel: string | null;
-  environmentMachine: EnvironmentMachineKind;
+  machineLabel: string | null;
+  machine: MachineKind;
   providerEntry: SidebarProviderEntry | null;
   providerEntryByInstanceId: ReadonlyMap<string, SidebarProviderEntry>;
   showInstanceBadge: boolean;
@@ -259,7 +259,7 @@ function SidebarThreadTooltip({
   const previousProviderNames = thread.providerInstanceHistory
     .filter((instanceId) => instanceId !== modelInstanceId)
     .map((instanceId) => providerEntryByInstanceId.get(instanceId)?.displayName ?? instanceId);
-  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.environmentId);
+  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.machineId);
   return (
     <ThreadHoverCardPopup side="right" align="start" sideOffset={4}>
       <ThreadHoverCard
@@ -278,13 +278,13 @@ function SidebarThreadTooltip({
             <div className="min-w-0 truncate text-foreground/75">{projectDisplayName}</div>
           </div>
         ) : null}
-        {environmentLabel ? (
+        {machineLabel ? (
           <div className="flex min-w-0 items-center gap-2">
-            <EnvironmentMachineIcon
-              kind={environmentMachine}
+            <MachineIcon
+              kind={machine}
               className="size-3 shrink-0 stroke-muted-foreground"
             />
-            <div className="min-w-0 truncate text-foreground/75">{environmentLabel}</div>
+            <div className="min-w-0 truncate text-foreground/75">{machineLabel}</div>
           </div>
         ) : null}
         {thread.branch ? (
@@ -444,8 +444,8 @@ export function SortableThreadRow(
   },
 ) {
   const { sortableId, sortableDisabled, contextDrag, ...rowProps } = props;
-  const canOperateThread = useEnvironmentScope(
-    rowProps.thread.environmentId,
+  const canOperateThread = useMachineScope(
+    rowProps.thread.machineId,
     AuthOrchestrationOperateScope,
   );
   const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -468,7 +468,7 @@ export function SortableThreadRow(
   // The sidebar arranges rows from quiet shells, which hold still while a
   // thread streams; reading the live shell here re-renders only this row.
   const thread =
-    useThreadShell(scopeThreadRef(rowProps.thread.environmentId, rowProps.thread.id)) ??
+    useThreadShell(scopeThreadRef(rowProps.thread.machineId, rowProps.thread.id)) ??
     rowProps.thread;
   // Keyed by variant so a card/slim switch remounts the row.
   return <SidebarThreadRow key={rowProps.variant} {...rowProps} thread={thread} sortable={bag} />;
@@ -527,11 +527,11 @@ type SidebarThreadRowProps = {
   isRouteThread: boolean;
   openPullRequestsInRightPanel: boolean;
   jumpLabel: string | null;
-  currentEnvironmentId: string | null;
-  environmentLabel: string | null;
-  environmentMachine: EnvironmentMachineKind;
+  currentMachineId: string | null;
+  machineLabel: string | null;
+  machine: MachineKind;
   scratchMachineLabel: string | null;
-  project: EnvironmentProject | null;
+  project: MachineProject | null;
   projectDisplayName: string | null;
   providerEntryByInstanceId: ReadonlyMap<string, SidebarProviderEntry>;
   timestampFormat: TimestampFormat;
@@ -582,9 +582,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     variant,
     variantAction,
   } = props;
-  const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+  const threadRef = scopeThreadRef(thread.machineId, thread.id);
   const threadKey = scopedThreadKey(threadRef);
-  const canOperateThread = useEnvironmentScope(thread.environmentId, AuthOrchestrationOperateScope);
+  const canOperateThread = useMachineScope(thread.machineId, AuthOrchestrationOperateScope);
   useEffect(() => {
     if (!canOperateThread && isRenaming) onCancelRename();
   }, [canOperateThread, isRenaming, onCancelRename]);
@@ -595,7 +595,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   const isSelected = useThreadSelectionStore((state) => state.selectedThreadKeys.has(threadKey));
   const openPrLink = useOpenPrLink();
   const runningTerminalIds = useThreadRunningTerminalIds({
-    environmentId: thread.environmentId,
+    machineId: thread.machineId,
     threadId: thread.id,
   });
   const terminalStatus = terminalStatusFromRunningIds(runningTerminalIds);
@@ -609,26 +609,26 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
 
   const gitCwd = thread.worktreePath ?? props.project?.workspaceRoot ?? null;
   const linkedPullRequestStatus = useLinkedThreadPullRequest(
-    thread.environmentId,
+    thread.machineId,
     thread.linkedPullRequest,
     leaseLiveStatus,
     thread.pullRequests,
     thread.branchPullRequest,
   );
-  const gitStatus = useEnvironmentQuery(
+  const gitStatus = useMachineQuery(
     leaseLiveStatus && (thread.branch != null || thread.worktreePath !== null) && gitCwd !== null
-      ? vcsEnvironment.status({
-          environmentId: thread.environmentId,
+      ? vcsMachine.status({
+          machineId: thread.machineId,
           input: { cwd: gitCwd, includeRemote: false },
         })
       : null,
   );
   const visibleGitStatus = useRetainedValue(
-    JSON.stringify([thread.environmentId, gitCwd]),
+    JSON.stringify([thread.machineId, gitCwd]),
     gitStatus.data,
   );
   const pr = linkedPullRequestStatus?.pr ?? null;
-  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.environmentId);
+  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.machineId);
   const currentLinkedPr = supportsMultiplePullRequests
     ? resolveThreadCurrentPullRequestLink(thread.pullRequests)
     : null;
@@ -720,7 +720,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     ? getTriggerDisplayModelLabel(selectedModel)
     : thread.modelSelection.model;
 
-  const isRemote = thread.environmentId !== props.currentEnvironmentId;
+  const isRemote = thread.machineId !== props.currentMachineId;
   const showsScratchMachine = !thread.branch && props.scratchMachineLabel !== null;
 
   const detailsTooltip = (
@@ -728,8 +728,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       thread={thread}
       project={props.project}
       projectDisplayName={props.projectDisplayName}
-      environmentLabel={props.environmentLabel}
-      environmentMachine={props.environmentMachine}
+      machineLabel={props.machineLabel}
+      machine={props.machine}
       providerEntry={providerEntry}
       providerEntryByInstanceId={props.providerEntryByInstanceId}
       showInstanceBadge={showInstanceBadge}
@@ -762,7 +762,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   };
   const handleDoubleClick = (event: ReactMouseEvent) => {
     if (
-      !readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope) ||
+      !readMachineScope(threadRef.machineId, AuthOrchestrationOperateScope) ||
       isRenaming ||
       event.metaKey ||
       event.ctrlKey ||
@@ -1441,9 +1441,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                 </>
               ) : showsScratchMachine ? (
                 <>
-                  <EnvironmentMachineIcon
+                  <MachineIcon
                     aria-hidden
-                    kind={props.environmentMachine}
+                    kind={props.machine}
                     className="size-3 shrink-0 text-muted-foreground/40"
                   />
                   <span className="min-w-0 flex-1 truncate text-muted-foreground/40">
@@ -1471,9 +1471,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               >
                 {isRemote && !showsScratchMachine ? (
                   <span className="inline-flex shrink-0 items-center text-sidebar-muted-foreground/70">
-                    <EnvironmentMachineIcon
+                    <MachineIcon
                       aria-hidden
-                      kind={props.environmentMachine}
+                      kind={props.machine}
                       className="size-3.5"
                     />
                   </span>
@@ -1503,43 +1503,43 @@ function latestRunDiff(
 export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
   isSettled: boolean;
   thread: SidebarThreadSummary;
-  project: EnvironmentProject | null;
+  project: MachineProject | null;
   projectDisplayName: string | null;
-  environmentLabel: string | null;
-  environmentMachine: EnvironmentMachineKind;
+  machineLabel: string | null;
+  machine: MachineKind;
   providerEntryByInstanceId: ReadonlyMap<string, SidebarProviderEntry>;
   isHighlighted: boolean;
   isRouteActive: boolean;
   resultId: string;
-  searchMatch: EnvironmentThreadSearchMatch | null;
+  searchMatch: MachineThreadSearchMatch | null;
   searchQuery: string;
   onHighlight: () => void;
   onSelect: () => void;
   onFileDropThreads: (threadRef: ScopedThreadRef, files: File[]) => void;
 }) {
   const thread =
-    useThreadShell(scopeThreadRef(props.thread.environmentId, props.thread.id)) ?? props.thread;
+    useThreadShell(scopeThreadRef(props.thread.machineId, props.thread.id)) ?? props.thread;
   const accessibility = resolveSidebarRowAccessibility({
     title: thread.title,
     statusLabel: null,
     projectDisplayName: props.projectDisplayName,
     isActive: props.isRouteActive,
   });
-  const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+  const threadRef = scopeThreadRef(thread.machineId, thread.id);
   const { leaseLiveStatus, rowRef } = useSidebarRowSubscriptionLease(
     props.isHighlighted || props.isRouteActive,
   );
   const gitCwd = thread.worktreePath ?? props.project?.workspaceRoot ?? null;
-  const gitStatus = useEnvironmentQuery(
+  const gitStatus = useMachineQuery(
     leaseLiveStatus && (thread.branch != null || thread.worktreePath !== null) && gitCwd !== null
-      ? vcsEnvironment.status({
-          environmentId: thread.environmentId,
+      ? vcsMachine.status({
+          machineId: thread.machineId,
           input: { cwd: gitCwd, includeRemote: false },
         })
       : null,
   );
   const visibleGitStatus = useRetainedValue(
-    JSON.stringify([thread.environmentId, gitCwd]),
+    JSON.stringify([thread.machineId, gitCwd]),
     gitStatus.data,
   );
   const branchMismatch = resolveLocalCheckoutBranchMismatch({
@@ -1560,7 +1560,7 @@ export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props
     ? getTriggerDisplayModelLabel(selectedModel)
     : thread.modelSelection.model;
   const runningTerminalIds = useThreadRunningTerminalIds({
-    environmentId: thread.environmentId,
+    machineId: thread.machineId,
     threadId: thread.id,
   });
   const terminalStatus = terminalStatusFromRunningIds(runningTerminalIds);
@@ -1661,8 +1661,8 @@ export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props
           thread={thread}
           project={props.project}
           projectDisplayName={props.projectDisplayName}
-          environmentLabel={props.environmentLabel}
-          environmentMachine={props.environmentMachine}
+          machineLabel={props.machineLabel}
+          machine={props.machine}
           providerEntry={providerEntry}
           providerEntryByInstanceId={props.providerEntryByInstanceId}
           showInstanceBadge={showInstanceBadge}

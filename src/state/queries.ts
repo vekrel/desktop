@@ -6,11 +6,11 @@ import {
 import {
   createThreadSearchResultsAtomFamily,
   makeThreadSearchKey,
-  type EnvironmentThreadSearchMatch,
+  type MachineThreadSearchMatch,
 } from "@vekrel/client-runtime/state/thread-search";
 import { type VcsRefTarget } from "@vekrel/client-runtime/state/vcs";
 import type {
-  EnvironmentId,
+  MachineId,
   ProjectContentMatch,
   ProjectEntry,
   ProjectEntryKind,
@@ -26,11 +26,11 @@ import { useEffect, useState } from "react";
 
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { useFilesystemReadAccess } from "./filesystem";
-import { orchestrationEnvironment } from "./orchestration";
+import { orchestrationMachine } from "./orchestration";
 import { isPaginatedBranchesNextPagePending } from "./paginatedBranches";
-import { projectContentSearch, projectEnvironment } from "./projects";
-import { useEnvironmentQuery } from "./query";
-import { vcsEnvironment } from "./vcs";
+import { projectContentSearch, projectMachine } from "./projects";
+import { useMachineQuery } from "./query";
+import { vcsMachine } from "./vcs";
 
 const PROJECT_PATH_SEARCH_DEBOUNCE_MS = 120;
 const COMPOSER_PATH_SEARCH_LIMIT = 80;
@@ -42,16 +42,16 @@ const EMPTY_REFS: ReadonlyArray<VcsRef> = [];
 const EMPTY_PROJECT_ENTRIES: ReadonlyArray<ProjectEntry> = [];
 const EMPTY_CONTENT_MATCHES: ReadonlyArray<ProjectContentMatch> = [];
 const INITIAL_BRANCH_CURSORS = [undefined] as const;
-const EMPTY_THREAD_SEARCH_MATCHES: ReadonlyArray<EnvironmentThreadSearchMatch> = Object.freeze([]);
+const EMPTY_THREAD_SEARCH_MATCHES: ReadonlyArray<MachineThreadSearchMatch> = Object.freeze([]);
 const EMPTY_THREAD_SEARCH_ATOM = Atom.make({
   matches: EMPTY_THREAD_SEARCH_MATCHES,
   isLoading: false,
 }).pipe(Atom.withLabel("web:thread-search:empty"));
 
 const threadSearchResultsAtom = createThreadSearchResultsAtomFamily({
-  getSearchAtom: (environmentId, query) =>
-    orchestrationEnvironment.threadSearch({
-      environmentId,
+  getSearchAtom: (machineId, query) =>
+    orchestrationMachine.threadSearch({
+      machineId,
       input: { query },
     }),
   labelPrefix: "web:thread-search",
@@ -73,19 +73,19 @@ export function useDebouncedValue<A>(value: A, delayMs: number): A {
 }
 
 export function useThreadSearch(
-  environmentIds: ReadonlyArray<EnvironmentId>,
+  machineIds: ReadonlyArray<MachineId>,
   query: string,
 ): {
-  readonly matches: ReadonlyArray<EnvironmentThreadSearchMatch>;
+  readonly matches: ReadonlyArray<MachineThreadSearchMatch>;
   readonly query: string;
   readonly isPending: boolean;
 } {
   const normalizedQuery = query.trim();
   const debouncedQuery = useDebouncedValue(normalizedQuery, THREAD_SEARCH_DEBOUNCE_MS);
-  const canSearch = environmentIds.length > 0 && normalizedQuery.length >= 2;
+  const canSearch = machineIds.length > 0 && normalizedQuery.length >= 2;
   const settledQuery = canSearch && normalizedQuery === debouncedQuery ? debouncedQuery : null;
   const searchKey =
-    settledQuery === null ? null : makeThreadSearchKey(environmentIds, settledQuery);
+    settledQuery === null ? null : makeThreadSearchKey(machineIds, settledQuery);
   const result = useAtomValue(
     searchKey === null ? EMPTY_THREAD_SEARCH_ATOM : threadSearchResultsAtom(searchKey),
   );
@@ -98,9 +98,9 @@ export function useThreadSearch(
 }
 
 function vcsRefPageAtom(targetKey: string, cursor: number | undefined) {
-  const [environmentId, cwd, query] = JSON.parse(targetKey) as [EnvironmentId, string, string];
-  return vcsEnvironment.listRefs({
-    environmentId,
+  const [machineId, cwd, query] = JSON.parse(targetKey) as [MachineId, string, string];
+  return vcsMachine.listRefs({
+    machineId,
     input: {
       cwd,
       ...(query.length > 0 ? { query } : {}),
@@ -133,10 +133,10 @@ export function usePaginatedBranches(target: VcsRefTarget) {
     targetKey: null,
     cursors: INITIAL_BRANCH_CURSORS,
   });
-  const { environmentId, cwd } = target;
+  const { machineId, cwd } = target;
   const query = target.query?.trim() ?? "";
   const targetKey =
-    environmentId !== null && cwd !== null ? JSON.stringify([environmentId, cwd, query]) : null;
+    machineId !== null && cwd !== null ? JSON.stringify([machineId, cwd, query]) : null;
   const cursors = pagination.targetKey === targetKey ? pagination.cursors : INITIAL_BRANCH_CURSORS;
   const pagesKey = targetKey === null ? null : JSON.stringify([targetKey, cursors]);
   const results = useAtomValue(
@@ -216,7 +216,7 @@ function areProjectPathSearchTargetsEqual(
   right: ProjectPathSearchTarget,
 ): boolean {
   return (
-    left.environmentId === right.environmentId &&
+    left.machineId === right.machineId &&
     left.cwd === right.cwd &&
     left.query === right.query &&
     left.kind === right.kind &&
@@ -231,22 +231,22 @@ export function useProjectPathSearch(
 ) {
   const allowEmptyQuery = options?.allowEmptyQuery === true;
   const normalizedTarget = {
-    environmentId: target.environmentId,
+    machineId: target.machineId,
     cwd: target.cwd,
     query: target.query == null ? null : target.query.trim(),
     kind: target.kind,
     imageOnly: target.imageOnly,
   };
   const debouncedTarget = useDebouncedValue(normalizedTarget, PROJECT_PATH_SEARCH_DEBOUNCE_MS);
-  const fileAccess = useFilesystemReadAccess(debouncedTarget.environmentId);
+  const fileAccess = useFilesystemReadAccess(debouncedTarget.machineId);
   const { canReadFiles } = fileAccess;
   const searchTarget =
-    debouncedTarget.environmentId !== null &&
+    debouncedTarget.machineId !== null &&
     debouncedTarget.cwd !== null &&
     debouncedTarget.query !== null &&
     (allowEmptyQuery || debouncedTarget.query.length > 0)
       ? {
-          environmentId: debouncedTarget.environmentId,
+          machineId: debouncedTarget.machineId,
           input: {
             cwd: debouncedTarget.cwd,
             query: debouncedTarget.query,
@@ -256,8 +256,8 @@ export function useProjectPathSearch(
           },
         }
       : null;
-  const result = useEnvironmentQuery(
-    canReadFiles && searchTarget !== null ? projectEnvironment.searchEntries(searchTarget) : null,
+  const result = useMachineQuery(
+    canReadFiles && searchTarget !== null ? projectMachine.searchEntries(searchTarget) : null,
   );
   const hasTarget = searchTarget !== null;
 
@@ -284,7 +284,7 @@ export function useComposerPathSearch(target: ComposerPathSearchTarget) {
 }
 
 interface ProjectContentSearchTarget {
-  readonly environmentId: EnvironmentId | null;
+  readonly machineId: MachineId | null;
   readonly cwd: string | null;
   readonly query: string;
   readonly caseSensitive: boolean;
@@ -293,8 +293,8 @@ interface ProjectContentSearchTarget {
 }
 
 export function useProjectContentSearch(target: ProjectContentSearchTarget) {
-  const hasTarget = target.environmentId !== null && target.cwd !== null;
-  const fileAccess = useFilesystemReadAccess(target.environmentId);
+  const hasTarget = target.machineId !== null && target.cwd !== null;
+  const fileAccess = useFilesystemReadAccess(target.machineId);
   const canReadFiles = hasTarget && fileAccess.canReadFiles;
   const isCheckingAccess = hasTarget && fileAccess.isPending;
   // Whitespace is significant in content queries; trimming is only used to
@@ -302,14 +302,14 @@ export function useProjectContentSearch(target: ProjectContentSearchTarget) {
   const query = target.query;
   const hasQuery = query.trim().length > 0;
   const debouncedQuery = useDebouncedValue(query, PROJECT_CONTENT_SEARCH_DEBOUNCE_MS);
-  const result = useEnvironmentQuery(
+  const result = useMachineQuery(
     canReadFiles &&
-      target.environmentId !== null &&
+      target.machineId !== null &&
       target.cwd !== null &&
       hasQuery &&
       debouncedQuery.trim().length > 0
       ? projectContentSearch({
-          environmentId: target.environmentId,
+          machineId: target.machineId,
           input: {
             cwd: target.cwd,
             query: debouncedQuery,
@@ -347,14 +347,14 @@ export function useCheckpointDiff(
 ) {
   const enabled =
     options?.enabled !== false &&
-    target.environmentId !== null &&
+    target.machineId !== null &&
     target.threadId !== null &&
     target.fromTurnCount !== null &&
     target.toTurnCount !== null;
   const fullThreadTarget =
     enabled && target.fromTurnCount === 0
       ? {
-          environmentId: target.environmentId!,
+          machineId: target.machineId!,
           input: {
             threadId: target.threadId!,
             toTurnCount: target.toTurnCount!,
@@ -365,7 +365,7 @@ export function useCheckpointDiff(
   const turnTarget =
     enabled && target.fromTurnCount !== 0
       ? {
-          environmentId: target.environmentId!,
+          machineId: target.machineId!,
           input: {
             threadId: target.threadId!,
             fromTurnCount: target.fromTurnCount!,
@@ -374,28 +374,28 @@ export function useCheckpointDiff(
           },
         }
       : null;
-  const fullThread = useEnvironmentQuery(
-    fullThreadTarget === null ? null : orchestrationEnvironment.fullThreadDiff(fullThreadTarget),
+  const fullThread = useMachineQuery(
+    fullThreadTarget === null ? null : orchestrationMachine.fullThreadDiff(fullThreadTarget),
   );
-  const turn = useEnvironmentQuery(
-    turnTarget === null ? null : orchestrationEnvironment.turnDiff(turnTarget),
+  const turn = useMachineQuery(
+    turnTarget === null ? null : orchestrationMachine.turnDiff(turnTarget),
   );
   return fullThreadTarget === null ? turn : fullThread;
 }
 
 export function useTurnItemDetail(
   target: {
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly threadId: ThreadId;
     readonly itemId: TurnItemId;
     readonly revision: string;
   } | null,
 ) {
-  return useEnvironmentQuery(
+  return useMachineQuery(
     target === null
       ? null
-      : orchestrationEnvironment.turnItem({
-          environmentId: target.environmentId,
+      : orchestrationMachine.turnItem({
+          machineId: target.machineId,
           input: { threadId: target.threadId, itemId: target.itemId, revision: target.revision },
         }),
   );

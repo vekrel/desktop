@@ -1,5 +1,5 @@
 import { filterComposerPullRequestMatches } from "@vekrel/shared/composerPullRequestMatches";
-import { EnvironmentId, MessageId, ThreadId, type AssistantCitation } from "@vekrel/contracts";
+import { MachineId, MessageId, ThreadId, type AssistantCitation } from "@vekrel/contracts";
 import {
   collectAssistantCitations,
   expandAssistantCitationsForProvider,
@@ -37,7 +37,7 @@ const terminalReference = formatTerminalContextReference({
 
 const citation: AssistantCitation = {
   version: 1,
-  environmentId: EnvironmentId.make("environment-1"),
+  machineId: MachineId.make("machine-1"),
   threadId: ThreadId.make("thread-1"),
   messageId: MessageId.make("message-1"),
   text: "Keep Unicode 👋 and punctuation (here).",
@@ -50,7 +50,7 @@ const citationSource = serializeAssistantCitation(citation).replaceAll("+", "%20
 
 describe("isPathSuggestionCurrent", () => {
   const searchedTarget = {
-    environmentId: EnvironmentId.make("local"),
+    machineId: MachineId.make("local"),
     cwd: "/repo",
     query: "alpha",
   };
@@ -60,7 +60,7 @@ describe("isPathSuggestionCurrent", () => {
       isPathSuggestionCurrent(
         searchedTarget,
         detectComposerTrigger("@alpha", 6),
-        searchedTarget.environmentId,
+        searchedTarget.machineId,
         searchedTarget.cwd,
       ),
     ).toBe(true);
@@ -69,14 +69,14 @@ describe("isPathSuggestionCurrent", () => {
   it.each([
     ["query", { ...searchedTarget, query: "beta" }],
     ["cwd", { ...searchedTarget, cwd: "/other-repo" }],
-    ["environment", { ...searchedTarget, environmentId: EnvironmentId.make("remote") }],
+    ["machine", { ...searchedTarget, machineId: MachineId.make("remote") }],
   ] as const)("rejects a visible file suggestion after the live %s changes", (_change, current) => {
     const prompt = `@${current.query}`;
     expect(
       isPathSuggestionCurrent(
         searchedTarget,
         detectComposerTrigger(prompt, prompt.length),
-        current.environmentId,
+        current.machineId,
         current.cwd,
       ),
     ).toBe(false);

@@ -3,7 +3,7 @@ import type {
   OrchestrationV2ProviderGoal,
   ThreadId,
 } from "@vekrel/contracts";
-import type { EnvironmentThreadShell } from "@vekrel/client-runtime/state/shell";
+import type { MachineThreadShell } from "@vekrel/client-runtime/state/shell";
 import {
   presentPendingBackgroundWork,
   presentProviderGoal,
@@ -18,7 +18,7 @@ import type { ComposerBannerStackItem } from "./ComposerBannerStack";
 
 /** Subagents waiting on the user, unless the parent is itself waiting on them. */
 export function childInputBannerItem(input: {
-  readonly childThreadInputs: ReadonlyArray<EnvironmentThreadShell>;
+  readonly childThreadInputs: ReadonlyArray<MachineThreadShell>;
   readonly parentAwaitingUser: boolean;
   readonly onOpenThread: (threadId: ThreadId) => void;
 }): ComposerBannerStackItem | null {

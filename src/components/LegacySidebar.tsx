@@ -20,7 +20,7 @@ import {
   ThreadWorktreeIndicator,
   useLinkedThreadPullRequest,
 } from "./ThreadStatusIndicators";
-import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
+import { MachineIcon } from "./MachineIcon";
 import { ProjectFavicon } from "./ProjectFavicon";
 import { useAtomValue } from "@effect/atom-react";
 import { autoAnimate } from "@formkit/auto-animate";
@@ -46,12 +46,12 @@ import {
   AuthOrchestrationOperateScope,
   AuthPreviewOperateScope,
   type ContextMenuItem,
-  type EnvironmentId,
+  type MachineId,
   ProjectId,
   type ScopedThreadRef,
   type ResolvedKeybindingsConfig,
   type SidebarProjectGroupingMode,
-  resolveEnvironmentMachineKind,
+  resolveMachineKind,
   ThreadId,
 } from "@vekrel/contracts";
 import {
@@ -60,7 +60,7 @@ import {
   scopedThreadKey,
   scopeProjectRef,
   scopeThreadRef,
-} from "@vekrel/client-runtime/environment";
+} from "@vekrel/client-runtime/machine";
 import { safeErrorLogAttributes } from "@vekrel/client-runtime/errors";
 import {
   isAtomCommandInterrupted,
@@ -103,8 +103,8 @@ import {
   ORCHESTRATION_OPERATE_DENIED_MESSAGE,
   useOrchestrationCommand,
 } from "../state/use-orchestration-command";
-import { previewEnvironment } from "../state/preview";
-import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
+import { previewMachine } from "../state/preview";
+import { readMachineScope, useMachineScope } from "../state/session";
 import {
   legacyProjectCwdPreferenceKey,
   resolveProjectExpanded,
@@ -126,9 +126,9 @@ import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { useDesktopUpdateState } from "../state/desktopUpdate";
 
 import { useThreadActions } from "../hooks/useThreadActions";
-import { projectEnvironment } from "../state/projects";
-import { threadEnvironment, useEnvironmentThread } from "../state/threads";
-import { useEnvironment, useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
+import { projectMachine } from "../state/projects";
+import { threadMachine, useMachineThread } from "../state/threads";
+import { useMachine, useMachines, usePrimaryMachineId } from "../state/machines";
 import { buildThreadRouteParams, resolveActiveThreadRouteRef } from "../threadRoutes";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 import { RelativeTime } from "./RelativeTime";
@@ -246,7 +246,7 @@ const SIDEBAR_ICON_ACTION_BUTTON_CLASS =
   "inline-flex h-6 min-w-6 cursor-pointer items-center justify-center rounded-md px-0.75 text-icon-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring";
 
 function SidebarThreadDetailPrewarmer({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
-  useEnvironmentThread(threadRef.environmentId, threadRef.threadId);
+  useMachineThread(threadRef.machineId, threadRef.threadId);
   return null;
 }
 
@@ -265,8 +265,8 @@ function formatProjectMemberActionLabel(
     return member.title;
   }
 
-  return member.environmentLabel
-    ? `${member.environmentLabel} — ${member.workspaceRoot}`
+  return member.machineLabel
+    ? `${member.machineLabel} — ${member.workspaceRoot}`
     : member.workspaceRoot;
 }
 
@@ -362,8 +362,8 @@ interface SidebarThreadRowProps {
   onFileDropThreads: (threadRef: ScopedThreadRef, files: File[]) => void;
 }
 
-function checkTaskPermission(environmentId: EnvironmentId): boolean {
-  if (readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return true;
+function checkTaskPermission(machineId: MachineId): boolean {
+  if (readMachineScope(machineId, AuthOrchestrationOperateScope)) return true;
   toastManager.add(
     stackedThreadToast({
       type: "error",
@@ -402,9 +402,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     onFileDropThreads,
     thread,
   } = props;
-  const canOperateThread = useEnvironmentScope(thread.environmentId, AuthOrchestrationOperateScope);
-  const canOperatePreview = useEnvironmentScope(thread.environmentId, AuthPreviewOperateScope);
-  const threadKey = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
+  const canOperateThread = useMachineScope(thread.machineId, AuthOrchestrationOperateScope);
+  const canOperatePreview = useMachineScope(thread.machineId, AuthPreviewOperateScope);
+  const threadKey = scopedThreadKey(scopeThreadRef(thread.machineId, thread.id));
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   useEffect(() => {
     if (!isFileDragOver) return;
@@ -417,25 +417,25 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
   const isSelected = useThreadSelectionStore((state) => state.selectedThreadKeys.has(threadKey));
   const runningTerminalIds = useThreadRunningTerminalIds({
-    environmentId: thread.environmentId,
+    machineId: thread.machineId,
     threadId: thread.id,
   });
   const isMobile = useIsMobile();
   const discoveredPorts = useThreadDiscoveredPorts({
-    environmentId: thread.environmentId,
+    machineId: thread.machineId,
     threadId: thread.id,
   });
-  const openPreview = useAtomCommand(previewEnvironment.open, {
+  const openPreview = useAtomCommand(previewMachine.open, {
     reportFailure: false,
   });
-  const environment = useEnvironment(thread.environmentId);
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const isRemoteThread = thread.environmentId !== primaryEnvironmentId;
-  const remoteEnvLabel = environment?.label ?? null;
-  const remoteMachine = resolveEnvironmentMachineKind(environment?.serverConfig ?? null);
+  const machine = useMachine(thread.machineId);
+  const primaryMachineId = usePrimaryMachineId();
+  const isRemoteThread = thread.machineId !== primaryMachineId;
+  const remoteEnvLabel = machine?.label ?? null;
+  const remoteMachine = resolveMachineKind(machine?.serverConfig ?? null);
   const isDesktopLocalThread =
-    environment !== null && isDesktopLocalConnectionTarget(environment.entry.target);
-  const threadEnvironmentLabel = isRemoteThread
+    machine !== null && isDesktopLocalConnectionTarget(machine.entry.target);
+  const threadMachineLabel = isRemoteThread
     ? (remoteEnvLabel ?? (isDesktopLocalThread ? "Local" : "Remote"))
     : null;
   const isThreadRunning = !threadRuntimeCanArchive(thread.runtime);
@@ -446,17 +446,17 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     },
   });
   const linkedPullRequestStatus = useLinkedThreadPullRequest(
-    thread.environmentId,
+    thread.machineId,
     thread.linkedPullRequest,
     leaseLiveStatus,
     thread.pullRequests,
     thread.branchPullRequest,
   );
   const pr = linkedPullRequestStatus?.pr ?? null;
-  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.environmentId);
+  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.machineId);
   // Every hook runs above this line: the handlers below key on this ref, and the
   // compiler can only cache it once no hook call follows its plain uses.
-  const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+  const threadRef = scopeThreadRef(thread.machineId, thread.id);
   const fileDropHandlers = makeWorkspaceFileDropHandlers({
     setDragActive: setIsFileDragOver,
     addFiles: (files) => {
@@ -516,7 +516,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     handleThreadClick(event, threadRef, orderedProjectThreadKeys);
   };
   const handleRowDoubleClick = (event: React.MouseEvent) => {
-    if (!readEnvironmentScope(thread.environmentId, AuthOrchestrationOperateScope)) return;
+    if (!readMachineScope(thread.machineId, AuthOrchestrationOperateScope)) return;
     if (renamingThreadKey === threadKey) return;
     // On mobile the first tap navigates and closes the sidebar sheet, so the
     // inline rename can't be shown. Renaming there stays on the context menu.
@@ -641,7 +641,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   const handleStartArchiveConfirmation = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!checkTaskPermission(thread.environmentId)) return;
+    if (!checkTaskPermission(thread.machineId)) return;
     setConfirmingArchiveThreadKey(threadKey);
     requestAnimationFrame(() => {
       confirmArchiveButtonRefs.current.get(threadKey)?.focus();
@@ -842,17 +842,17 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                     <TooltipTrigger
                       render={
                         <span
-                          aria-label={threadEnvironmentLabel ?? "Remote"}
+                          aria-label={threadMachineLabel ?? "Remote"}
                           className="inline-flex items-center justify-center"
                         />
                       }
                     >
-                      <EnvironmentMachineIcon
+                      <MachineIcon
                         kind={remoteMachine}
                         className="size-3 text-muted-foreground/40"
                       />
                     </TooltipTrigger>
-                    <TooltipPopup side="top">{threadEnvironmentLabel}</TooltipPopup>
+                    <TooltipPopup side="top">{threadMachineLabel}</TooltipPopup>
                   </Tooltip>
                 )}
                 {jumpLabel ? (
@@ -1002,7 +1002,7 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
       ) : null}
       {shouldShowThreadPanel &&
         renderedThreads.map((thread) => {
-          const threadKey = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
+          const threadKey = scopedThreadKey(scopeThreadRef(thread.machineId, thread.id));
           return (
             <SidebarThreadRow
               key={threadKey}
@@ -1096,7 +1096,7 @@ function resolveProjectThreadStatus(
   lastVisitedAtByThreadKey: ReadonlyMap<string, string | undefined>,
 ) {
   const lastVisitedAt = lastVisitedAtByThreadKey.get(
-    scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+    scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
   );
   return resolveThreadStatusPill({
     thread: {
@@ -1119,7 +1119,7 @@ function useProjectThreads(project: SidebarProjectSnapshot) {
       sidebarThreads.map(
         (thread) =>
           state.threadLastVisitedAtById[
-            scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))
+            scopedThreadKey(scopeThreadRef(thread.machineId, thread.id))
           ] ?? null,
       ),
     ),
@@ -1127,12 +1127,12 @@ function useProjectThreads(project: SidebarProjectSnapshot) {
   const sidebarThreadByKey = new Map(
     sidebarThreads.map(
       (thread) =>
-        [scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)), thread] as const,
+        [scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)), thread] as const,
     ),
   );
   const memberProjectByScopedKey = new Map(
     project.memberProjects.map((member) => [
-      scopedProjectKey(scopeProjectRef(member.environmentId, member.id)),
+      scopedProjectKey(scopeProjectRef(member.machineId, member.id)),
       member,
     ]),
   );
@@ -1141,7 +1141,7 @@ function useProjectThreads(project: SidebarProjectSnapshot) {
   );
   for (const thread of sidebarThreads) {
     const member = memberProjectByScopedKey.get(
-      scopedProjectKey(scopeProjectRef(thread.environmentId, thread.projectId)),
+      scopedProjectKey(scopeProjectRef(thread.machineId, thread.projectId)),
     );
     if (!member) {
       continue;
@@ -1153,7 +1153,7 @@ function useProjectThreads(project: SidebarProjectSnapshot) {
   }
   const lastVisitedAtByThreadKey = new Map(
     sidebarThreads.map((thread, index) => [
-      scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+      scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
       resolveThreadLastVisitedAt(thread.lastVisitedAt, threadLastVisitedAts[index] ?? undefined),
     ]),
   );
@@ -1167,7 +1167,7 @@ function useProjectThreads(project: SidebarProjectSnapshot) {
     ),
   );
   const orderedProjectThreadKeys = visibleProjectThreads.map((thread) =>
-    scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+    scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
   );
   return {
     sidebarThreads,
@@ -1204,7 +1204,7 @@ function useProjectThreadPanel(input: {
       ? null
       : (visibleProjectThreads.find(
           (thread) =>
-            scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) === activeThreadKey,
+            scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)) === activeThreadKey,
         ) ?? null);
   const hasOverflowingThreads = visibleProjectThreads.length > sidebarThreadPreviewCount;
   const previewThreads =
@@ -1213,17 +1213,17 @@ function useProjectThreadPanel(input: {
       : visibleProjectThreads.slice(0, sidebarThreadPreviewCount);
   const visibleThreadKeys = new Set(
     [...previewThreads, ...(pinnedCollapsedThread ? [pinnedCollapsedThread] : [])].map((thread) =>
-      scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+      scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
     ),
   );
   const renderedThreads = pinnedCollapsedThread
     ? [pinnedCollapsedThread]
     : visibleProjectThreads.filter((thread) =>
-        visibleThreadKeys.has(scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))),
+        visibleThreadKeys.has(scopedThreadKey(scopeThreadRef(thread.machineId, thread.id))),
       );
   const hiddenThreads = visibleProjectThreads.filter(
     (thread) =>
-      !visibleThreadKeys.has(scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))),
+      !visibleThreadKeys.has(scopedThreadKey(scopeThreadRef(thread.machineId, thread.id))),
   );
   return {
     hasOverflowingThreads,
@@ -1257,7 +1257,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     isManualProjectSorting,
     dragHandleProps,
   } = props;
-  const environmentMachine = project.allRemoteMembersAreWsl
+  const machine = project.allRemoteMembersAreWsl
     ? "linux"
     : project.allRemoteMembersAreDesktopLocal
       ? "laptop"
@@ -1269,13 +1269,13 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     (settings) => settings.confirmThreadArchive,
   );
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
-  const deleteProject = useOrchestrationCommand(projectEnvironment.delete, {
+  const deleteProject = useOrchestrationCommand(projectMachine.delete, {
     reportFailure: false,
   });
-  const updateProject = useOrchestrationCommand(projectEnvironment.update, {
+  const updateProject = useOrchestrationCommand(projectMachine.update, {
     reportFailure: false,
   });
-  const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
+  const updateThreadMetadata = useOrchestrationCommand(threadMachine.updateMetadata, {
     reportFailure: false,
   });
   const router = useRouter();
@@ -1353,8 +1353,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     null,
   );
   const [projectRenameTitle, setProjectRenameTitle] = useState("");
-  const canRenameProject = useEnvironmentScope(
-    projectRenameTarget?.environmentId ?? null,
+  const canRenameProject = useMachineScope(
+    projectRenameTarget?.machineId ?? null,
     AuthOrchestrationOperateScope,
   );
   const [projectGroupingTarget, setProjectGroupingTarget] =
@@ -1428,7 +1428,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
   };
 
   const openProjectRenameDialog = (member: SidebarProjectGroupMember) => {
-    if (!checkTaskPermission(member.environmentId)) return;
+    if (!checkTaskPermission(member.machineId)) return;
     setProjectRenameTarget(member);
     setProjectRenameTitle(member.title);
   };
@@ -1442,9 +1442,9 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
   };
 
   const removeProject = async (member: SidebarProjectGroupMember) => {
-    const memberProjectRef = scopeProjectRef(member.environmentId, member.id);
+    const memberProjectRef = scopeProjectRef(member.machineId, member.id);
     const result = await deleteProject({
-      environmentId: member.environmentId,
+      machineId: member.machineId,
       input: {
         projectId: member.id,
         force: true,
@@ -1460,9 +1460,9 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       sidebarThreads
         .filter(
           (thread) =>
-            thread.environmentId === member.environmentId && thread.projectId === member.id,
+            thread.machineId === member.machineId && thread.projectId === member.id,
         )
-        .map((thread) => scopeThreadRef(thread.environmentId, thread.id)),
+        .map((thread) => scopeThreadRef(thread.machineId, thread.id)),
     );
     const projectDraftThread = draftStore.getDraftThreadByProjectRef(memberProjectRef);
     if (projectDraftThread) {
@@ -1473,13 +1473,13 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
   };
 
   const handleRemoveProject = async (member: SidebarProjectGroupMember) => {
-    if (!checkTaskPermission(member.environmentId)) return;
+    if (!checkTaskPermission(member.machineId)) return;
     const api = readLocalApi();
     if (!api) {
       return;
     }
 
-    const memberProjectRef = scopeProjectRef(member.environmentId, member.id);
+    const memberProjectRef = scopeProjectRef(member.machineId, member.id);
     const memberThreadCount = memberThreadCountByPhysicalKey.get(member.physicalProjectKey) ?? 0;
     if (memberThreadCount > 0) {
       const warningToastId = toastManager.add(
@@ -1496,11 +1496,11 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
                 await new Promise<void>((resolve) => {
                   window.setTimeout(resolve, 180);
                 });
-                if (!checkTaskPermission(member.environmentId)) return;
+                if (!checkTaskPermission(member.machineId)) return;
 
                 const latestProjectThreads = Array.from(readSidebarThreadByKey().values()).filter(
                   (thread) =>
-                    thread.environmentId === memberProjectRef.environmentId &&
+                    thread.machineId === memberProjectRef.machineId &&
                     thread.projectId === memberProjectRef.projectId,
                 );
                 const confirmed = await api.dialogs.confirm(
@@ -1510,8 +1510,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
                           latestProjectThreads.length === 1 ? "" : "s"
                         }?`,
                         `Path: ${member.workspaceRoot}`,
-                        ...(member.environmentLabel
-                          ? [`Environment: ${member.environmentLabel}`]
+                        ...(member.machineLabel
+                          ? [`Machine: ${member.machineLabel}`]
                           : []),
                         "This permanently clears conversation history for those threads and any archived threads.",
                         "This removes only this project entry.",
@@ -1520,8 +1520,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
                     : [
                         `Remove project "${member.title}"?`,
                         `Path: ${member.workspaceRoot}`,
-                        ...(member.environmentLabel
-                          ? [`Environment: ${member.environmentLabel}`]
+                        ...(member.machineLabel
+                          ? [`Machine: ${member.machineLabel}`]
                           : []),
                         "This permanently clears any archived conversation history.",
                         "This removes only this project entry.",
@@ -1549,7 +1549,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
                   error instanceof Error ? error.message : "Unknown error removing project.";
                 console.error("Failed to remove project", {
                   projectId: member.id,
-                  environmentId: member.environmentId,
+                  machineId: member.machineId,
                   ...safeErrorLogAttributes(error),
                 });
                 toastManager.add(
@@ -1570,7 +1570,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     const message = [
       `Remove project "${member.title}"?`,
       `Path: ${member.workspaceRoot}`,
-      ...(member.environmentLabel ? [`Environment: ${member.environmentLabel}`] : []),
+      ...(member.machineLabel ? [`Machine: ${member.machineLabel}`] : []),
       "This permanently clears any archived conversation history.",
       "This removes only this project entry.",
     ].join("\n");
@@ -1585,7 +1585,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       const message = error instanceof Error ? error.message : "Unknown error removing project.";
       console.error("Failed to remove project", {
         projectId: member.id,
-        environmentId: member.environmentId,
+        machineId: member.machineId,
         ...safeErrorLogAttributes(error),
       });
       toastManager.add(
@@ -1684,7 +1684,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         [
           buildTargetedItem("rename", "Rename", {
             isDisabled: (member) =>
-              !readEnvironmentScope(member.environmentId, AuthOrchestrationOperateScope),
+              !readMachineScope(member.machineId, AuthOrchestrationOperateScope),
           }),
           buildTargetedItem("grouping", "Group into..."),
           buildTargetedItem("copy-path", "Copy Path"),
@@ -1692,7 +1692,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
           buildTargetedItem("delete", "Remove", {
             destructive: true,
             isDisabled: (member) =>
-              !readEnvironmentScope(member.environmentId, AuthOrchestrationOperateScope),
+              !readMachineScope(member.machineId, AuthOrchestrationOperateScope),
           }),
         ],
         {
@@ -1718,14 +1718,14 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       setOpenMobile(false);
     }
     return router.navigate({
-      to: "/$environmentId/$threadId",
+      to: "/$machineId/$threadId",
       params: buildThreadRouteParams(threadRef),
     });
   };
   const handleThreadFileDrop = async (threadRef: ScopedThreadRef, files: File[]) => {
     const dropId = queuePendingFileDrop({ threadRef, files });
     const targetPathname = router.buildLocation({
-      to: "/$environmentId/$threadId",
+      to: "/$machineId/$threadId",
       params: buildThreadRouteParams(threadRef),
     }).pathname;
     if (targetPathname === router.state.location.pathname) return;
@@ -1778,7 +1778,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       setOpenMobile(false);
     }
     void router.navigate({
-      to: "/$environmentId/$threadId",
+      to: "/$machineId/$threadId",
       params: buildThreadRouteParams(threadRef),
     });
   };
@@ -1798,7 +1798,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       ({ thread }) => !threadRuntimeCanArchive(thread.runtime),
     );
     const canOperateSelection = selectedThreadEntries.every(({ threadRef }) =>
-      readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope),
+      readMachineScope(threadRef.machineId, AuthOrchestrationOperateScope),
     );
 
     const clicked = await api.contextMenu.show(
@@ -1820,7 +1820,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
 
     if (
       (clicked === "archive" || clicked === "delete") &&
-      !selectedThreadEntries.every(({ threadRef }) => checkTaskPermission(threadRef.environmentId))
+      !selectedThreadEntries.every(({ threadRef }) => checkTaskPermission(threadRef.machineId))
     ) {
       return;
     }
@@ -1834,7 +1834,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       }
       if (
         !selectedThreadEntries.every(({ threadRef }) =>
-          checkTaskPermission(threadRef.environmentId),
+          checkTaskPermission(threadRef.machineId),
         )
       ) {
         return;
@@ -1886,7 +1886,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       if (!confirmed) return;
     }
     if (
-      !selectedThreadEntries.every(({ threadRef }) => checkTaskPermission(threadRef.environmentId))
+      !selectedThreadEntries.every(({ threadRef }) => checkTaskPermission(threadRef.machineId))
     ) {
       return;
     }
@@ -1919,7 +1919,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     }
     void (async () => {
       const result = await settlePromise(() =>
-        handleNewThread(scopeProjectRef(member.environmentId, member.id)),
+        handleNewThread(scopeProjectRef(member.machineId, member.id)),
       );
       if (result._tag === "Failure") {
         const error = squashAtomCommandFailure(result);
@@ -1965,7 +1965,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Could not choose environment",
+            title: "Could not choose machine",
             description: error instanceof Error ? error.message : "An error occurred.",
           }),
         );
@@ -1986,7 +1986,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
   };
 
   const attemptArchiveThread = async (threadRef: ScopedThreadRef) => {
-    if (!checkTaskPermission(threadRef.environmentId)) return;
+    if (!checkTaskPermission(threadRef.machineId)) return;
     const result = await archiveThread(threadRef);
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
       const error = squashAtomCommandFailure(result);
@@ -2007,7 +2007,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
 
   const startThreadRename = (threadKey: string, title: string) => {
     const threadRef = parseScopedThreadKey(threadKey);
-    if (!threadRef || !checkTaskPermission(threadRef.environmentId)) return;
+    if (!threadRef || !checkTaskPermission(threadRef.machineId)) return;
     setRenamingThreadKey(threadKey);
     setRenamingTitle(title);
     renamingCommittedRef.current = false;
@@ -2041,7 +2041,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       return;
     }
     const result = await updateThreadMetadata({
-      environmentId: threadRef.environmentId,
+      machineId: threadRef.machineId,
       input: {
         threadId: threadRef.threadId,
         title: trimmed,
@@ -2085,7 +2085,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     }
 
     const result = await updateProject({
-      environmentId: projectRenameTarget.environmentId,
+      machineId: projectRenameTarget.machineId,
       input: {
         projectId: projectRenameTarget.id,
         title: trimmed,
@@ -2140,12 +2140,12 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       const thread = sidebarThreadByKey.get(threadKey) ?? null;
       if (!thread) return;
       const threadProject = memberProjectByScopedKey.get(
-        scopedProjectKey(scopeProjectRef(thread.environmentId, thread.projectId)),
+        scopedProjectKey(scopeProjectRef(thread.machineId, thread.projectId)),
       );
       const threadWorkspacePath =
         thread.worktreePath ?? threadProject?.workspaceRoot ?? project.workspaceRoot ?? null;
-      const canOperateThread = readEnvironmentScope(
-        thread.environmentId,
+      const canOperateThread = readMachineScope(
+        thread.machineId,
         AuthOrchestrationOperateScope,
       );
       const clicked = await api.contextMenu.show(
@@ -2180,7 +2180,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
 
       if (clicked === "new-thread-on-branch") {
         const result = await settlePromise(() =>
-          handleNewThread(scopeProjectRef(thread.environmentId, thread.projectId), {
+          handleNewThread(scopeProjectRef(thread.machineId, thread.projectId), {
             branch: thread.branch,
             worktreePath: thread.worktreePath,
             envMode: thread.worktreePath ? "worktree" : "local",
@@ -2228,7 +2228,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         return;
       }
       if (clicked !== "delete") return;
-      if (!checkTaskPermission(threadRef.environmentId)) return;
+      if (!checkTaskPermission(threadRef.machineId)) return;
       if (appSettingsConfirmThreadDelete) {
         const confirmed = await api.dialogs.confirm(
           [
@@ -2241,7 +2241,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
           return;
         }
       }
-      if (!checkTaskPermission(threadRef.environmentId)) return;
+      if (!checkTaskPermission(threadRef.machineId)) return;
       const result = await deleteThread(threadRef);
       if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
         const error = squashAtomCommandFailure(result);
@@ -2313,7 +2313,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
           <span aria-hidden className="w-4 shrink-0 max-sm:w-10" />
         </SidebarMenuButton>
 
-        {project.environmentPresence === "remote-only" && (
+        {project.machinePresence === "remote-only" && (
           <Tooltip>
             <TooltipTrigger
               render={
@@ -2327,12 +2327,12 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
                 />
               }
             >
-              <EnvironmentMachineIcon kind={environmentMachine} className="size-3" />
+              <MachineIcon kind={machine} className="size-3" />
             </TooltipTrigger>
             <TooltipPopup side="top">
               {project.allRemoteMembersAreDesktopLocal
-                ? `Local sandbox: ${project.remoteEnvironmentLabels.join(", ")}`
-                : `Remote environment: ${project.remoteEnvironmentLabels.join(", ")}`}
+                ? `Local sandbox: ${project.remoteMachineLabels.join(", ")}`
+                : `Remote machine: ${project.remoteMachineLabels.join(", ")}`}
             </TooltipPopup>
           </Tooltip>
         )}
@@ -2429,9 +2429,9 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
                 }}
               />
             </div>
-            {projectRenameTarget?.environmentLabel ? (
+            {projectRenameTarget?.machineLabel ? (
               <p className="text-xs text-muted-foreground">
-                Environment: {projectRenameTarget.environmentLabel}
+                Machine: {projectRenameTarget.machineLabel}
               </p>
             ) : null}
             {!canRenameProject ? (
@@ -2534,21 +2534,21 @@ const SidebarProjectListRow = memo(function SidebarProjectListRow(props: Sidebar
 });
 
 function LocalSecondaryStatus() {
-  const { environments } = useEnvironments();
+  const { machines } = useMachines();
   // The desktop reports which local secondary backends (e.g. the WSL backend)
   // exist; the hook polls because the bridge has no change event.
   const secondaries = useDesktopLocalBootstraps();
 
   const localEnvByUrl = (() => {
     const map = new Map<string, { phase: string; error: string | null }>();
-    for (const environment of environments) {
+    for (const machine of machines) {
       if (
-        isDesktopLocalConnectionTarget(environment.entry.target) &&
-        environment.displayUrl !== null
+        isDesktopLocalConnectionTarget(machine.entry.target) &&
+        machine.displayUrl !== null
       ) {
-        map.set(environment.displayUrl, {
-          phase: environment.connection.phase,
-          error: environment.connection.error,
+        map.set(machine.displayUrl, {
+          phase: machine.connection.phase,
+          error: machine.connection.error,
         });
       }
     }
@@ -3030,20 +3030,20 @@ function useLegacySidebarProjects() {
   const projects = useProjects();
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
-  const { environments } = useEnvironments();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const environmentLabelById = new Map(
-    environments.map((environment) => [environment.environmentId, environment.label] as const),
+  const { machines } = useMachines();
+  const primaryMachineId = usePrimaryMachineId();
+  const machineLabelById = new Map(
+    machines.map((machine) => [machine.machineId, machine.label] as const),
   );
-  const desktopLocalEnvironmentIds = new Set(
-    environments
-      .filter((environment) => isDesktopLocalConnectionTarget(environment.entry.target))
-      .map((environment) => environment.environmentId),
+  const desktopLocalMachineIds = new Set(
+    machines
+      .filter((machine) => isDesktopLocalConnectionTarget(machine.entry.target))
+      .map((machine) => machine.machineId),
   );
-  const wslEnvironmentIds = new Set(
-    environments
-      .filter((environment) => isWslConnectionTarget(environment.entry.target))
-      .map((environment) => environment.environmentId),
+  const wslMachineIds = new Set(
+    machines
+      .filter((machine) => isWslConnectionTarget(machine.entry.target))
+      .map((machine) => machine.machineId),
   );
   const orderedProjects = orderItemsByPreferredIds({
     items: projects,
@@ -3057,21 +3057,21 @@ function useLegacySidebarProjects() {
   const physicalToLogicalKey = buildPhysicalToLogicalProjectKeyMap({
     projects: orderedProjects,
     settings: projectGroupingSettings,
-    primaryEnvironmentId,
+    primaryMachineId,
   });
   const projectPhysicalKeyByScopedRef = new Map(
     orderedProjects.map((project) => [
-      scopedProjectKey(scopeProjectRef(project.environmentId, project.id)),
+      scopedProjectKey(scopeProjectRef(project.machineId, project.id)),
       derivePhysicalProjectKey(project),
     ]),
   );
   const sidebarProjects: SidebarProjectSnapshot[] = buildSidebarProjectSnapshots({
     projects: orderedProjects,
     settings: projectGroupingSettings,
-    primaryEnvironmentId,
-    resolveEnvironmentLabel: (environmentId) => environmentLabelById.get(environmentId) ?? null,
-    isDesktopLocalEnvironment: (environmentId) => desktopLocalEnvironmentIds.has(environmentId),
-    isWslEnvironment: (environmentId) => wslEnvironmentIds.has(environmentId),
+    primaryMachineId,
+    resolveMachineLabel: (machineId) => machineLabelById.get(machineId) ?? null,
+    isDesktopLocalMachine: (machineId) => desktopLocalMachineIds.has(machineId),
+    isWslEnvironment: (machineId) => wslMachineIds.has(machineId),
   });
   return {
     projectsLength: projects.length,
@@ -3107,8 +3107,8 @@ function useSortedLegacySidebarProjects(input: {
   const sortableThreads = filterSidebarV2VisibleThreads(sidebarThreads, null).map((thread) => {
     const physicalKey =
       projectPhysicalKeyByScopedRef.get(
-        scopedProjectKey(scopeProjectRef(thread.environmentId, thread.projectId)),
-      ) ?? scopedProjectKey(scopeProjectRef(thread.environmentId, thread.projectId));
+        scopedProjectKey(scopeProjectRef(thread.machineId, thread.projectId)),
+      ) ?? scopedProjectKey(scopeProjectRef(thread.machineId, thread.projectId));
     return {
       ...thread,
       projectId: (physicalToLogicalKey.get(physicalKey) ?? physicalKey) as ProjectId,
@@ -3151,14 +3151,14 @@ function useLegacySidebarThreads(input: {
   const sidebarThreadByKey = new Map(
     sidebarThreads.map(
       (thread) =>
-        [scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)), thread] as const,
+        [scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)), thread] as const,
     ),
   );
   const logicalProjectKeyForThread = (thread: SidebarThreadSummary) => {
     const physicalKey =
       projectPhysicalKeyByScopedRef.get(
-        scopedProjectKey(scopeProjectRef(thread.environmentId, thread.projectId)),
-      ) ?? scopedProjectKey(scopeProjectRef(thread.environmentId, thread.projectId));
+        scopedProjectKey(scopeProjectRef(thread.machineId, thread.projectId)),
+      ) ?? scopedProjectKey(scopeProjectRef(thread.machineId, thread.projectId));
     return physicalToLogicalKey.get(physicalKey) ?? physicalKey;
   };
   const activeRouteThread = routeThreadKey ? sidebarThreadByKey.get(routeThreadKey) : undefined;
@@ -3189,7 +3189,7 @@ function useLegacySidebarThreads(input: {
       !projectExpanded && activeThreadKey
         ? (projectThreads.find(
             (thread) =>
-              scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) === activeThreadKey,
+              scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)) === activeThreadKey,
           ) ?? null)
         : null;
     const shouldShowThreadPanel = projectExpanded || pinnedCollapsedThread !== null;
@@ -3204,7 +3204,7 @@ function useLegacySidebarThreads(input: {
         : projectThreads.slice(0, sidebarThreadPreviewCount);
     const renderedThreads = pinnedCollapsedThread ? [pinnedCollapsedThread] : previewThreads;
     return renderedThreads.map((thread) =>
-      scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+      scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
     );
   });
   const threadJumpCommandByKey = new Map<
@@ -3318,7 +3318,7 @@ export default function LegacySidebar() {
       setOpenMobile(false);
     }
     void navigate({
-      to: "/$environmentId/$threadId",
+      to: "/$machineId/$threadId",
       params: buildThreadRouteParams(threadRef),
     });
   };
@@ -3438,7 +3438,7 @@ export default function LegacySidebar() {
 
       event.preventDefault();
       event.stopPropagation();
-      navigateToThread(scopeThreadRef(targetThread.environmentId, targetThread.id));
+      navigateToThread(scopeThreadRef(targetThread.machineId, targetThread.id));
       return;
     }
 
@@ -3458,7 +3458,7 @@ export default function LegacySidebar() {
 
     event.preventDefault();
     event.stopPropagation();
-    navigateToThread(scopeThreadRef(targetThread.environmentId, targetThread.id));
+    navigateToThread(scopeThreadRef(targetThread.machineId, targetThread.id));
   });
   useEffect(() => {
     const handleWindowKeyDown = (event: globalThis.KeyboardEvent) => onWindowKeyDown(event);

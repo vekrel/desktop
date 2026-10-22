@@ -1,6 +1,6 @@
 import {
   T3_PROJECT_FILE_NAME,
-  type EnvironmentId,
+  type MachineId,
   type T3ProjectFile,
   type T3ProjectFileScript,
 } from "@vekrel/contracts";
@@ -17,10 +17,10 @@ export interface T3ProjectFileState {
 }
 
 export function useT3ProjectFileState(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string | null,
 ): T3ProjectFileState {
-  const query = useProjectFileQuery(environmentId, cwd ?? "", T3_PROJECT_FILE_NAME, cwd !== null);
+  const query = useProjectFileQuery(machineId, cwd ?? "", T3_PROJECT_FILE_NAME, cwd !== null);
   const contents = query.data && !query.data.truncated ? query.data.contents : null;
   const isPending = query.isPending;
   if (contents === null) {
@@ -38,8 +38,8 @@ export function useT3ProjectFileState(
 }
 
 export function useT3ProjectFileScripts(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string | null,
 ): ReadonlyArray<T3ProjectFileScript> {
-  return useT3ProjectFileState(environmentId, cwd).scripts;
+  return useT3ProjectFileState(machineId, cwd).scripts;
 }

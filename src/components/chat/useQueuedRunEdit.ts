@@ -2,7 +2,7 @@ import type { ThreadStructure } from "@vekrel/client-runtime/state/shell";
 import {
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
   type ChatAttachment,
-  type EnvironmentId,
+  type MachineId,
   type MessageId,
   type OrchestrationMessageContext,
   type PreviewAnnotationPayload,
@@ -11,7 +11,7 @@ import {
   type ThreadContextRecord,
   type ThreadId,
 } from "@vekrel/contracts";
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import { ATTACHMENT_ONLY_BOOTSTRAP_PROMPT } from "@vekrel/shared/composerContextReferences";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useAssetUrls } from "../../assets/assetUrls";
@@ -34,8 +34,8 @@ import { readFileAsDataUrl } from "../../lib/imageCompression";
 import type { TerminalContextDraft } from "../../lib/terminalContext";
 import type { ReviewCommentContext } from "../../reviewCommentContext";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
-import { environmentServerConfigsAtom } from "../../state/server";
-import { threadEnvironment } from "../../state/threads";
+import { machineServerConfigsAtom } from "../../state/server";
+import { threadMachine } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import type { ChatComposerHandle } from "./ChatComposer";
@@ -70,32 +70,32 @@ function queuedEditDraftTarget(routeThreadRef: ScopedThreadRef, runId: RunId) {
 
 /** Uploads the edit's new attachments and saves it. Returns the error to show, or null. */
 async function submitQueuedRunEdit(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly draftTarget: ComposerThreadTarget;
   readonly editing: EditingQueuedRun;
   readonly content: QueuedRunEditContent;
   readonly editQueuedRun: ReturnType<typeof useEditQueuedRunCommand>;
 }): Promise<string | null> {
-  const { environmentId, draftTarget, editing, content } = input;
+  const { machineId, draftTarget, editing, content } = input;
   const editText = content.prompt.trim();
   const newAttachments = [...content.images, ...content.files];
   const uploadFiles = async (files: ReadonlyArray<ComposerFileAttachment>) => {
     const validateFiles = () => {
-      const config = appAtomRegistry.get(environmentServerConfigsAtom).get(environmentId) ?? null;
+      const config = appAtomRegistry.get(machineServerConfigsAtom).get(machineId) ?? null;
       const reason = fileAttachmentCapabilityBlockReason({
         files,
         attachmentUploadsCapabilityKnown: config !== null,
-        supportsAttachmentUploads: config?.environment.capabilities.attachmentUploads === true,
+        supportsAttachmentUploads: config?.machine.capabilities.attachmentUploads === true,
         maxFileAttachmentBytes:
-          config?.environment.capabilities.fileAttachments?.maxUploadBytes ?? null,
+          config?.machine.capabilities.fileAttachments?.maxUploadBytes ?? null,
       });
       if (reason !== null) throw new Error(reason);
     };
     validateFiles();
-    for (const file of files) startAttachmentUpload({ environmentId, image: file, draftTarget });
+    for (const file of files) startAttachmentUpload({ machineId, image: file, draftTarget });
     await awaitAttachmentUploads(files.map((file) => file.id));
     validateFiles();
-    const uploaded = getUploadedAttachments({ environmentId, images: files });
+    const uploaded = getUploadedAttachments({ machineId, images: files });
     if (uploaded === null) throw new Error("Retry or remove failed uploads before saving.");
     return uploaded;
   };
@@ -127,7 +127,7 @@ async function submitQueuedRunEdit(input: {
         })),
       })?.records ?? [];
     const result = await input.editQueuedRun({
-      environmentId,
+      machineId,
       input: {
         threadId: editing.threadId,
         runId: editing.runId,
@@ -155,7 +155,7 @@ async function submitQueuedRunEdit(input: {
 }
 
 function useEditQueuedRunCommand() {
-  return useAtomCommand(threadEnvironment.editQueuedRun, { reportFailure: false });
+  return useAtomCommand(threadMachine.editQueuedRun, { reportFailure: false });
 }
 
 /**
@@ -165,7 +165,7 @@ function useEditQueuedRunCommand() {
  * keeps (removal is client state until save).
  */
 export function useQueuedRunEdit(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly routeThreadRef: ScopedThreadRef;
   readonly threadDraftTarget: ComposerThreadTarget;
   // Null while the route has no thread yet; an edit needs one to target.
@@ -175,7 +175,7 @@ export function useQueuedRunEdit(input: {
   readonly composerRef: RefObject<ChatComposerHandle | null>;
 }) {
   const {
-    environmentId,
+    machineId,
     routeThreadRef,
     threadDraftTarget,
     activeThreadId,
@@ -197,7 +197,7 @@ export function useQueuedRunEdit(input: {
   const imageResources = (editing?.existingAttachments ?? [])
     .filter((attachment) => attachment.type === "image")
     .map((attachment) => ({ _tag: "attachment" as const, attachmentId: attachment.id }));
-  const imageUrls = useAssetUrls(environmentId, imageResources);
+  const imageUrls = useAssetUrls(machineId, imageResources);
   const urlByAttachmentId = new Map(
     imageResources.map((resource, index) => [resource.attachmentId, imageUrls[index] ?? null]),
   );
@@ -314,7 +314,7 @@ export function useQueuedRunEdit(input: {
     saveInFlightRef.current = true;
     setIsSaving(true);
     const error = await submitQueuedRunEdit({
-      environmentId,
+      machineId,
       draftTarget,
       editing,
       content,

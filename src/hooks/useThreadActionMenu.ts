@@ -1,4 +1,4 @@
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
 import { requestCustomSnooze } from "../components/CustomSnoozeDialog";
 import {
   type AtomCommandResult,
@@ -21,19 +21,19 @@ import {
   type ThreadActionMenuId,
 } from "../components/threadActionMenu.logic";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
-import { threadEnvironment } from "../state/threads";
+import { threadMachine } from "../state/threads";
 import { useOrchestrationCommand } from "../state/use-orchestration-command";
-import { readEnvironmentScope } from "../state/session";
+import { readMachineScope } from "../state/session";
 import {
-  readEnvironmentSupportsAutoSettleOptOut,
-  readEnvironmentSupportsPinning,
-  readEnvironmentSupportsSettlement,
-  readEnvironmentSupportsSnooze,
-  readEnvironmentSupportsTitleRegeneration,
+  readMachineSupportsAutoSettleOptOut,
+  readMachineSupportsPinning,
+  readMachineSupportsSettlement,
+  readMachineSupportsSnooze,
+  readMachineSupportsTitleRegeneration,
   readThreadShell,
   useProjects,
 } from "../state/entities";
-import { usePrimaryEnvironmentId } from "../state/environments";
+import { usePrimaryMachineId } from "../state/machines";
 import { readLocalApi } from "../localApi";
 import {
   deriveLogicalProjectKeyFromSettings,
@@ -65,12 +65,12 @@ export function useThreadActionMenu(input: {
   const { threadRef, projectCwd, onStartRename } = input;
   const router = useRouter();
   const projects = useProjects();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const primaryMachineId = usePrimaryMachineId();
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const logicalProjectKeyByPhysicalKey = buildPhysicalToLogicalProjectKeyMap({
     projects,
     settings: projectGroupingSettings,
-    primaryEnvironmentId,
+    primaryMachineId,
   });
   const {
     settleThread,
@@ -84,7 +84,7 @@ export function useThreadActionMenu(input: {
     deleteThread,
     markThreadUnread,
   } = useThreadActions();
-  const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
+  const updateThreadMetadata = useOrchestrationCommand(threadMachine.updateMetadata, {
     reportFailure: false,
   });
   const handleNewThread = useNewThreadHandler();
@@ -120,16 +120,16 @@ export function useThreadActionMenu(input: {
       if (!thread) return;
       const now = new Date();
       const supports = {
-        settlement: readEnvironmentSupportsSettlement(threadRef.environmentId),
-        autoSettleOptOut: readEnvironmentSupportsAutoSettleOptOut(threadRef.environmentId),
-        snooze: readEnvironmentSupportsSnooze(threadRef.environmentId),
-        pinning: readEnvironmentSupportsPinning(threadRef.environmentId),
-        titleRegeneration: readEnvironmentSupportsTitleRegeneration(threadRef.environmentId),
+        settlement: readMachineSupportsSettlement(threadRef.machineId),
+        autoSettleOptOut: readMachineSupportsAutoSettleOptOut(threadRef.machineId),
+        snooze: readMachineSupportsSnooze(threadRef.machineId),
+        pinning: readMachineSupportsPinning(threadRef.machineId),
+        titleRegeneration: readMachineSupportsTitleRegeneration(threadRef.machineId),
       };
       const isRegeneratingTitle = thread.titleRegeneration != null;
       const snoozePresets = resolveSnoozePresets(now, timestampFormat);
       const items = buildThreadActionMenuItems({
-        canOperate: readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope),
+        canOperate: readMachineScope(threadRef.machineId, AuthOrchestrationOperateScope),
         branch: thread.branch ?? null,
         projectFilter: null,
         isPinned: thread.pinnedAt != null,
@@ -147,7 +147,7 @@ export function useThreadActionMenu(input: {
       const action: ThreadActionMenuId = clicked.value;
       if (
         threadActionRequiresOperate(action) &&
-        !readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope)
+        !readMachineScope(threadRef.machineId, AuthOrchestrationOperateScope)
       ) {
         failureToast(
           "Thread action unavailable",
@@ -180,7 +180,7 @@ export function useThreadActionMenu(input: {
         case "project-settings": {
           const project = projects.find(
             (candidate) =>
-              candidate.environmentId === thread.environmentId && candidate.id === thread.projectId,
+              candidate.machineId === thread.machineId && candidate.id === thread.projectId,
           );
           if (!project) return;
           const projectKey =
@@ -194,7 +194,7 @@ export function useThreadActionMenu(input: {
         }
         case "new-thread-on-branch": {
           const result = await settlePromise(() =>
-            handleNewThread(scopeProjectRef(threadRef.environmentId, thread.projectId), {
+            handleNewThread(scopeProjectRef(threadRef.machineId, thread.projectId), {
               branch: thread.branch,
               worktreePath: thread.worktreePath,
               envMode: thread.worktreePath ? "worktree" : "local",
@@ -235,7 +235,7 @@ export function useThreadActionMenu(input: {
           if (isRegeneratingTitle) return;
           await reportFailure("Failed to regenerate thread title", () =>
             updateThreadMetadata({
-              environmentId: threadRef.environmentId,
+              machineId: threadRef.machineId,
               input: { threadId: threadRef.threadId, regenerateTitle: true },
             }),
           );

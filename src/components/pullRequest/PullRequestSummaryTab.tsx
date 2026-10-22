@@ -1,7 +1,7 @@
 import { sourceControlClients } from "@vekrel/client-runtime/source-control-clients";
 import { useAtomCommand } from "~/state/use-atom-command";
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestComment,
   PullRequestDetailView,
   PullRequestRef,
@@ -20,7 +20,7 @@ import {
 import * as Schema from "effect/Schema";
 import { useRef, useState, type ReactNode } from "react";
 
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { cn } from "~/lib/utils";
 import { useOpenLink } from "~/browser/useOpenLink";
@@ -152,7 +152,7 @@ function reviewStateLabel(state: string): string {
 
 interface CommentEditing {
   readonly cwd: string;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadRef: ScopedThreadRef | null;
   readonly canEdit: (comment: PullRequestComment) => boolean;
   readonly editingId: string | null;
@@ -176,7 +176,7 @@ function CommentBody({
         className={className}
         value={comment.body}
         cwd={editing.cwd}
-        environmentId={editing.environmentId}
+        machineId={editing.machineId}
         threadRef={editing.threadRef}
         label="Edit comment"
         saving={editing.saving}
@@ -192,7 +192,7 @@ function CommentBody({
         className="min-w-0 flex-1"
         text={comment.body}
         cwd={editing.cwd}
-        environmentId={editing.environmentId}
+        machineId={editing.machineId}
         threadRef={editing.threadRef}
       />
       {editing.canEdit(comment) ? (
@@ -375,7 +375,7 @@ const DEFAULT_COMMENT_FILTER: typeof CommentFilterSchema.Type = { bots: false, r
 
 export function PullRequestSummaryTab({
   scrollerRef,
-  environmentId,
+  machineId,
   threadRef,
   reference,
   detail,
@@ -390,7 +390,7 @@ export function PullRequestSummaryTab({
   onRefreshChecks = onRefresh,
 }: {
   scrollerRef: (node: HTMLDivElement | null) => void;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   threadRef: ScopedThreadRef | null;
   reference: PullRequestRef;
   detail: PullRequestDetailView;
@@ -486,8 +486,8 @@ export function PullRequestSummaryTab({
     });
   };
 
-  const update = useAtomCommand(pullRequestEnvironment.update, { reportFailure: false });
-  const updateComment = useAtomCommand(pullRequestEnvironment.updateComment, {
+  const update = useAtomCommand(pullRequestMachine.update, { reportFailure: false });
+  const updateComment = useAtomCommand(pullRequestMachine.updateComment, {
     reportFailure: false,
   });
   const [bodyScope, setBodyScope] = useState<string | null>(null);
@@ -506,7 +506,7 @@ export function PullRequestSummaryTab({
   const saveBody = async (body: string) => {
     if (bodySaving) return;
     setBodySaving(true);
-    const result = await update({ environmentId, input: { ...reference, body } });
+    const result = await update({ machineId, input: { ...reference, body } });
     setBodySaving(false);
     if (result._tag === "Failure") {
       toastManager.add({ type: "error", title: "Could not save the description" });
@@ -518,7 +518,7 @@ export function PullRequestSummaryTab({
 
   const commentEditing: CommentEditing = {
     cwd: detail.workspaceRoot,
-    environmentId,
+    machineId,
     threadRef,
     canEdit: (comment) => canEditPullRequestComment(detail, comment),
     editingId: editingCommentId,
@@ -529,7 +529,7 @@ export function PullRequestSummaryTab({
       if (commentSaving || comment.kind === "review") return;
       setCommentSaving(true);
       const result = await updateComment({
-        environmentId,
+        machineId,
         input: { ...reference, commentId: comment.id, kind: comment.kind, body },
       });
       setCommentSaving(false);
@@ -548,7 +548,7 @@ export function PullRequestSummaryTab({
       reactions={comment.reactions ?? []}
       canReact={detail.capabilities.reactions === true}
       subjectId={comment.id}
-      environmentId={environmentId}
+      machineId={machineId}
       reference={reference}
       onRefresh={onRefresh}
     />
@@ -725,7 +725,7 @@ export function PullRequestSummaryTab({
               {detail.capabilities.reviewers.request &&
               detail.capabilities.reviewers.listCandidates ? (
                 <PullRequestReviewerPicker
-                  environmentId={environmentId}
+                  machineId={machineId}
                   reference={reference}
                   allowed={detail.viewerPermissions.requestReviewers}
                 />
@@ -749,7 +749,7 @@ export function PullRequestSummaryTab({
                 )}
                 {detail.capabilities.labels === true ? (
                   <PullRequestLabelPicker
-                    environmentId={environmentId}
+                    machineId={machineId}
                     reference={reference}
                     allowed={detail.viewerPermissions.labels !== false}
                   />
@@ -767,7 +767,7 @@ export function PullRequestSummaryTab({
               allowEmpty
               value={detail.body}
               cwd={detail.workspaceRoot}
-              environmentId={environmentId}
+              machineId={machineId}
               threadRef={threadRef}
               label="Pull request description"
               placeholder="Describe this pull request"
@@ -781,7 +781,7 @@ export function PullRequestSummaryTab({
                 className="min-w-0 flex-1"
                 text={detail.body.trim().length > 0 ? detail.body : "_No description provided._"}
                 cwd={detail.workspaceRoot}
-                environmentId={environmentId}
+                machineId={machineId}
                 threadRef={threadRef}
               />
               {canEditPullRequestChangeRequest(detail) ? (

@@ -5,7 +5,7 @@ import {
   AuthProvidersManageScope,
   AuthOrchestrationReadScope,
 } from "@vekrel/contracts";
-import { useEnvironmentScope, readEnvironmentScope } from "../../state/session";
+import { useMachineScope, readMachineScope } from "../../state/session";
 import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusTitle } from "@vekrel/client-runtime/connection";
 import { safeErrorLogAttributes } from "@vekrel/client-runtime/errors";
@@ -15,7 +15,7 @@ import {
 } from "@vekrel/client-runtime/state/runtime";
 import {
   defaultInstanceIdForDriver,
-  type EnvironmentId,
+  type MachineId,
   type AcpRegistryUrlAuthAction,
   PROVIDER_DISPLAY_NAMES,
   ProviderDriverKind,
@@ -23,7 +23,7 @@ import {
   type ProviderInstanceConfig,
   type ProviderInstanceId,
   type ServerProvider,
-  resolveEnvironmentMachineKind,
+  resolveMachineKind,
   resolveProjectProviderInstanceEnabled,
   resolveProviderInstanceEnabled,
 } from "@vekrel/contracts";
@@ -40,27 +40,27 @@ import { useRef, useState, type ReactNode } from "react";
 
 import { isDesktopLocalConnectionTarget } from "../../connection/desktopLocal";
 import {
-  useEnvironmentSettings,
-  usePersistEnvironmentProviderInstanceMutation,
-  useUpdateEnvironmentSettings,
-  useUpdateEnvironmentModelPreferences,
-  useToggleEnvironmentModelFavorite,
+  useMachineSettings,
+  usePersistMachineProviderInstanceMutation,
+  useUpdateMachineSettings,
+  useUpdateMachineModelPreferences,
+  useToggleMachineModelFavorite,
 } from "../../hooks/useSettings";
 import { useStableCallback } from "../../hooks/useStableCallback";
-import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import { MachineIcon } from "../MachineIcon";
 import { cn } from "../../lib/utils";
 import { resolveAppModelSelectionState } from "../../modelSelection";
 import {
-  useEnvironments,
-  usePrimaryEnvironmentId,
-  type EnvironmentPresentation,
-} from "../../state/environments";
+  useMachines,
+  usePrimaryMachineId,
+  type MachinePresentation,
+} from "../../state/machines";
 import {
   EMPTY_SERVER_PROVIDERS,
   providersIgnoringCheckedAtAtom,
-  serverEnvironment,
+  serverMachine,
 } from "../../state/server";
-import { useEnvironmentSessionState } from "../../state/session";
+import { useMachineSessionState } from "../../state/session";
 import { useProjects } from "../../state/entities";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useRelativeTimeState } from "../../hooks/useRelativeTimeState";
@@ -121,14 +121,14 @@ import {
   useSettingsSearchTargetId,
 } from "./settingsLayout";
 import {
-  buildProviderEnvironmentOptions,
+  buildProviderMachineOptions,
   buildProviderInstanceOverridePatch,
-  classifyProviderEnvironmentAccess,
-  isProviderSettingsEnvironmentAvailable,
-  type ProviderEnvironmentAccess,
+  classifyProviderMachineAccess,
+  isProviderSettingsMachineAvailable,
+  type ProviderMachineAccess,
   type ProviderOperateAccess,
   resolveRemoteOperateAccess,
-  resolveSelectedProviderEnvironmentId,
+  resolveSelectedProviderMachineId,
 } from "./ProviderSettingsPanel.logic";
 
 function modelListChanges(current: ReadonlyArray<string>, next: ReadonlyArray<string>) {
@@ -157,9 +157,9 @@ function configuredBinaryPath(config: unknown): string {
 
 // Subscribes on its own: a status push restamps `checkedAt` on every provider,
 // and this label is the only part of the panel that shows it.
-function ProviderLastChecked({ environmentId }: { environmentId: EnvironmentId }) {
+function ProviderLastChecked({ machineId }: { machineId: MachineId }) {
   const serverProviders =
-    useAtomValue(serverEnvironment.providersValueAtom(environmentId)) ?? EMPTY_SERVER_PROVIDERS;
+    useAtomValue(serverMachine.providersValueAtom(machineId)) ?? EMPTY_SERVER_PROVIDERS;
   const lastCheckedAt =
     serverProviders.length > 0
       ? serverProviders.reduce(
@@ -191,12 +191,12 @@ function ProviderLastChecked({ environmentId }: { environmentId: EnvironmentId }
   );
 }
 
-function providerEnvironmentDetail(environment: EnvironmentPresentation): string {
-  if (environment.entry.target._tag === "PrimaryConnectionTarget") return "Primary device";
-  if (environment.relayManaged) return "T3 Connect";
-  if (environment.entry.target._tag === "SshConnectionTarget") return "SSH";
-  if (isDesktopLocalConnectionTarget(environment.entry.target)) return "Local device";
-  return environment.displayUrl ?? "Remote device";
+function providerMachineDetail(machine: MachinePresentation): string {
+  if (machine.entry.target._tag === "PrimaryConnectionTarget") return "Primary device";
+  if (machine.relayManaged) return "T3 Connect";
+  if (machine.entry.target._tag === "SshConnectionTarget") return "SSH";
+  if (isDesktopLocalConnectionTarget(machine.entry.target)) return "Local device";
+  return machine.displayUrl ?? "Remote device";
 }
 
 const providerCardHeightClassName =
@@ -240,13 +240,13 @@ function ProviderSettingsPlaceholder({
   );
 }
 
-function EnvironmentUnavailablePlaceholder({
-  environment,
+function MachineUnavailablePlaceholder({
+  machine,
   access,
   deviceTabs,
 }: {
-  readonly environment: EnvironmentPresentation;
-  readonly access: Exclude<ProviderEnvironmentAccess, { kind: "editable" | "read-only" }>;
+  readonly machine: MachinePresentation;
+  readonly access: Exclude<ProviderMachineAccess, { kind: "editable" | "read-only" }>;
   readonly deviceTabs?: ReactNode;
 }) {
   const isLoading = access.kind === "loading";
@@ -258,23 +258,23 @@ function EnvironmentUnavailablePlaceholder({
   const description = isLoading
     ? access.reason === "permissions"
       ? "Checking what this session is allowed to change."
-      : `Waiting for ${environment.label}'s configuration.`
-    : connectionStatusTitle(environment.connection);
-  const error = isLoading ? null : environment.connection.error;
+      : `Waiting for ${machine.label}'s configuration.`
+    : connectionStatusTitle(machine.connection);
+  const error = isLoading ? null : machine.connection.error;
   // No spinner: this state can persist indefinitely for a wedged device, and a
   // continuously repainting animation would run the whole time.
   return (
     <ProviderSettingsPlaceholder
       deviceTabs={deviceTabs}
       icon={
-        <EnvironmentMachineIcon kind={resolveEnvironmentMachineKind(environment.serverConfig)} />
+        <MachineIcon kind={resolveMachineKind(machine.serverConfig)} />
       }
       title={title}
       description={description}
     >
       {error ? (
         <ExpandableText
-          key={environment.environmentId}
+          key={machine.machineId}
           text={error}
           className="w-full text-left font-mono text-xs leading-relaxed text-muted-foreground"
         />
@@ -284,10 +284,10 @@ function EnvironmentUnavailablePlaceholder({
 }
 
 interface ProviderSettingsTarget {
-  readonly environmentId?: EnvironmentId;
+  readonly machineId?: MachineId;
   readonly instanceId?: ProviderInstanceId;
   readonly scoped?: boolean;
-  readonly environmentIds?: readonly EnvironmentId[];
+  readonly machineIds?: readonly MachineId[];
   readonly projectIds?: readonly ProjectId[];
 }
 
@@ -295,7 +295,7 @@ export function ProviderSettingsPanel(target: ProviderSettingsTarget) {
   return (
     <SettingsPageContainer className="@container/providers gap-8">
       <ProviderSettingsPanelContent
-        key={`${target.environmentId ?? ""}:${target.instanceId ?? ""}`}
+        key={`${target.machineId ?? ""}:${target.instanceId ?? ""}`}
         {...target}
       />
     </SettingsPageContainer>
@@ -303,73 +303,73 @@ export function ProviderSettingsPanel(target: ProviderSettingsTarget) {
 }
 
 function ProviderSettingsPanelContent(target: ProviderSettingsTarget) {
-  const { environments, isReady } = useEnvironments();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const { machines, isReady } = useMachines();
+  const primaryMachineId = usePrimaryMachineId();
   const searchTargetId = useSettingsSearchTargetId();
-  const options = buildProviderEnvironmentOptions(
-    environments,
-    primaryEnvironmentId,
-    target.environmentIds,
+  const options = buildProviderMachineOptions(
+    machines,
+    primaryMachineId,
+    target.machineIds,
   );
-  const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<EnvironmentId | null>(
-    target.environmentId ?? primaryEnvironmentId,
+  const [selectedMachineId, setSelectedMachineId] = useState<MachineId | null>(
+    target.machineId ?? primaryMachineId,
   );
-  const targetEnvironmentMissing =
-    target.environmentId !== undefined &&
-    selectedEnvironmentId === target.environmentId &&
-    !options.some((environment) => environment.environmentId === target.environmentId);
-  const effectiveEnvironmentId =
-    target.scoped || targetEnvironmentMissing
-      ? target.environmentId
-      : resolveSelectedProviderEnvironmentId(options, selectedEnvironmentId, primaryEnvironmentId);
-  const selectedEnvironment =
-    options.find((environment) => environment.environmentId === effectiveEnvironmentId) ?? null;
-  const selectedEnvironmentCanRenderSettings =
-    selectedEnvironment !== null &&
-    isProviderSettingsEnvironmentAvailable({
-      connectionPhase: selectedEnvironment.connection.phase,
-      hasServerConfig: selectedEnvironment.serverConfig !== null,
+  const targetMachineMissing =
+    target.machineId !== undefined &&
+    selectedMachineId === target.machineId &&
+    !options.some((machine) => machine.machineId === target.machineId);
+  const effectiveMachineId =
+    target.scoped || targetMachineMissing
+      ? target.machineId
+      : resolveSelectedProviderMachineId(options, selectedMachineId, primaryMachineId);
+  const selectedMachine =
+    options.find((machine) => machine.machineId === effectiveMachineId) ?? null;
+  const selectedMachineCanRenderSettings =
+    selectedMachine !== null &&
+    isProviderSettingsMachineAvailable({
+      connectionPhase: selectedMachine.connection.phase,
+      hasServerConfig: selectedMachine.serverConfig !== null,
     });
-  const searchableEnvironmentId = options.find((environment) =>
-    isProviderSettingsEnvironmentAvailable({
-      connectionPhase: environment.connection.phase,
-      hasServerConfig: environment.serverConfig !== null,
+  const searchableMachineId = options.find((machine) =>
+    isProviderSettingsMachineAvailable({
+      connectionPhase: machine.connection.phase,
+      hasServerConfig: machine.serverConfig !== null,
     }),
-  )?.environmentId;
-  const searchableCursorEnvironmentId = options.find(
-    (environment) =>
-      environment.serverConfig?.environment.platform.os === "darwin" &&
-      isProviderSettingsEnvironmentAvailable({
-        connectionPhase: environment.connection.phase,
+  )?.machineId;
+  const searchableCursorMachineId = options.find(
+    (machine) =>
+      machine.serverConfig?.machine.platform.os === "darwin" &&
+      isProviderSettingsMachineAvailable({
+        connectionPhase: machine.connection.phase,
         hasServerConfig: true,
       }),
-  )?.environmentId;
+  )?.machineId;
   // A search jump to a setting the selected device cannot show switches to one that can.
-  let searchRedirectEnvironmentId: EnvironmentId | undefined;
+  let searchRedirectMachineId: MachineId | undefined;
   {
     if (
       !target.scoped &&
       searchTargetId === searchableSetting("cursor-keychain-usage").id &&
-      (!selectedEnvironmentCanRenderSettings ||
-        selectedEnvironment?.serverConfig?.environment.platform.os !== "darwin") &&
-      searchableCursorEnvironmentId !== undefined
+      (!selectedMachineCanRenderSettings ||
+        selectedMachine?.serverConfig?.machine.platform.os !== "darwin") &&
+      searchableCursorMachineId !== undefined
     ) {
-      searchRedirectEnvironmentId = searchableCursorEnvironmentId;
+      searchRedirectMachineId = searchableCursorMachineId;
     } else if (
       !target.scoped &&
       (searchTargetId === searchableSetting("provider-health-check-interval").id ||
         searchTargetId === searchableSetting("usage-providers").id) &&
-      !selectedEnvironmentCanRenderSettings &&
-      searchableEnvironmentId !== undefined
+      !selectedMachineCanRenderSettings &&
+      searchableMachineId !== undefined
     ) {
-      searchRedirectEnvironmentId = searchableEnvironmentId;
+      searchRedirectMachineId = searchableMachineId;
     }
   }
   if (
-    searchRedirectEnvironmentId !== undefined &&
-    searchRedirectEnvironmentId !== selectedEnvironmentId
+    searchRedirectMachineId !== undefined &&
+    searchRedirectMachineId !== selectedMachineId
   ) {
-    setSelectedEnvironmentId(searchRedirectEnvironmentId);
+    setSelectedMachineId(searchRedirectMachineId);
   }
   const onlyPrimaryDevice =
     options.length === 1 && options[0]?.entry.target._tag === "PrimaryConnectionTarget";
@@ -380,31 +380,31 @@ function ProviderSettingsPanelContent(target: ProviderSettingsTarget) {
           aria-label="Devices"
           variant="segmented"
           className="my-2"
-          value={effectiveEnvironmentId ? [effectiveEnvironmentId] : []}
+          value={effectiveMachineId ? [effectiveMachineId] : []}
           onValueChange={(next) => {
-            const environment = options.find((option) => option.environmentId === next[0]);
-            if (environment) setSelectedEnvironmentId(environment.environmentId);
+            const machine = options.find((option) => option.machineId === next[0]);
+            if (machine) setSelectedMachineId(machine.machineId);
           }}
         >
-          {options.map((environment) => {
-            const machine = resolveEnvironmentMachineKind(environment.serverConfig);
-            const detail = providerEnvironmentDetail(environment);
-            const statusText = connectionStatusTitle(environment.connection);
+          {options.map((machine) => {
+            const machineKind = resolveMachineKind(machine.serverConfig);
+            const detail = providerMachineDetail(machine);
+            const statusText = connectionStatusTitle(machine.connection);
             return (
-              <Tooltip key={environment.environmentId}>
+              <Tooltip key={machine.machineId}>
                 <TooltipTrigger
                   render={
-                    <Toggle value={environment.environmentId}>
-                      <EnvironmentMachineIcon
-                        kind={machine}
+                    <Toggle value={machine.machineId}>
+                      <MachineIcon
+                        kind={machineKind}
                         className="size-3.5 shrink-0"
                         aria-hidden
                       />
-                      <span className="max-w-40 truncate">{environment.label}</span>
-                      {environment.connection.phase !== "connected" ? (
+                      <span className="max-w-40 truncate">{machine.label}</span>
+                      {machine.connection.phase !== "connected" ? (
                         <ConnectionStatusDot
-                          dotClassName={connectionPhaseDotClassName(environment.connection.phase)}
-                          pingClassName={connectionPhasePingClassName(environment.connection.phase)}
+                          dotClassName={connectionPhaseDotClassName(machine.connection.phase)}
+                          pingClassName={connectionPhasePingClassName(machine.connection.phase)}
                         />
                       ) : null}
                       <span className="sr-only">
@@ -425,34 +425,34 @@ function ProviderSettingsPanelContent(target: ProviderSettingsTarget) {
 
   return (
     <>
-      {targetEnvironmentMissing ? (
+      {targetMachineMissing ? (
         <ProviderSettingsPlaceholder
           deviceTabs={deviceTabs}
-          icon={<EnvironmentMachineIcon kind={resolveEnvironmentMachineKind(null)} />}
+          icon={<MachineIcon kind={resolveMachineKind(null)} />}
           title="Device unavailable"
           description="Reconnect this device to set up its provider, or select another device."
         />
       ) : null}
-      {options.length === 0 && !targetEnvironmentMissing ? (
+      {options.length === 0 && !targetMachineMissing ? (
         <ProviderSettingsPlaceholder
-          icon={<EnvironmentMachineIcon kind={resolveEnvironmentMachineKind(null)} />}
+          icon={<MachineIcon kind={resolveMachineKind(null)} />}
           title={isReady ? "No connected devices" : "Loading devices"}
           description={
             isReady
-              ? "Connect an execution environment before configuring providers."
-              : "Reading connected execution environments."
+              ? "Connect an execution machine before configuring providers."
+              : "Reading connected execution machines."
           }
         />
       ) : null}
 
-      {selectedEnvironment ? (
-        <SelectedEnvironmentProviderSettings
-          key={selectedEnvironment.environmentId}
-          environment={selectedEnvironment}
+      {selectedMachine ? (
+        <SelectedMachineProviderSettings
+          key={selectedMachine.machineId}
+          machine={selectedMachine}
           deviceTabs={deviceTabs}
           targetInstanceId={
-            target.environmentId === undefined ||
-            selectedEnvironment.environmentId === target.environmentId
+            target.machineId === undefined ||
+            selectedMachine.machineId === target.machineId
               ? target.instanceId
               : undefined
           }
@@ -463,20 +463,20 @@ function ProviderSettingsPanelContent(target: ProviderSettingsTarget) {
   );
 }
 
-function SelectedEnvironmentProviderSettings({
-  environment,
+function SelectedMachineProviderSettings({
+  machine,
   deviceTabs,
   targetInstanceId,
   projectIds,
 }: {
-  readonly environment: EnvironmentPresentation;
+  readonly machine: MachinePresentation;
   readonly deviceTabs?: ReactNode;
   readonly targetInstanceId?: ProviderInstanceId | undefined;
   readonly projectIds: readonly ProjectId[];
 }) {
   return (
     <RemoteSessionGatedProviderSettings
-      environment={environment}
+      machine={machine}
       deviceTabs={deviceTabs}
       targetInstanceId={targetInstanceId}
       projectIds={projectIds}
@@ -485,17 +485,17 @@ function SelectedEnvironmentProviderSettings({
 }
 
 function RemoteSessionGatedProviderSettings({
-  environment,
+  machine,
   deviceTabs,
   targetInstanceId,
   projectIds,
 }: {
-  readonly environment: EnvironmentPresentation;
+  readonly machine: MachinePresentation;
   readonly deviceTabs?: ReactNode;
   readonly targetInstanceId?: ProviderInstanceId | undefined;
   readonly projectIds: readonly ProjectId[];
 }) {
-  const sessionState = useEnvironmentSessionState(environment.environmentId);
+  const sessionState = useMachineSessionState(machine.machineId);
   const operateAccess = resolveRemoteOperateAccess({
     session: sessionState.data,
     isPending: sessionState.isPending,
@@ -503,7 +503,7 @@ function RemoteSessionGatedProviderSettings({
   });
   return (
     <AccessGatedProviderSettings
-      environment={environment}
+      machine={machine}
       operateAccess={operateAccess}
       deviceTabs={deviceTabs}
       targetInstanceId={targetInstanceId}
@@ -513,36 +513,36 @@ function RemoteSessionGatedProviderSettings({
 }
 
 function AccessGatedProviderSettings({
-  environment,
+  machine,
   operateAccess,
   deviceTabs,
   targetInstanceId,
   projectIds,
 }: {
-  readonly environment: EnvironmentPresentation;
+  readonly machine: MachinePresentation;
   readonly operateAccess: ProviderOperateAccess;
   readonly deviceTabs?: ReactNode;
   readonly targetInstanceId?: ProviderInstanceId | undefined;
   readonly projectIds: readonly ProjectId[];
 }) {
-  const access = classifyProviderEnvironmentAccess({
-    connectionPhase: environment.connection.phase,
-    hasServerConfig: environment.serverConfig !== null,
+  const access = classifyProviderMachineAccess({
+    connectionPhase: machine.connection.phase,
+    hasServerConfig: machine.serverConfig !== null,
     operateAccess,
   });
   if (access.kind !== "editable" && access.kind !== "read-only") {
     return (
-      <EnvironmentUnavailablePlaceholder
-        environment={environment}
+      <MachineUnavailablePlaceholder
+        machine={machine}
         access={access}
         deviceTabs={deviceTabs}
       />
     );
   }
   return (
-    <EnvironmentProviderSettings
-      environmentId={environment.environmentId}
-      environmentLabel={environment.label}
+    <MachineProviderSettings
+      machineId={machine.machineId}
+      machineLabel={machine.label}
       readOnly={access.kind === "read-only"}
       deviceTabs={deviceTabs}
       targetInstanceId={targetInstanceId}
@@ -554,47 +554,47 @@ function AccessGatedProviderSettings({
 const NO_PROJECT_IDS: readonly ProjectId[] = [];
 const NO_FAVORITES: UnifiedSettings["favorites"] = [];
 
-export function EnvironmentProviderSettings({
-  environmentId,
-  environmentLabel,
+export function MachineProviderSettings({
+  machineId,
+  machineLabel,
   readOnly = false,
   deviceTabs,
   targetInstanceId,
   projectIds = NO_PROJECT_IDS,
 }: {
-  readonly environmentId: EnvironmentId;
-  readonly environmentLabel: string;
+  readonly machineId: MachineId;
+  readonly machineLabel: string;
   readonly deviceTabs?: ReactNode;
   readonly targetInstanceId?: ProviderInstanceId | undefined;
   readonly projectIds?: readonly ProjectId[];
   readonly readOnly?: boolean;
 }) {
-  const settings = useEnvironmentSettings(environmentId);
-  const canWriteSettings = useEnvironmentScope(environmentId, AuthSettingsWriteScope);
-  const canRefreshProviders = useEnvironmentScope(environmentId, AuthOrchestrationReadScope);
-  const updateSettings = useUpdateEnvironmentSettings(environmentId);
-  const updateModelPreferences = useUpdateEnvironmentModelPreferences(environmentId);
-  const toggleModelFavorite = useToggleEnvironmentModelFavorite(environmentId);
-  const persistProviderInstance = usePersistEnvironmentProviderInstanceMutation(environmentId);
-  const serverProviders = useAtomValue(providersIgnoringCheckedAtAtom(environmentId));
+  const settings = useMachineSettings(machineId);
+  const canWriteSettings = useMachineScope(machineId, AuthSettingsWriteScope);
+  const canRefreshProviders = useMachineScope(machineId, AuthOrchestrationReadScope);
+  const updateSettings = useUpdateMachineSettings(machineId);
+  const updateModelPreferences = useUpdateMachineModelPreferences(machineId);
+  const toggleModelFavorite = useToggleMachineModelFavorite(machineId);
+  const persistProviderInstance = usePersistMachineProviderInstanceMutation(machineId);
+  const serverProviders = useAtomValue(providersIgnoringCheckedAtAtom(machineId));
   // Older servers decode an unknown providerInstances key away, so sending
   // a project override patch would silently do nothing. Hide the switch
   // instead of offering a control that can never take effect.
   const supportsProjectProviderOverrides = useAtomValue(
-    serverEnvironment.configValueAtom(environmentId),
-    (config) => config?.environment.capabilities.projectProviderInstanceOverrides === true,
+    serverMachine.configValueAtom(machineId),
+    (config) => config?.machine.capabilities.projectProviderInstanceOverrides === true,
   );
-  const refreshServerProviders = useAtomCommand(serverEnvironment.refreshProviders, {
+  const refreshServerProviders = useAtomCommand(serverMachine.refreshProviders, {
     reportFailure: false,
   });
-  const updateProvider = useAtomCommand(serverEnvironment.updateProvider, {
+  const updateProvider = useAtomCommand(serverMachine.updateProvider, {
     reportFailure: false,
   });
   const uninstallAcpRegistryManagedBinary = useAtomCommand(
-    serverEnvironment.uninstallAcpRegistryManagedBinary,
+    serverMachine.uninstallAcpRegistryManagedBinary,
     { reportFailure: false },
   );
-  const acceptAcpRegistryUrlAuth = useAtomCommand(serverEnvironment.acceptAcpRegistryUrlAuth, {
+  const acceptAcpRegistryUrlAuth = useAtomCommand(serverMachine.acceptAcpRegistryUrlAuth, {
     reportFailure: false,
   });
   const [isRefreshingProviders, setIsRefreshingProviders] = useState(false);
@@ -613,7 +613,7 @@ export function EnvironmentProviderSettings({
   const acceptUrlAuthentication = useStableCallback(
     (instanceId: ProviderInstanceId, action: AcpRegistryUrlAuthAction) => {
       void acceptAcpRegistryUrlAuth({
-        environmentId,
+        machineId,
         input: { instanceId, elicitationId: action.elicitationId },
       }).then((result) => {
         if (result._tag === "Success" && !result.value.accepted) {
@@ -655,13 +655,13 @@ export function EnvironmentProviderSettings({
   const defaultProviderHealthRefreshIntervalSeconds = durationToSeconds(providerHealthPreset);
 
   const refreshProviders = () => {
-    if (refreshingRef.current || !readEnvironmentScope(environmentId, AuthOrchestrationReadScope))
+    if (refreshingRef.current || !readMachineScope(machineId, AuthOrchestrationReadScope))
       return;
     refreshingRef.current = true;
     setIsRefreshingProviders(true);
     void (async () => {
       const result = await refreshServerProviders({
-        environmentId,
+        machineId,
         input: { refreshModels: true },
       });
       refreshingRef.current = false;
@@ -669,7 +669,7 @@ export function EnvironmentProviderSettings({
       if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
         console.warn("Failed to refresh providers", {
           operation: "refresh-providers",
-          environmentId,
+          machineId,
           ...safeErrorLogAttributes(squashAtomCommandFailure(result)),
         });
       }
@@ -681,7 +681,7 @@ export function EnvironmentProviderSettings({
       candidate: Pick<ProviderSettingsUpdateCandidate, "driver" | "instanceId">,
       targetVersion?: string,
     ) => {
-      if (!readEnvironmentScope(environmentId, AuthProvidersManageScope)) return;
+      if (!readMachineScope(machineId, AuthProvidersManageScope)) return;
       // Ref-based re-entry guard, mirroring refreshProviders: a state updater
       // may run after this function returns, so it cannot gate the dispatch.
       if (updatingInstanceIdsRef.current.has(candidate.instanceId)) {
@@ -691,7 +691,7 @@ export function EnvironmentProviderSettings({
       setUpdatingProviderInstanceIds((previous) => new Set(previous).add(candidate.instanceId));
 
       const result = await updateProvider({
-        environmentId,
+        machineId,
         input: {
           provider: candidate.driver,
           instanceId: candidate.instanceId,
@@ -843,7 +843,7 @@ export function EnvironmentProviderSettings({
       const shouldClearTextGen =
         isDisabling &&
         resolveAppModelSelectionState(settings, serverProviders).instanceId === instanceId &&
-        readEnvironmentScope(environmentId, AuthSettingsWriteScope);
+        readMachineScope(machineId, AuthSettingsWriteScope);
       void persistInstance(
         instanceId,
         next,
@@ -882,7 +882,7 @@ export function EnvironmentProviderSettings({
       // instance using the managed agent. A client-side snapshot check can race
       // two removals and make both callers skip cleanup.
       const uninstallResult = await uninstallAcpRegistryManagedBinary({
-        environmentId,
+        machineId,
         input: { agentId },
       });
       if (uninstallResult._tag === "Failure" && !isAtomCommandInterrupted(uninstallResult)) {
@@ -948,8 +948,8 @@ export function EnvironmentProviderSettings({
     return (
       <ProviderInstanceRow
         key={row.instanceId}
-        environmentId={environmentId}
-        environmentLabel={environmentLabel}
+        machineId={machineId}
+        machineLabel={machineLabel}
         instanceId={row.instanceId}
         driver={row.driver}
         explicitInstance={row.explicitInstance}
@@ -1028,7 +1028,7 @@ export function EnvironmentProviderSettings({
                       {isRefreshingProviders ? (
                         "Refreshing providers"
                       ) : (
-                        <ProviderLastChecked environmentId={environmentId} />
+                        <ProviderLastChecked machineId={machineId} />
                       )}
                     </span>
                   </Button>
@@ -1046,7 +1046,7 @@ export function EnvironmentProviderSettings({
           <SettingsGroup divided={false} className="overflow-hidden">
             <SettingsRow
               title="Limited permissions"
-              description={`This session can view ${environmentLabel}'s providers but can't change their settings.`}
+              description={`This session can view ${machineLabel}'s providers but can't change their settings.`}
             />
           </SettingsGroup>
         ) : null}
@@ -1096,9 +1096,9 @@ export function EnvironmentProviderSettings({
       </SettingsSection>
 
       <UsageProviderSettings
-        key={environmentId}
-        environmentId={environmentId}
-        environmentLabel={environmentLabel}
+        key={machineId}
+        machineId={machineId}
+        machineLabel={machineLabel}
         sources={settings.usageLimitSources}
         cursorKeychainUsageEnabled={settings.cursorKeychainUsageEnabled}
         readOnly={readOnly}
@@ -1183,8 +1183,8 @@ export function EnvironmentProviderSettings({
       {isAddInstanceDialogOpen && !readOnly ? (
         <AddProviderInstanceDialog
           open
-          environmentId={environmentId}
-          environmentLabel={environmentLabel}
+          machineId={machineId}
+          machineLabel={machineLabel}
           onOpenChange={setIsAddInstanceDialogOpen}
           onCreated={setSelectedInstanceId}
         />
@@ -1220,8 +1220,8 @@ interface ProviderInstanceRowActions {
     instanceId: ProviderInstanceId,
     next: boolean | undefined,
   ) => void;
-  readonly updateModelPreferences: ReturnType<typeof useUpdateEnvironmentModelPreferences>;
-  readonly toggleModelFavorite: ReturnType<typeof useToggleEnvironmentModelFavorite>;
+  readonly updateModelPreferences: ReturnType<typeof useUpdateMachineModelPreferences>;
+  readonly toggleModelFavorite: ReturnType<typeof useToggleMachineModelFavorite>;
   readonly selectInstance: (instanceId: ProviderInstanceId) => void;
 }
 
@@ -1234,8 +1234,8 @@ const NO_MODELS: ReadonlyArray<string> = [];
  * action, and its cached card element is returned unchanged.
  */
 function ProviderInstanceRow({
-  environmentId,
-  environmentLabel,
+  machineId,
+  machineLabel,
   instanceId,
   driver,
   explicitInstance,
@@ -1254,8 +1254,8 @@ function ProviderInstanceRow({
   favorites,
   actions,
 }: {
-  readonly environmentId: EnvironmentId;
-  readonly environmentLabel: string;
+  readonly machineId: MachineId;
+  readonly machineLabel: string;
   readonly instanceId: ProviderInstanceId;
   readonly driver: ProviderDriverKind;
   readonly explicitInstance: ProviderInstanceConfig | undefined;
@@ -1279,7 +1279,7 @@ function ProviderInstanceRow({
   const allProjects = useProjects();
   const acpProjects =
     mode === "editor" && liveProvider?.driver === "acpRegistry"
-      ? allProjects.filter((project) => project.environmentId === environmentId)
+      ? allProjects.filter((project) => project.machineId === machineId)
       : undefined;
   const instance = explicitInstance ?? { driver };
   const driverOption = providerClients.get(driver);
@@ -1314,7 +1314,7 @@ function ProviderInstanceRow({
 
   return (
     <ProviderInstanceCard
-      environmentId={environmentId}
+      machineId={machineId}
       acpProjects={acpProjects}
       projectOverride={projectOverride}
       onAcceptUrlAuth={
@@ -1331,7 +1331,7 @@ function ProviderInstanceRow({
       runtime={
         mode === "editor" && codexSetupMode === "managed" ? (
           <CodexManagedRuntimeFields
-            environmentId={environmentId}
+            machineId={machineId}
             instanceId={instanceId}
             provider={liveProvider}
           />
@@ -1341,8 +1341,8 @@ function ProviderInstanceRow({
       setup={
         mode === "editor" && driver === "antigravity" ? (
           <ProviderSetupSection
-            environmentId={environmentId}
-            environmentLabel={environmentLabel}
+            machineId={machineId}
+            machineLabel={machineLabel}
             instanceId={instanceId}
             provider={liveProvider}
             binaryPath={configuredBinaryPath(instance.config)}
@@ -1353,7 +1353,7 @@ function ProviderInstanceRow({
           />
         ) : mode === "editor" && codexSetupMode === "managed" ? (
           <CodexSetupSection
-            environmentId={environmentId}
+            machineId={machineId}
             instanceId={instanceId}
             provider={liveProvider}
             mode={codexSetupMode}
@@ -1379,9 +1379,9 @@ function ProviderInstanceRow({
           (liveProvider.setup?.canAuthenticate ||
             (liveProvider.driver === "acpRegistry" && liveProvider.installed)) ? (
           <ProviderAuthenticationSection
-            key={`${environmentId}:${instanceId}`}
-            environmentId={environmentId}
-            environmentLabel={environmentLabel}
+            key={`${machineId}:${instanceId}`}
+            machineId={machineId}
+            machineLabel={machineLabel}
             instanceId={instanceId}
             provider={liveProvider}
             readOnly={readOnly}
@@ -1392,7 +1392,7 @@ function ProviderInstanceRow({
           liveProvider?.setup?.canAuthenticate === false ? (
           <SettingsRow
             title="Cursor account"
-            description="Using CURSOR_API_KEY. Remove it from this provider's environment to use browser sign-in."
+            description="Using CURSOR_API_KEY. Remove it from this provider's machine to use browser sign-in."
           />
         ) : null
       }

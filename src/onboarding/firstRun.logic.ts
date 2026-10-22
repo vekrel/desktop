@@ -12,7 +12,7 @@ type FirstRunGateEvent =
   | { readonly type: "timeout" };
 
 interface FirstRunWorkspaceInput {
-  readonly primaryEnvironmentId: string | null;
+  readonly primaryMachineId: string | null;
   readonly serverCwd: string | null;
   readonly bootstrapProjectId?: string | undefined;
   readonly bootstrapThreadId?: string | undefined;
@@ -20,13 +20,13 @@ interface FirstRunWorkspaceInput {
   readonly bootstrapThreadCreated?: boolean | undefined;
   readonly projects: ReadonlyArray<{
     readonly id: string;
-    readonly environmentId: string;
+    readonly machineId: string;
     readonly workspaceRoot: string;
   }>;
   readonly threads: ReadonlyArray<{
     readonly id: string;
     readonly projectId: string;
-    readonly environmentId: string;
+    readonly machineId: string;
     readonly latestRun: unknown;
     readonly latestUserMessageAt: string | null;
     readonly runtime: unknown;
@@ -81,7 +81,7 @@ export function isFreshFirstRunWorkspace(input: FirstRunWorkspaceInput): boolean
       input.bootstrapProjectCreated !== true ||
       input.bootstrapProjectId !== bootstrapProject.id ||
       input.serverCwd === null ||
-      bootstrapProject.environmentId !== input.primaryEnvironmentId ||
+      bootstrapProject.machineId !== input.primaryMachineId ||
       normalizeProjectPathForComparison(bootstrapProject.workspaceRoot) !==
         normalizeProjectPathForComparison(input.serverCwd)
     ) {
@@ -98,7 +98,7 @@ export function isFreshFirstRunWorkspace(input: FirstRunWorkspaceInput): boolean
     bootstrapProject !== undefined &&
     input.bootstrapThreadCreated === true &&
     input.bootstrapThreadId === bootstrapThread.id &&
-    bootstrapThread.environmentId === input.primaryEnvironmentId &&
+    bootstrapThread.machineId === input.primaryMachineId &&
     bootstrapThread.projectId === bootstrapProject.id &&
     bootstrapThread.latestRun === null &&
     bootstrapThread.latestUserMessageAt === null &&

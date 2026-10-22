@@ -2,9 +2,9 @@ import { useAtomValue } from "@effect/atom-react";
 import type { ServerUpdateState } from "@vekrel/client-runtime/state/server";
 import { useState } from "react";
 
-import { environmentIdsKey } from "~/state/environmentAtomList";
-import type { EnvironmentPresentation } from "~/state/environments";
-import { environmentUpdateStatesAtom } from "~/state/server";
+import { machineIdsKey } from "~/state/machineAtomList";
+import type { MachinePresentation } from "~/state/machines";
+import { machineUpdateStatesAtom } from "~/state/server";
 import {
   buildVersionMismatchDismissalKey,
   dismissServerUpdateFailure,
@@ -27,24 +27,24 @@ import type { ComposerBannerStackItem } from "./ComposerBannerStack";
 import { ComposerServerUpdateIcon } from "./ComposerServerUpdateStatus";
 
 export function useAutoBalanceUpdateBanner(
-  environments: readonly EnvironmentPresentation[],
+  allMachines: readonly MachinePresentation[],
 ): ComposerBannerStackItem | null {
   const updateStates = useAtomValue(
-    environmentUpdateStatesAtom(
-      environmentIdsKey(environments.map(({ environmentId }) => environmentId)),
+    machineUpdateStatesAtom(
+      machineIdsKey(allMachines.map(({ machineId }) => machineId)),
     ),
   );
-  const states = environments.flatMap((environment, index) => {
+  const states = allMachines.flatMap((machine, index) => {
     const state = updateStates[index];
-    return state ? [{ environment, state }] : [];
+    return state ? [{ machine, state }] : [];
   });
   const [dismissedNotices, setDismissedNotices] = useState<ReadonlySet<string | ServerUpdateState>>(
     () => new Set(),
   );
-  const machines = states.flatMap(({ environment, state }) => {
-    const mismatch = resolveServerConfigVersionMismatch(environment.serverConfig);
+  const machines = states.flatMap(({ machine, state }) => {
+    const mismatch = resolveServerConfigVersionMismatch(machine.serverConfig);
     const dismissKey = mismatch
-      ? buildVersionMismatchDismissalKey(environment.environmentId, mismatch)
+      ? buildVersionMismatchDismissalKey(machine.machineId, mismatch)
       : null;
     if (
       state.status === "idle"
@@ -54,20 +54,20 @@ export function useAutoBalanceUpdateBanner(
         : dismissedNotices.has(state) || isServerUpdateFailureDismissed(state)
     )
       return [];
-    const selfUpdate = resolveServerSelfUpdateCapability(environment.serverConfig);
-    const desktopAppUpdate = supportsDesktopAppUpdate(environment.serverConfig);
+    const selfUpdate = resolveServerSelfUpdateCapability(machine.serverConfig);
+    const desktopAppUpdate = supportsDesktopAppUpdate(machine.serverConfig);
     return [
       {
-        environmentId: environment.environmentId,
-        serverLabel: environment.label,
+        machineId: machine.machineId,
+        serverLabel: machine.label,
         selfUpdate,
-        installation: environment.serverConfig?.environment.capabilities.serverInstallation,
+        installation: machine.serverConfig?.machine.capabilities.serverInstallation,
         desktopAppUpdate,
-        threadContinuation: supportsServerUpdateThreadContinuation(environment.serverConfig),
+        threadContinuation: supportsServerUpdateThreadContinuation(machine.serverConfig),
         continueThreadsAfterServerUpdate:
-          environment.serverConfig?.settings.continueThreadsAfterServerUpdate ?? false,
+          machine.serverConfig?.settings.continueThreadsAfterServerUpdate ?? false,
         targetVersion: state.status === "idle" ? mismatch!.clientVersion : state.targetVersion,
-        connected: environment.connection.phase === "connected",
+        connected: machine.connection.phase === "connected",
         remoteUpdate: selfUpdate !== null && (selfUpdate !== "desktop-managed" || desktopAppUpdate),
         state,
         dismissKey,
@@ -103,7 +103,7 @@ export function useAutoBalanceUpdateBanner(
         <PopoverPopup side="top" align="start" width="md">
           <div className="space-y-3 text-xs">
             {machines.map((machine) => (
-              <div key={machine.environmentId} className="space-y-1">
+              <div key={machine.machineId} className="space-y-1">
                 <div className="font-medium">{machine.serverLabel}</div>
                 {machine.state.status !== "idle" ? (
                   <ServerUpdateProgress state={machine.state} />

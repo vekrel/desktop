@@ -16,8 +16,8 @@ import {
   useRightPanelStore,
   type RightPanelSurface,
 } from "../rightPanelStore";
-import { previewEnvironment } from "../state/preview";
-import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
+import { previewMachine } from "../state/preview";
+import { readMachineScope, useMachineScope } from "../state/session";
 import { useAtomCommand } from "../state/use-atom-command";
 import { useTerminalUiStateStore } from "../terminalUiStateStore";
 import { useStableCallback } from "./useStableCallback";
@@ -32,9 +32,9 @@ export function useRightPanelSurfaceClose(input: {
   readonly terminalLabelsById: ReadonlyMap<string, string>;
 }) {
   const { threadRef, terminalLabelsById } = input;
-  const closePreview = useAtomCommand(previewEnvironment.close, "preview close");
-  const canOperatePreview = useEnvironmentScope(
-    threadRef?.environmentId ?? null,
+  const closePreview = useAtomCommand(previewMachine.close, "preview close");
+  const canOperatePreview = useMachineScope(
+    threadRef?.machineId ?? null,
     AuthPreviewOperateScope,
   );
   const previewState = useThreadPreviewState(threadRef);
@@ -58,7 +58,7 @@ export function useRightPanelSurfaceClose(input: {
     }
     if (
       surface.kind === "terminal" &&
-      readEnvironmentScope(ref.environmentId, AuthTerminalOperateScope)
+      readMachineScope(ref.machineId, AuthTerminalOperateScope)
     ) {
       for (const terminalId of surface.terminalIds) {
         storeCloseTerminal(ref, terminalId);
@@ -119,7 +119,7 @@ export function useRightPanelSurfaceClose(input: {
     }
     if (
       surface.kind !== "terminal" ||
-      !readEnvironmentScope(threadRef.environmentId, AuthTerminalOperateScope)
+      !readMachineScope(threadRef.machineId, AuthTerminalOperateScope)
     ) {
       finishClose([surface]);
       return;

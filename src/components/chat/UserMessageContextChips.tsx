@@ -76,7 +76,7 @@ function UserMessageMentionChip(props: {
           >
             <WorkspaceEntryIcon
               path={props.record.path}
-              environmentId={ctx.activeThreadEnvironmentId}
+              machineId={ctx.activeThreadMachineId}
               cwd={ctx.workspaceRoot}
               theme={ctx.resolvedTheme}
             />
@@ -87,7 +87,7 @@ function UserMessageMentionChip(props: {
       <TooltipPopup>
         <WorkspaceEntryTooltip
           path={props.record.path}
-          environmentId={ctx.activeThreadEnvironmentId}
+          machineId={ctx.activeThreadMachineId}
           cwd={ctx.workspaceRoot}
         />
       </TooltipPopup>
@@ -120,13 +120,13 @@ function UserMessagePullRequestContextChip(props: {
   copyMarkdown: string;
   kind: ContextChipKind;
 }) {
-  const { activeThreadEnvironmentId, openPullRequest } = use(TimelineRowCtx);
+  const { activeThreadMachineId, openPullRequest } = use(TimelineRowCtx);
   const metadata = props.record.pullRequest;
   if (metadata === undefined) return null;
   return (
     <PullRequestChip
       metadata={metadata}
-      environmentId={activeThreadEnvironmentId}
+      machineId={activeThreadMachineId}
       label={reviewCommentContextLabel(props.record)}
       kindLabel={pullRequestContextKindLabel(props.record)}
       kind={props.kind}

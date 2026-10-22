@@ -15,15 +15,15 @@ describe("thread action ownership", () => {
     expect(firstUnpin.isCurrent()).toBe(false);
   });
 
-  it("expires an Undo without invalidating another environment or thread", () => {
+  it("expires an Undo without invalidating another machine or thread", () => {
     const first = ThreadUndo.begin("pin", "one/thread");
-    const otherEnvironment = ThreadUndo.begin("pin", "two/thread");
+    const otherMachine = ThreadUndo.begin("pin", "two/thread");
     const otherThread = ThreadUndo.begin("pin", "one/other");
     first.finish();
     expect(first.isCurrent()).toBe(false);
-    expect(otherEnvironment.isCurrent()).toBe(true);
+    expect(otherMachine.isCurrent()).toBe(true);
     expect(otherThread.isCurrent()).toBe(true);
-    otherEnvironment.finish();
+    otherMachine.finish();
     otherThread.finish();
   });
 });

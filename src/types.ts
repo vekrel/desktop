@@ -17,8 +17,8 @@ import type {
   ThreadId,
 } from "@vekrel/contracts";
 import type {
-  EnvironmentProject,
-  EnvironmentThreadShell,
+  MachineProject,
+  MachineThreadShell,
   ThreadRunSummary,
   ThreadRuntimeSummary,
 } from "@vekrel/client-runtime/state/shell";
@@ -108,9 +108,9 @@ export interface ProposedPlan {
 export type TurnDiffFileChange = ThreadCheckpointSummary["files"][number];
 export type TurnDiffSummary = ThreadCheckpointSummary;
 
-export type Project = EnvironmentProject;
-export type Thread = EnvironmentThreadShell;
-export type ThreadShell = EnvironmentThreadShell;
+export type Project = MachineProject;
+export type Thread = MachineThreadShell;
+export type ThreadShell = MachineThreadShell;
 
-export type SidebarThreadSummary = EnvironmentThreadShell;
+export type SidebarThreadSummary = MachineThreadShell;
 export type ThreadSession = ThreadRuntimeSummary;

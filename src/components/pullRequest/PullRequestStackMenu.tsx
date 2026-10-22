@@ -1,6 +1,6 @@
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestRef,
   PullRequestStack,
   PullRequestMergeMethod,
@@ -9,7 +9,7 @@ import { squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
 import { RefreshCwIcon, TriangleAlertIcon } from "lucide-react";
 import { useState } from "react";
 import { useAtomCommand } from "~/state/use-atom-command";
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 import { Button } from "../ui/button";
 import { Menu, MenuPopup, MenuTrigger, MenuItem, MenuGroup, MenuSeparator } from "../ui/menu";
 import {
@@ -31,7 +31,7 @@ export function PullRequestStackMenu({
   hostLabel,
   stack,
   reference,
-  environmentId,
+  machineId,
   canMerge,
   canRebase,
   mergeMethod,
@@ -45,7 +45,7 @@ export function PullRequestStackMenu({
   onRetry?: (() => void) | undefined;
   stack: PullRequestStack;
   reference: PullRequestRef;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   canMerge: boolean;
   canRebase: boolean;
   mergeMethod: PullRequestMergeMethod;
@@ -55,7 +55,7 @@ export function PullRequestStackMenu({
   const [open, setOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<"merge" | "update-branch" | null>(null);
   const [pending, setPending] = useState(false);
-  const runAction = useAtomCommand(pullRequestEnvironment.runAction, { reportFailure: false });
+  const runAction = useAtomCommand(pullRequestMachine.runAction, { reportFailure: false });
   const top = stack.layers.at(-1);
   const unmerged = stack.layers.filter((layer) => layer.state !== "merged");
   const hasClosed = unmerged.some((layer) => layer.state !== "open");
@@ -95,7 +95,7 @@ export function PullRequestStackMenu({
       title: action === "merge" ? "Merging stack..." : "Rebasing stack...",
     });
     const result = await runAction({
-      environmentId,
+      machineId,
       input: {
         ...reference,
         number: target.number,

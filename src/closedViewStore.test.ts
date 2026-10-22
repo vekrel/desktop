@@ -1,6 +1,6 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import {
-  type EnvironmentId,
+  type MachineId,
   INCOGNITO_BROWSER_PROFILE_ID,
   type PreviewSessionSnapshot,
   ThreadId,
@@ -9,8 +9,8 @@ import { beforeEach, describe, expect, it } from "vite-plus/test";
 
 import { type ClosedViewEntry, useClosedViewStore } from "./closedViewStore";
 
-const refA = scopeThreadRef("env-1" as EnvironmentId, ThreadId.make("thread-A"));
-const refB = scopeThreadRef("env-2" as EnvironmentId, ThreadId.make("thread-A"));
+const refA = scopeThreadRef("env-1" as MachineId, ThreadId.make("thread-A"));
+const refB = scopeThreadRef("env-2" as MachineId, ThreadId.make("thread-A"));
 const diff = (threadRef: typeof refA) =>
   ({ kind: "panel-tab", threadRef, surface: { kind: "diff", id: "diff" } }) as const;
 

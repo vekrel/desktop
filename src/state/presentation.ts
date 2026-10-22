@@ -1,36 +1,36 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { EnvironmentPresentation } from "@vekrel/client-runtime/connection";
+import type { MachinePresentation } from "@vekrel/client-runtime/connection";
 import {
-  createEnvironmentPresentationAtoms,
-  createEnvironmentSummaryAtoms,
+  createMachinePresentationAtoms,
+  createMachineSummaryAtoms,
 } from "@vekrel/client-runtime/state/presentation";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { Atom } from "effect/reactivity";
 
-import { environmentCatalog } from "../connection/catalog";
-import { serverEnvironment } from "./server";
+import { machineCatalog } from "../connection/catalog";
+import { serverMachine } from "./server";
 
-export const environmentPresentations = createEnvironmentPresentationAtoms({
-  catalogValueAtom: environmentCatalog.catalogValueAtom,
-  stateAtom: environmentCatalog.stateAtom,
-  serverConfigValueAtom: serverEnvironment.configValueAtom,
+export const machinePresentations = createMachinePresentationAtoms({
+  catalogValueAtom: machineCatalog.catalogValueAtom,
+  stateAtom: machineCatalog.stateAtom,
+  serverConfigValueAtom: serverMachine.configValueAtom,
 });
 
-export const environmentSummaries = createEnvironmentSummaryAtoms({
-  catalogValueAtom: environmentCatalog.catalogValueAtom,
-  presentationAtom: environmentPresentations.presentationAtom,
+export const machineSummaries = createMachineSummaryAtoms({
+  catalogValueAtom: machineCatalog.catalogValueAtom,
+  presentationAtom: machinePresentations.presentationAtom,
 });
 
-const EMPTY_ENVIRONMENT_PRESENTATION_ATOM = Atom.make<EnvironmentPresentation | null>(null).pipe(
-  Atom.withLabel("web-environment-presentation:empty"),
+const EMPTY_MACHINE_PRESENTATION_ATOM = Atom.make<MachinePresentation | null>(null).pipe(
+  Atom.withLabel("web-machine-presentation:empty"),
 );
 
-export function useEnvironmentPresentation(environmentId: EnvironmentId | null) {
-  const catalog = useAtomValue(environmentCatalog.catalogValueAtom);
+export function useMachinePresentation(machineId: MachineId | null) {
+  const catalog = useAtomValue(machineCatalog.catalogValueAtom);
   const presentation = useAtomValue(
-    environmentId === null
-      ? EMPTY_ENVIRONMENT_PRESENTATION_ATOM
-      : environmentPresentations.presentationAtom(environmentId),
+    machineId === null
+      ? EMPTY_MACHINE_PRESENTATION_ATOM
+      : machinePresentations.presentationAtom(machineId),
   );
   return {
     isReady: catalog.isReady,

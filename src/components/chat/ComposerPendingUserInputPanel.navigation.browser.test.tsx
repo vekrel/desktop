@@ -1,5 +1,5 @@
 import {
-  EnvironmentId,
+  MachineId,
   NodeId,
   RuntimeRequestId,
   ThreadId,
@@ -18,7 +18,7 @@ import { act, fakeTimers, render } from "../../../test/render";
 import { makeThreadProjectionFixture } from "../../test-fixtures";
 import { usePendingThreadRequests } from "./usePendingThreadRequests";
 
-const threadRef = { environmentId: EnvironmentId.make("env"), threadId: ThreadId.make("thread") };
+const threadRef = { machineId: MachineId.make("env"), threadId: ThreadId.make("thread") };
 
 const prompt = {
   requestId: RuntimeRequestId.make("question-navigation"),
@@ -75,23 +75,23 @@ function questionProjection(threadId: ThreadId, requestIds = ["first", "second"]
 let requests: ReturnType<typeof usePendingThreadRequests>;
 
 function PendingRequestsProbe({
-  environmentId,
+  machineId,
   projection,
   loading = false,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   projection: OrchestrationV2ThreadProjection;
   loading?: boolean;
 }) {
   const promptRef = useRef("");
   const composerRef = useRef(null);
   const state = usePendingThreadRequests({
-    environmentId,
+    machineId,
     activeThreadId: projection.thread.id,
     activeThread: projection.thread,
     serverProjection: loading ? null : projection,
     supportsQuestionAttachments: false,
-    composerDraftTarget: { environmentId, threadId: projection.thread.id },
+    composerDraftTarget: { machineId, threadId: projection.thread.id },
     setComposerDraftPrompt: () => {},
     promptRef,
     composerRef,
@@ -105,10 +105,10 @@ function PendingRequestsProbe({
 
 it("retains answers, selections and question position after leaving chat, including while the projection reloads", async () => {
   using _timers = fakeTimers();
-  const environmentId = EnvironmentId.make("remount-environment");
+  const machineId = MachineId.make("remount-machine");
   const projection = questionProjection(threadRef.threadId);
   const probe = (loading = false) => (
-    <PendingRequestsProbe environmentId={environmentId} projection={projection} loading={loading} />
+    <PendingRequestsProbe machineId={machineId} projection={projection} loading={loading} />
   );
   await using screen = await render(probe());
   await act(() =>
@@ -138,15 +138,15 @@ it("retains answers, selections and question position after leaving chat, includ
   expect(requests).toMatchObject(expected);
 });
 
-it("isolates drafts by environment, thread and request and discards only resolved requests", async () => {
+it("isolates drafts by machine, thread and request and discards only resolved requests", async () => {
   using _timers = fakeTimers();
-  const environmentId = EnvironmentId.make("scope-environment");
+  const machineId = MachineId.make("scope-machine");
   const projection = questionProjection(threadRef.threadId);
   const scopes = [
-    { environmentId, projection },
-    { environmentId: EnvironmentId.make("other-environment"), projection },
-    { environmentId, projection: questionProjection(ThreadId.make("other-thread")) },
-    { environmentId, projection: questionProjection(threadRef.threadId, ["second", "first"]) },
+    { machineId, projection },
+    { machineId: MachineId.make("other-machine"), projection },
+    { machineId, projection: questionProjection(ThreadId.make("other-thread")) },
+    { machineId, projection: questionProjection(threadRef.threadId, ["second", "first"]) },
   ];
   await using screen = await render(null);
   const show = (scope: ComponentProps<typeof PendingRequestsProbe>) =>
@@ -162,7 +162,7 @@ it("isolates drafts by environment, thread and request and discards only resolve
   }
 
   await show({
-    environmentId,
+    machineId,
     projection: {
       ...projection,
       runtimeRequests: projection.runtimeRequests.map((request) =>

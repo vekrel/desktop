@@ -1,7 +1,7 @@
 import {
   AuthOrchestrationOperateScope,
-  EnvironmentAuthorizationError,
-  EnvironmentId,
+  MachineAuthorizationError,
+  MachineId,
 } from "@vekrel/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
@@ -15,11 +15,11 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("react", () => ({ useCallback: (callback: unknown) => callback }));
-vi.mock("./state/shell", () => ({ shellEnvironment: { openInEditor: "openInEditor" } }));
+vi.mock("./state/shell", () => ({ shellMachine: { openInEditor: "openInEditor" } }));
 vi.mock("./state/use-atom-command", () => ({ useAtomCommand: () => state.run }));
 vi.mock("./state/session", () => ({
-  readEnvironmentScope: (environmentId: string, scope: string) =>
-    scope === AuthOrchestrationOperateScope && state.allowed.has(environmentId),
+  readMachineScope: (machineId: string, scope: string) =>
+    scope === AuthOrchestrationOperateScope && state.allowed.has(machineId),
 }));
 vi.mock("./hooks/useLocalStorage", () => ({
   getLocalStorageItem: state.getPreference,
@@ -29,8 +29,8 @@ vi.mock("./hooks/useLocalStorage", () => ({
 
 import { useOpenInPreferredEditor } from "./editorPreferences";
 
-const primary = EnvironmentId.make("primary");
-const secondary = EnvironmentId.make("secondary");
+const primary = MachineId.make("primary");
+const secondary = MachineId.make("secondary");
 
 beforeEach(() => {
   state.allowed.clear();
@@ -39,13 +39,13 @@ beforeEach(() => {
   state.setPreference.mockReset();
 });
 
-it("does not use another environment's grant or change preferences when denied", async () => {
+it("does not use another machine's grant or change preferences when denied", async () => {
   state.allowed.add(primary);
   const open = useOpenInPreferredEditor(secondary, ["vscode"]);
   const result = await open("/work/readme.md");
   assert(result._tag === "Failure");
   const error = Cause.squash(result.cause);
-  expect(error).toBeInstanceOf(EnvironmentAuthorizationError);
+  expect(error).toBeInstanceOf(MachineAuthorizationError);
   expect(error).toMatchObject({ requiredScope: AuthOrchestrationOperateScope });
   expect(state.run).not.toHaveBeenCalled();
   expect(state.getPreference).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ it("checks revocation and regrant when a retained editor callback is invoked", a
   state.allowed.add(secondary);
   expect(await open("/work/readme.md:5")).toMatchObject({ _tag: "Success", value: "vscode" });
   expect(state.run).toHaveBeenCalledExactlyOnceWith({
-    environmentId: secondary,
+    machineId: secondary,
     input: { cwd: "/work/readme.md:5", editor: "vscode" },
   });
   expect(state.setPreference).toHaveBeenCalledTimes(1);

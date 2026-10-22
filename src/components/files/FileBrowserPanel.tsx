@@ -3,7 +3,7 @@ import type {
   ContextMenuItem as TreeContextMenuItem,
   ContextMenuOpenContext as TreeContextMenuOpenContext,
 } from "@pierre/trees";
-import type { EnvironmentId, ProjectEntry } from "@vekrel/contracts";
+import type { MachineId, ProjectEntry } from "@vekrel/contracts";
 import { FileTree, useFileTree, useFileTreeSearch, useFileTreeSelector } from "@pierre/trees/react";
 import { settlePromise } from "@vekrel/client-runtime/state/runtime";
 import { serializeComposerFileLink } from "@vekrel/shared/composerTrigger";
@@ -36,7 +36,7 @@ import { useDirectoryEntries } from "./useDirectoryEntries";
 import { useProjectPathSearch } from "~/state/queries";
 
 interface FileBrowserPanelProps {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   cwd: string;
   projectName: string;
   selectedPath: string | null;
@@ -139,7 +139,7 @@ function buildTreeEntries(
 }
 
 export default function FileBrowserPanel({
-  environmentId,
+  machineId,
   cwd,
   projectName,
   selectedPath,
@@ -153,7 +153,7 @@ export default function FileBrowserPanel({
     hostFolder ? joinHostPath(cwd, relativePath) : relativePath;
   const { resolvedTheme } = useTheme();
   const composerRef = useComposerHandleContext();
-  const fileContextMenu = useFileContextMenu(environmentId);
+  const fileContextMenu = useFileContextMenu(machineId);
   const {
     entries: directoryEntries,
     load,
@@ -162,11 +162,11 @@ export default function FileBrowserPanel({
     error,
     isPending,
     loadingDirectories,
-  } = useDirectoryEntries(environmentId, cwd);
+  } = useDirectoryEntries(machineId, cwd);
   const [query, setQuery] = useState("");
   const [expandAll, setExpandAll] = useState(false);
   const pathSearch = useProjectPathSearch(
-    { environmentId, cwd: hostFolder ? null : cwd, query: query.slice(0, 256) },
+    { machineId, cwd: hostFolder ? null : cwd, query: query.slice(0, 256) },
     200,
   );
   const { entries, entryKinds, treePaths, directoryPaths, expandableDirectoryPaths } =
@@ -204,7 +204,7 @@ export default function FileBrowserPanel({
       const position = pointerIsFresh
         ? { x: pointer.x, y: pointer.y }
         : { x: anchorRect.left, y: anchorRect.bottom };
-      const fileTarget = { environmentId, filePath: relativePath, workspaceRoot: cwd };
+      const fileTarget = { machineId, filePath: relativePath, workspaceRoot: cwd };
       const fileMenuItems = fileContextMenu.buildItems(fileTarget);
       void settlePromise(async () => {
         const clicked = await api.contextMenu.show(
@@ -397,7 +397,7 @@ export default function FileBrowserPanel({
       refresh();
       if (query.trim()) pathSearch.refresh();
     },
-    resourceKey: `files:${environmentId}:${cwd}`,
+    resourceKey: `files:${machineId}:${cwd}`,
   });
 
   useEffect(() => {
@@ -509,7 +509,7 @@ export default function FileBrowserPanel({
     <div
       ref={panelRef}
       className="flex min-h-0 flex-1 flex-col bg-background"
-      data-file-browser-panel={`${environmentId}:${cwd}`}
+      data-file-browser-panel={`${machineId}:${cwd}`}
     >
       <div
         className="flex h-10 min-h-10 shrink-0 items-center gap-1 border-b border-border/60 bg-background px-2 in-data-[preview-panel-mode=inline]:mb-1 in-data-[preview-panel-mode=inline]:h-9 in-data-[preview-panel-mode=inline]:min-h-9 in-data-[preview-panel-mode=inline]:border-b-transparent"

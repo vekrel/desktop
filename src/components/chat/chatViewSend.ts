@@ -1,6 +1,6 @@
 import {
   CommandId,
-  type EnvironmentId,
+  type MachineId,
   type ModelSelection,
   type ProviderInteractionMode,
   type ScopedThreadRef,
@@ -155,7 +155,7 @@ export async function startFanoutThread(input: {
  */
 export async function rewindToMessage(input: {
   readonly message: ChatMessage;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly routeThreadRef: ScopedThreadRef;
   readonly threadId: ThreadId;
   readonly turnCount: number;
@@ -167,7 +167,7 @@ export async function rewindToMessage(input: {
     typeof prepareRevertedMessageAttachments
   >[0]["createAssetUrl"];
   readonly revertThreadCheckpoint: (value: {
-    environmentId: EnvironmentId;
+    machineId: MachineId;
     input: {
       commandId: CommandId;
       threadId: ThreadId;
@@ -181,16 +181,16 @@ export async function rewindToMessage(input: {
   | { readonly error: string; readonly prompt?: never }
   | { readonly error: null; readonly prompt: string }
 > {
-  const { message, environmentId, draftTarget } = input;
+  const { message, machineId, draftTarget } = input;
   try {
     if (input.composerHasPendingAttachments) {
       throw new Error("Wait for attachments to finish preparing before rewinding.");
     }
-    const connection = readPreparedConnection(environmentId);
-    if (!connection) throw new Error("The environment is not connected.");
+    const connection = readPreparedConnection(machineId);
+    if (!connection) throw new Error("The machine is not connected.");
     const files = await prepareRevertedMessageAttachments({
       message,
-      environmentId,
+      machineId,
       httpBaseUrl: connection.httpBaseUrl,
       createAssetUrl: input.createAssetUrl,
     });
@@ -205,7 +205,7 @@ export async function rewindToMessage(input: {
     const commandId = CommandId.make(randomUUID());
     await waitForRevertedMessage(input.routeThreadRef, input.turnCount, commandId, async () => {
       const result = await input.revertThreadCheckpoint({
-        environmentId,
+        machineId,
         input: {
           commandId,
           threadId: input.threadId,
@@ -334,15 +334,15 @@ export function resolveMultipleModelTargets(input: {
  * images inlined as data URLs. Rejects when an attachment cannot go out.
  */
 export function prepareTurnAttachments(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly attachments: ReadonlyArray<ComposerImageAttachment | ComposerFileAttachment>;
   readonly usesAttachmentUploads: boolean;
 }) {
-  const { environmentId, usesAttachmentUploads } = input;
+  const { machineId, usesAttachmentUploads } = input;
   return Promise.all(
     input.attachments.map(async (attachment) => {
       if (usesAttachmentUploads) {
-        const uploaded = getUploadedAttachments({ environmentId, images: [attachment] })?.[0];
+        const uploaded = getUploadedAttachments({ machineId, images: [attachment] })?.[0];
         if (!uploaded) {
           throw new Error(`Attachment '${attachment.name}' did not finish uploading.`);
         }

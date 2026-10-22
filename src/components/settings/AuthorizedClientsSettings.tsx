@@ -8,7 +8,7 @@ import {
   AuthFilesystemReadScope,
   AuthStandardClientScopes,
   AuthTerminalReadScope,
-  type AuthEnvironmentScope,
+  type AuthMachineScope,
   type AuthGrantScope,
   type AuthPairingCredentialResult,
   type AdvertisedEndpoint,
@@ -50,9 +50,9 @@ import {
   isLoopbackHostname,
   type ServerClientSessionRecord,
   type ServerPairingLinkRecord,
-} from "~/environments/primary";
-import { readEnvironmentScope } from "~/state/session";
-import { usePrimaryEnvironmentId } from "~/state/environments";
+} from "~/machines/primary";
+import { readMachineScope } from "~/state/session";
+import { usePrimaryMachineId } from "~/state/machines";
 import { ConnectionStatusDot } from "../ConnectionStatusDot";
 import { ITEM_ROW_CLASSNAME, ITEM_ROW_INNER_CLASSNAME } from "./itemRows";
 import {
@@ -70,7 +70,7 @@ function AccessScopeSummary({
   scopes,
   label,
 }: {
-  readonly scopes: ReadonlyArray<AuthEnvironmentScope>;
+  readonly scopes: ReadonlyArray<AuthMachineScope>;
   readonly label: string;
 }) {
   const scopeCountLabel = `${scopes.length} ${scopes.length === 1 ? "scope" : "scopes"}`;
@@ -231,7 +231,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
           kind === "hosted-link"
             ? "Open it in the browser on the device you want to connect."
             : kind === "link"
-              ? "Open it in the client you want to pair to this environment."
+              ? "Open it in the client you want to pair to this machine."
               : "Paste it into another client to finish pairing.",
       });
     },
@@ -582,7 +582,7 @@ type AuthorizedClientsHeaderActionProps = {
   clientSessions: ReadonlyArray<ServerClientSessionRecord> | null;
   isRevokingOtherClients: boolean;
   onRevokeOtherClients: () => void;
-  delegatableScopes: ReadonlyArray<AuthEnvironmentScope>;
+  delegatableScopes: ReadonlyArray<AuthMachineScope>;
 };
 
 export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHeaderAction({
@@ -592,7 +592,7 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
   onRevokeOtherClients,
   delegatableScopes,
 }: AuthorizedClientsHeaderActionProps) {
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const primaryMachineId = usePrimaryMachineId();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pairingLabel, setPairingLabel] = useState("");
   const [pairingScopes, setPairingScopes] = useState<ReadonlyArray<AuthGrantScope>>([
@@ -603,10 +603,10 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
 
   const handleCreatePairingLink = async () => {
     if (
-      primaryEnvironmentId === null ||
+      primaryMachineId === null ||
       selectedScopes.length === 0 ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthAccessWriteScope) ||
-      !selectedScopes.every((scope) => readEnvironmentScope(primaryEnvironmentId, scope))
+      !readMachineScope(primaryMachineId, AuthAccessWriteScope) ||
+      !selectedScopes.every((scope) => readMachineScope(primaryMachineId, scope))
     )
       return;
     setIsCreatingPairingLink(true);

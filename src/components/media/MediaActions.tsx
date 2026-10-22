@@ -12,7 +12,7 @@ import {
   AuthFilesystemReadScope,
   type AssetResource,
   type ContextMenuItem,
-  type EnvironmentId,
+  type MachineId,
   sessionGrantsScope,
   type SessionGrantInput,
 } from "@vekrel/contracts";
@@ -23,9 +23,9 @@ import { useRef, useState, type ReactElement } from "react";
 import { writeTextToClipboard } from "../../hooks/useCopyToClipboard";
 import { readLocalApi } from "../../localApi";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
-import { assetEnvironment } from "../../state/assets";
-import { useEnvironmentQuery } from "../../state/query";
-import { environmentSession, readPreparedConnection } from "../../state/session";
+import { assetMachine } from "../../state/assets";
+import { useMachineQuery } from "../../state/query";
+import { machineSession, readPreparedConnection } from "../../state/session";
 import { useAtomQueryRunner } from "../../state/use-atom-query-runner";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -36,7 +36,7 @@ export interface MediaActionSource {
   readonly name: string;
   readonly src: string | null;
   readonly reference?: MediaReference;
-  readonly asset?: { readonly environmentId: EnvironmentId; readonly resource: AssetResource };
+  readonly asset?: { readonly machineId: MachineId; readonly resource: AssetResource };
   readonly onOpenFile?: () => void;
 }
 
@@ -50,30 +50,30 @@ function allowsHostMedia(session: SessionGrantInput | null) {
   return session === null || sessionGrantsScope(session, AuthFilesystemReadScope);
 }
 
-function canReadHostMedia(environmentId: EnvironmentId | null): boolean {
-  if (environmentId === null) return true;
-  const result = appAtomRegistry.get(environmentSession.sessionStateAtom(environmentId));
+function canReadHostMedia(machineId: MachineId | null): boolean {
+  if (machineId === null) return true;
+  const result = appAtomRegistry.get(machineSession.sessionStateAtom(machineId));
   return result._tag !== "Failure" && allowsHostMedia(Option.getOrNull(AsyncResult.value(result)));
 }
 
 export function useMediaActions(source: MediaActionSource) {
-  const hostEnvironmentId =
+  const hostMachineId =
     source.asset &&
     (source.asset.resource._tag === "workspace-file" || source.asset.resource._tag === "media-file")
-      ? source.asset.environmentId
+      ? source.asset.machineId
       : null;
-  const fileSession = useEnvironmentQuery(
-    hostEnvironmentId === null ? null : environmentSession.sessionStateAtom(hostEnvironmentId),
+  const fileSession = useMachineQuery(
+    hostMachineId === null ? null : machineSession.sessionStateAtom(hostMachineId),
   );
   const canReadMedia =
-    hostEnvironmentId === null ||
+    hostMachineId === null ||
     (fileSession.error === null && fileSession.data !== null && allowsHostMedia(fileSession.data));
   const assertCanReadMedia = () => {
-    if (!canReadHostMedia(hostEnvironmentId)) {
+    if (!canReadHostMedia(hostMachineId)) {
       throw new Error("This connection cannot read host files.");
     }
   };
-  const createAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, {
+  const createAssetUrl = useAtomQueryRunner(assetMachine.createUrl, {
     reportFailure: false,
     refresh: true,
   });
@@ -83,14 +83,14 @@ export function useMediaActions(source: MediaActionSource) {
       if (!source.src) throw new Error("This media is unavailable. Try reopening the preview.");
       return source.src;
     }
-    const { environmentId, resource } = source.asset;
-    const connection = readPreparedConnection(environmentId);
-    if (!connection) throw new Error("Reconnect to this environment and try again.");
-    const result = await createAssetUrl({ environmentId, input: { resource } });
+    const { machineId, resource } = source.asset;
+    const connection = readPreparedConnection(machineId);
+    if (!connection) throw new Error("Reconnect to this machine and try again.");
+    const result = await createAssetUrl({ machineId, input: { resource } });
     if (result._tag === "Failure") throw squashAtomCommandFailure(result);
     assertCanReadMedia();
     const url = resolveAssetUrl(connection.httpBaseUrl, result.value.relativeUrl);
-    if (!url) throw new Error("The environment returned an invalid media URL.");
+    if (!url) throw new Error("The machine returned an invalid media URL.");
     return url;
   };
   const save = async () => {

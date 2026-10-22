@@ -14,12 +14,12 @@ import { useCloudLinkController } from "~/cloud/useCloudLinkController";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { isHostedStaticApp } from "~/hostedPairing";
 import {
-  useEnvironments,
-  usePrimaryEnvironment,
-  usePrimaryEnvironmentId,
-} from "~/state/environments";
-import { environmentSession, readEnvironmentScope, useEnvironmentScope } from "~/state/session";
-import { CloudEnvironmentConnectRows } from "./CloudEnvironmentConnectList";
+  useMachines,
+  usePrimaryMachine,
+  usePrimaryMachineId,
+} from "~/state/machines";
+import { machineSession, readMachineScope, useMachineScope } from "~/state/session";
+import { CloudMachineConnectRows } from "./CloudMachineConnectList";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Dialog } from "../ui/dialog";
@@ -47,21 +47,21 @@ function ConfiguredConnectOnboardingDialog() {
     ConnectOnboardingOptOutSchema,
   );
 
-  const { environments, isReady: environmentsReady } = useEnvironments();
+  const { machines, isReady: machinesReady } = useMachines();
   // The empty hosted home already adds account computers after sign-in.
   const homeScreenAddsComputers =
-    isHostedStaticApp() && environmentsReady && environments.length === 0;
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+    isHostedStaticApp() && machinesReady && machines.length === 0;
+  const primaryMachineId = usePrimaryMachineId();
   const primarySessionState = useAtomValue(
-    primaryEnvironmentId === null
+    primaryMachineId === null
       ? EMPTY_SESSION_STATE_ATOM
-      : environmentSession.sessionStateAtom(primaryEnvironmentId),
+      : machineSession.sessionStateAtom(primaryMachineId),
   );
-  const canReadRelay = useEnvironmentScope(primaryEnvironmentId, AuthRelayReadScope);
-  const canWriteRelay = useEnvironmentScope(primaryEnvironmentId, AuthRelayWriteScope);
+  const canReadRelay = useMachineScope(primaryMachineId, AuthRelayReadScope);
+  const canWriteRelay = useMachineScope(primaryMachineId, AuthRelayWriteScope);
   const canManageRelay = canReadRelay && canWriteRelay;
   const sessionScopesKnown =
-    primaryEnvironmentId === null ? environmentsReady : primarySessionState._tag !== "Initial";
+    primaryMachineId === null ? machinesReady : primarySessionState._tag !== "Initial";
 
   const controller = useCloudLinkController();
   const showPublishStep = canManageRelay && controller.linkState.target !== null;
@@ -72,7 +72,7 @@ function ConfiguredConnectOnboardingDialog() {
   const [requestedAccount, setRequestedAccount] = useState<string | null>(null);
   const [openForAccount, setOpenForAccount] = useState<string | null>(null);
   const [step, setStep] = useState<OnboardingStep>("devices");
-  const [exposeEnvironment, setExposeEnvironment] = useState(true);
+  const [exposeMachine, setExposeMachine] = useState(true);
   const [publishAgentActivity, setPublishAgentActivity] = useState(true);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -107,7 +107,7 @@ function ConfiguredConnectOnboardingDialog() {
     setRequestedAccount(null);
   }
 
-  // A manageable session implies a primary environment, so when the scopes
+  // A manageable session implies a primary machine, so when the scopes
   // allow publishing, wait for the connection target too — otherwise the
   // wizard could open on the devices step moments before the publish step
   // becomes available and freeze there.
@@ -119,7 +119,7 @@ function ConfiguredConnectOnboardingDialog() {
     } else if (sessionScopesKnown && publishStepDecided) {
       setRequestedAccount(null);
       setPrefilledFromLinkState(false);
-      setExposeEnvironment(true);
+      setExposeMachine(true);
       setPublishAgentActivity(true);
       setDontShowAgain(false);
       setStep(canManageRelay && controller.linkState.target !== null ? "publish" : "devices");
@@ -135,7 +135,7 @@ function ConfiguredConnectOnboardingDialog() {
       linkStateData.linkRevoked !== true &&
       linkStateData.cloudUserId === openForAccount
     ) {
-      setExposeEnvironment(linkStateData.managedTunnelActive ?? linkStateData.linked);
+      setExposeMachine(linkStateData.managedTunnelActive ?? linkStateData.linked);
       setPublishAgentActivity(linkStateData.publishAgentActivity);
     }
   }
@@ -156,9 +156,9 @@ function ConfiguredConnectOnboardingDialog() {
   const applyPublishSelection = async () => {
     if (isApplying) return;
     if (
-      primaryEnvironmentId === null ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthRelayReadScope) ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthRelayWriteScope)
+      primaryMachineId === null ||
+      !readMachineScope(primaryMachineId, AuthRelayReadScope) ||
+      !readMachineScope(primaryMachineId, AuthRelayWriteScope)
     ) {
       setStep("devices");
       return;
@@ -166,13 +166,13 @@ function ConfiguredConnectOnboardingDialog() {
     if (linkStateData === null || controller.linkState.error !== null) return;
     // The wizard only ever enables — with both toggles off there is nothing to
     // apply, and an existing link must not be torn down from onboarding.
-    if (!exposeEnvironment && !publishAgentActivity) {
+    if (!exposeMachine && !publishAgentActivity) {
       setStep("devices");
       return;
     }
     setIsApplying(true);
     const ok = await controller.reconcileCloudState({
-      managedTunnel: exposeEnvironment,
+      managedTunnel: exposeMachine,
       publish: publishAgentActivity,
     });
     setIsApplying(false);
@@ -180,9 +180,9 @@ function ConfiguredConnectOnboardingDialog() {
     toastManager.add({
       type: "success",
       title: "T3 Connect enabled",
-      description: exposeEnvironment
-        ? "This environment is available to your other devices through T3 Connect."
-        : "This environment publishes agent activity to your mobile clients.",
+      description: exposeMachine
+        ? "This machine is available to your other devices through T3 Connect."
+        : "This machine publishes agent activity to your mobile clients.",
     });
     setStep("devices");
   };
@@ -199,7 +199,7 @@ function ConfiguredConnectOnboardingDialog() {
           title="Set up T3 Connect"
           description={
             <>
-              Mesh your devices together — publish this environment and connect the rest, all in one
+              Mesh your devices together — publish this machine and connect the rest, all in one
               place.
             </>
           }
@@ -213,9 +213,9 @@ function ConfiguredConnectOnboardingDialog() {
                 const next = steps[index];
                 if (
                   next === "publish" &&
-                  (primaryEnvironmentId === null ||
-                    !readEnvironmentScope(primaryEnvironmentId, AuthRelayReadScope) ||
-                    !readEnvironmentScope(primaryEnvironmentId, AuthRelayWriteScope))
+                  (primaryMachineId === null ||
+                    !readMachineScope(primaryMachineId, AuthRelayReadScope) ||
+                    !readMachineScope(primaryMachineId, AuthRelayWriteScope))
                 )
                   return;
                 if (next) setStep(next);
@@ -226,23 +226,23 @@ function ConfiguredConnectOnboardingDialog() {
         <WizardPanel>
           {step === "publish" ? (
             <PublishStep
-              exposeEnvironment={exposeEnvironment}
+              exposeMachine={exposeMachine}
               publishAgentActivity={publishAgentActivity}
               disabled={isApplying || !canManageRelay || linkStateData === null}
               operationError={controller.operationError ?? controller.linkState.error}
-              onExposeEnvironmentChange={(enabled) => {
+              onExposeMachineChange={(enabled) => {
                 if (
-                  primaryEnvironmentId !== null &&
-                  readEnvironmentScope(primaryEnvironmentId, AuthRelayReadScope) &&
-                  readEnvironmentScope(primaryEnvironmentId, AuthRelayWriteScope)
+                  primaryMachineId !== null &&
+                  readMachineScope(primaryMachineId, AuthRelayReadScope) &&
+                  readMachineScope(primaryMachineId, AuthRelayWriteScope)
                 )
-                  setExposeEnvironment(enabled);
+                  setExposeMachine(enabled);
               }}
               onPublishAgentActivityChange={(enabled) => {
                 if (
-                  primaryEnvironmentId !== null &&
-                  readEnvironmentScope(primaryEnvironmentId, AuthRelayReadScope) &&
-                  readEnvironmentScope(primaryEnvironmentId, AuthRelayWriteScope)
+                  primaryMachineId !== null &&
+                  readMachineScope(primaryMachineId, AuthRelayReadScope) &&
+                  readMachineScope(primaryMachineId, AuthRelayWriteScope)
                 )
                   setPublishAgentActivity(enabled);
               }}
@@ -291,33 +291,33 @@ const STEP_LABELS: Record<OnboardingStep, string> = {
 };
 
 function PublishStep({
-  exposeEnvironment,
+  exposeMachine,
   publishAgentActivity,
   disabled,
   operationError,
-  onExposeEnvironmentChange,
+  onExposeMachineChange,
   onPublishAgentActivityChange,
 }: {
-  readonly exposeEnvironment: boolean;
+  readonly exposeMachine: boolean;
   readonly publishAgentActivity: boolean;
   readonly disabled: boolean;
   readonly operationError: string | null;
-  readonly onExposeEnvironmentChange: (enabled: boolean) => void;
+  readonly onExposeMachineChange: (enabled: boolean) => void;
   readonly onPublishAgentActivityChange: (enabled: boolean) => void;
 }) {
   return (
     <div className="space-y-3">
       <div className="rounded-lg border">
         <OnboardingToggleRow
-          title="Publish this environment"
-          description="Make this environment available to your other devices through T3 Connect."
-          checked={exposeEnvironment}
+          title="Publish this machine"
+          description="Make this machine available to your other devices through T3 Connect."
+          checked={exposeMachine}
           disabled={disabled}
-          onCheckedChange={onExposeEnvironmentChange}
+          onCheckedChange={onExposeMachineChange}
         />
         <OnboardingToggleRow
           title="Publish agent activity"
-          description="Send activity from this environment to your mobile clients for push notifications and Live Activities."
+          description="Send activity from this machine to your mobile clients for push notifications and Live Activities."
           checked={publishAgentActivity}
           disabled={disabled}
           onCheckedChange={onPublishAgentActivityChange}
@@ -358,21 +358,21 @@ function OnboardingToggleRow({
 }
 
 function DevicesStep() {
-  const { environments } = useEnvironments();
-  const primaryEnvironment = usePrimaryEnvironment();
-  const savedEnvironments = environments.filter(
-    (environment) => environment.entry.target._tag !== "PrimaryConnectionTarget",
+  const { machines } = useMachines();
+  const primaryMachine = usePrimaryMachine();
+  const savedMachines = machines.filter(
+    (machine) => machine.entry.target._tag !== "PrimaryConnectionTarget",
   );
 
   return (
     <div className="overflow-hidden rounded-lg border">
-      <CloudEnvironmentConnectRows
-        primaryEnvironmentId={primaryEnvironment?.environmentId ?? null}
-        savedEnvironments={savedEnvironments}
-        showSavedEnvironments
+      <CloudMachineConnectRows
+        primaryMachineId={primaryMachine?.machineId ?? null}
+        savedMachines={savedMachines}
+        showSavedMachines
         empty={
           <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-            No other environments are published to your account yet. Publish one from another device
+            No other machines are published to your account yet. Publish one from another device
             and it will show up here.
           </p>
         }

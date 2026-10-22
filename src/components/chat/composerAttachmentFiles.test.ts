@@ -1,4 +1,4 @@
-import { EnvironmentId, PROVIDER_SEND_TURN_MAX_FILE_BYTES } from "@vekrel/contracts";
+import { MachineId, PROVIDER_SEND_TURN_MAX_FILE_BYTES } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { ComposerFileAttachment, ComposerImageAttachment } from "../../composerDraftStore";
@@ -40,7 +40,7 @@ describe("composer attachment files", () => {
   });
 
   it("keeps draft-persisted file uploads when the upload capability flips off", () => {
-    const environmentId = EnvironmentId.make("environment-1");
+    const machineId = MachineId.make("machine-1");
     const image: ComposerImageAttachment = {
       type: "image",
       id: "image-1",
@@ -66,13 +66,13 @@ describe("composer attachment files", () => {
       sizeBytes: 3,
       file: null,
       uploadedAttachmentId: "pending-report-pdf",
-      uploadEnvironmentId: environmentId,
+      uploadMachineId: machineId,
     };
     const uploadedLocalFile: ComposerFileAttachment = {
       ...uploadingFile,
       id: "file-uploaded-local",
       uploadedAttachmentId: "pending-fresh-pdf",
-      uploadEnvironmentId: environmentId,
+      uploadMachineId: machineId,
     };
 
     const released = attachmentsToReleaseOnUploadCapabilityLoss([
