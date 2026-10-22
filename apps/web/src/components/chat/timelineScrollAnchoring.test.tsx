@@ -46,7 +46,7 @@ describe("timeline scroll anchoring", () => {
 
 describe("observeTimelineRun", () => {
   const existing = {
-    threadKey: "environment:thread",
+    threadKey: "machine:thread",
     hydrated: true,
     runId: RunId.make("existing-run"),
     queued: false,

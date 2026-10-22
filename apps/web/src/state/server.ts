@@ -1,8 +1,8 @@
 import {
   DEFAULT_SERVER_SETTINGS,
   type EditorId,
-  type EnvironmentId,
-  type EnvironmentTheme,
+  type MachineId,
+  type MachineTheme,
   type ServerConfig,
   type ServerConfigStreamEvent,
   type ServerLifecycleLegacyThreadMigrationPayload,
@@ -12,41 +12,41 @@ import {
 } from "@vekrel/contracts";
 import {
   AVAILABLE_CONNECTION_STATE,
-  presentEnvironmentConnection,
-  type EnvironmentPresentation,
+  presentMachineConnection,
+  type MachinePresentation,
 } from "@vekrel/client-runtime/connection";
-import { createServerEnvironmentAtoms } from "@vekrel/client-runtime/state/server";
+import { createServerMachineAtoms } from "@vekrel/client-runtime/state/server";
 import { createOutdatedServerUpdateCommand } from "@vekrel/client-runtime/state/outdatedServerUpdate";
-import { createEnvironmentServerConfigsAtom } from "@vekrel/client-runtime/state/shell";
+import { createMachineServerConfigsAtom } from "@vekrel/client-runtime/state/shell";
 import { mergeWithDefaultKeybindings } from "@vekrel/shared/keybindings";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 
 import { isConnectedWithConfig } from "../components/settings/scopedSettings";
-import { environmentCatalog } from "../connection/catalog";
+import { machineCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
-import { environmentAtomList } from "./environmentAtomList";
-import { primaryEnvironmentIdAtom } from "./primaryEnvironment";
-import { environmentSession } from "./session";
+import { machineAtomList } from "./machineAtomList";
+import { primaryMachineIdAtom } from "./primaryMachine";
+import { machineSession } from "./session";
 import { reuseProvidersIgnoringCheckedAt } from "./serverProviders.logic";
 
-// Only the primary environment's themes are rendered, but which environment is primary changes
+// Only the primary machine's themes are rendered, but which machine is primary changes
 // at runtime and the subscription payload is fixed when it is established -- gating on "primary
-// right now" would leave a newly promoted environment with no themes until it reconnected.
-export const serverEnvironment = createServerEnvironmentAtoms(connectionAtomRuntime, {
-  initialConfigValueAtom: environmentSession.initialConfigValueAtom,
-  environmentThemes: true,
+// right now" would leave a newly promoted machine with no themes until it reconnected.
+export const serverMachine = createServerMachineAtoms(connectionAtomRuntime, {
+  initialConfigValueAtom: machineSession.initialConfigValueAtom,
+  machineThemes: true,
   usageLimitSources: true,
   usageLimitsCommand: true,
 });
-export const environmentUpdateStatesAtom = environmentAtomList(
-  "web-environment-update-states",
-  serverEnvironment.updateStateAtom,
+export const machineUpdateStatesAtom = machineAtomList(
+  "web-machine-update-states",
+  serverMachine.updateStateAtom,
 );
 export const updateOutdatedServer = createOutdatedServerUpdateCommand(connectionAtomRuntime);
-export const environmentServerConfigsAtom = createEnvironmentServerConfigsAtom({
-  catalogValueAtom: environmentCatalog.catalogValueAtom,
-  serverConfigValueAtom: serverEnvironment.configValueAtom,
+export const machineServerConfigsAtom = createMachineServerConfigsAtom({
+  catalogValueAtom: machineCatalog.catalogValueAtom,
+  serverConfigValueAtom: serverMachine.configValueAtom,
 });
 
 interface PrimaryServerState {
@@ -64,19 +64,19 @@ const EMPTY_PRIMARY_SERVER_STATE: PrimaryServerState = {
 };
 
 const primaryServerStateAtom = Atom.make((get): PrimaryServerState => {
-  const environmentId = get(primaryEnvironmentIdAtom);
-  if (environmentId === null) {
+  const machineId = get(primaryMachineIdAtom);
+  if (machineId === null) {
     return EMPTY_PRIMARY_SERVER_STATE;
   }
 
-  const target = { environmentId, input: {} };
+  const target = { machineId, input: {} };
   const configProjection = Option.getOrNull(
-    AsyncResult.value(get(serverEnvironment.configProjection(target))),
+    AsyncResult.value(get(serverMachine.configProjection(target))),
   );
-  const welcome = Option.getOrNull(AsyncResult.value(get(serverEnvironment.welcome(target))));
+  const welcome = Option.getOrNull(AsyncResult.value(get(serverMachine.welcome(target))));
 
   return {
-    config: get(serverEnvironment.configValueAtom(environmentId)),
+    config: get(serverMachine.configValueAtom(machineId)),
     latestEvent: configProjection?.latestEvent ?? null,
     welcome,
   };
@@ -96,12 +96,12 @@ export const primaryServerWelcomeAtom = Atom.make(
 
 export const primaryServerLegacyThreadMigrationAtom = Atom.make(
   (get): ServerLifecycleLegacyThreadMigrationPayload | null => {
-    const environmentId = get(primaryEnvironmentIdAtom);
-    if (environmentId === null) {
+    const machineId = get(primaryMachineIdAtom);
+    if (machineId === null) {
       return null;
     }
     return Option.getOrNull(
-      AsyncResult.value(get(serverEnvironment.legacyThreadMigration({ environmentId, input: {} }))),
+      AsyncResult.value(get(serverMachine.legacyThreadMigration({ machineId, input: {} }))),
     );
   },
 ).pipe(Atom.withLabel("web-primary-server-legacy-thread-migration"));
@@ -117,20 +117,20 @@ export const primaryServerProvidersAtom = Atom.make(
 
 /** Without a primary, global shortcuts follow unscoped Settings. */
 export function createShortcutKeybindingsAtom(input: {
-  readonly primaryEnvironmentIdAtom: Atom.Atom<EnvironmentId | null>;
+  readonly primaryMachineIdAtom: Atom.Atom<MachineId | null>;
   readonly primaryConfigAtom: Atom.Atom<ServerConfig | null>;
-  readonly environmentsAtom: Atom.Atom<
-    ReadonlyMap<EnvironmentId, Pick<EnvironmentPresentation, "connection" | "serverConfig">>
+  readonly machinesAtom: Atom.Atom<
+    ReadonlyMap<MachineId, Pick<MachinePresentation, "connection" | "serverConfig">>
   >;
 }) {
   // Selected before merging, so unrelated config updates keep the merged array.
   const customAtom = Atom.make((get) => {
-    if (get(input.primaryEnvironmentIdAtom) !== null) {
+    if (get(input.primaryMachineIdAtom) !== null) {
       // A primary stays authoritative while its config loads.
       return get(input.primaryConfigAtom)?.keybindings ?? null;
     }
-    const environments = [...get(input.environmentsAtom).values()];
-    return environments.find(isConnectedWithConfig)?.serverConfig?.keybindings ?? null;
+    const machines = [...get(input.machinesAtom).values()];
+    return machines.find(isConnectedWithConfig)?.serverConfig?.keybindings ?? null;
   });
   return Atom.make((get): ServerConfig["keybindings"] =>
     mergeWithDefaultKeybindings(get(customAtom) ?? []),
@@ -139,31 +139,31 @@ export function createShortcutKeybindingsAtom(input: {
 
 // Settings' presentations import this module; mirror their catalog order and
 // connection presentation here to avoid a cycle.
-const environmentConnectionsAtom = Atom.make((get) => {
-  const environments = new Map<
-    EnvironmentId,
-    Pick<EnvironmentPresentation, "connection" | "serverConfig">
+const machineConnectionsAtom = Atom.make((get) => {
+  const machines = new Map<
+    MachineId,
+    Pick<MachinePresentation, "connection" | "serverConfig">
   >();
-  for (const [environmentId, entry] of get(environmentCatalog.catalogValueAtom).entries) {
+  for (const [machineId, entry] of get(machineCatalog.catalogValueAtom).entries) {
     const state = Option.getOrElse(
-      AsyncResult.value(get(environmentCatalog.stateAtom(environmentId))),
+      AsyncResult.value(get(machineCatalog.stateAtom(machineId))),
       () => AVAILABLE_CONNECTION_STATE,
     );
-    environments.set(environmentId, {
+    machines.set(machineId, {
       connection:
         entry.unsupportedReason === undefined
-          ? presentEnvironmentConnection(state)
+          ? presentMachineConnection(state)
           : { phase: "unsupported", error: entry.unsupportedReason, traceId: null },
-      serverConfig: get(serverEnvironment.configValueAtom(environmentId)),
+      serverConfig: get(serverMachine.configValueAtom(machineId)),
     });
   }
-  return environments;
+  return machines;
 });
 
 export const primaryServerKeybindingsAtom = createShortcutKeybindingsAtom({
-  primaryEnvironmentIdAtom,
+  primaryMachineIdAtom,
   primaryConfigAtom: primaryServerConfigAtom,
-  environmentsAtom: environmentConnectionsAtom,
+  machinesAtom: machineConnectionsAtom,
 }).pipe(Atom.withLabel("web-primary-server-keybindings"));
 
 export const primaryServerAvailableEditorsAtom = Atom.make(
@@ -171,19 +171,19 @@ export const primaryServerAvailableEditorsAtom = Atom.make(
     get(primaryServerConfigAtom)?.availableEditors ?? EMPTY_AVAILABLE_EDITORS,
 ).pipe(Atom.withLabel("web-primary-server-available-editors"));
 
-const EMPTY_ENVIRONMENT_THEMES: ReadonlyArray<EnvironmentTheme> = [];
+const EMPTY_MACHINE_THEMES: ReadonlyArray<MachineTheme> = [];
 
-export const primaryServerEnvironmentThemesAtom = Atom.make(
-  (get): ReadonlyArray<EnvironmentTheme> =>
-    get(primaryServerConfigAtom)?.environmentThemes ?? EMPTY_ENVIRONMENT_THEMES,
-).pipe(Atom.withLabel("web-primary-server-environment-themes"));
+export const primaryServerMachineThemesAtom = Atom.make(
+  (get): ReadonlyArray<MachineTheme> =>
+    get(primaryServerConfigAtom)?.machineThemes ?? EMPTY_MACHINE_THEMES,
+).pipe(Atom.withLabel("web-primary-server-machine-themes"));
 
 /** Providers for views that do not show `checkedAt`; see {@link reuseProvidersIgnoringCheckedAt}. */
-export const providersIgnoringCheckedAtAtom = Atom.family((environmentId: EnvironmentId) =>
+export const providersIgnoringCheckedAtAtom = Atom.family((machineId: MachineId) =>
   Atom.make((get): ReadonlyArray<ServerProvider> =>
     reuseProvidersIgnoringCheckedAt(
       Option.getOrNull(get.self<ReadonlyArray<ServerProvider>>()),
-      get(serverEnvironment.providersValueAtom(environmentId)) ?? EMPTY_SERVER_PROVIDERS,
+      get(serverMachine.providersValueAtom(machineId)) ?? EMPTY_SERVER_PROVIDERS,
     ),
-  ).pipe(Atom.withLabel(`web-providers-ignoring-checked-at:${environmentId}`)),
+  ).pipe(Atom.withLabel(`web-providers-ignoring-checked-at:${machineId}`)),
 );

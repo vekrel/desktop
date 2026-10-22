@@ -1,4 +1,4 @@
-import { EnvironmentId, MessageId, ThreadId, type AssistantCitation } from "@vekrel/contracts";
+import { MachineId, MessageId, ThreadId, type AssistantCitation } from "@vekrel/contracts";
 import { serializeAssistantCitation } from "@vekrel/shared/assistantCitations";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -24,7 +24,7 @@ const terminalSegment = {
 
 const citation: AssistantCitation = {
   version: 1,
-  environmentId: EnvironmentId.make("remote/環境"),
+  machineId: MachineId.make("remote/環境"),
   threadId: ThreadId.make("thread-1"),
   messageId: MessageId.make("message-1"),
   text: 'Use @AGENTS.md, $review and "雪 ❄️" (carefully).',

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { groupGitHubAccounts, nextGitHubHosts } from "./GitHubAccountSettings.logic";
 
 describe("groupGitHubAccounts", () => {
-  it("groups logins by host, keeping broken and environment logins out of the picker", () => {
+  it("groups logins by host, keeping broken and machine logins out of the picker", () => {
     expect(
       groupGitHubAccounts([
         { host: "github.com", account: "personal", active: true, authenticated: true },

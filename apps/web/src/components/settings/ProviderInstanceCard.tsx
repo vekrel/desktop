@@ -23,7 +23,7 @@ import {
   type ProviderInstanceEnvironmentVariable,
   type ProviderInstanceId,
   type AcpRegistryUrlAuthAction,
-  type EnvironmentId,
+  type MachineId,
   type ProjectId,
   type ProviderDriverKind,
   type ServerProvider,
@@ -590,7 +590,7 @@ interface ProviderInstanceCardProps {
   readonly onInstallRecommended?: (() => void) | undefined;
   readonly isUpdating?: boolean | undefined;
   readonly onAcceptUrlAuth?: ((action: AcpRegistryUrlAuthAction) => void) | undefined;
-  readonly environmentId?: EnvironmentId | undefined;
+  readonly machineId?: MachineId | undefined;
   readonly projectOverride?: ProjectOverrideControl | undefined;
   readonly acpProjects?:
     | ReadonlyArray<{
@@ -609,7 +609,7 @@ const NO_CUSTOM_MODELS: ReadonlyArray<CustomModelDefinition> = [];
  *     notice instead of editable fields, so fork instances round-trip
  *     without accidentally destroying their config.
  * With `projectOverride` set, the Switch instead reads and writes
- *     that project's override, leaving the environment's `instance.enabled`
+ *     that project's override, leaving the machine's `instance.enabled`
  *     untouched.
  */
 export function ProviderInstanceCard({
@@ -638,7 +638,7 @@ export function ProviderInstanceCard({
   onInstallRecommended,
   isUpdating = false,
   onAcceptUrlAuth,
-  environmentId,
+  machineId,
   acpProjects = EMPTY_ACP_PROJECTS,
   projectOverride,
 }: ProviderInstanceCardProps) {
@@ -1239,9 +1239,9 @@ export function ProviderInstanceCard({
           onChange={updateGenericEnvironment}
         />
       </SettingsSection>
-      {environmentId !== undefined && liveProvider?.driver === "acpRegistry" ? (
+      {machineId !== undefined && liveProvider?.driver === "acpRegistry" ? (
         <AcpSessionManagementSection
-          environmentId={environmentId}
+          machineId={machineId}
           instanceId={instanceId}
           provider={liveProvider}
           projects={acpProjects}
@@ -1253,7 +1253,7 @@ export function ProviderInstanceCard({
         <SettingsSection title="Models">
           <div className="px-3 py-3 sm:px-4">
             <p className="mb-3 text-xs text-muted-foreground">
-              Model preferences and custom models are saved on the selected environment and shared
+              Model preferences and custom models are saved on the selected machine and shared
               across connected devices.
             </p>
             <ProviderModelsSection

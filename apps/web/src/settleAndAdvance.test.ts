@@ -1,11 +1,11 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import { MachineId, ThreadId } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { registerSettleAndAdvance, settleAndAdvance } from "./settleAndAdvance";
 
 const threadRef = scopeThreadRef(
-  EnvironmentId.make("environment-local"),
+  MachineId.make("machine-local"),
   ThreadId.make("thread-1"),
 );
 

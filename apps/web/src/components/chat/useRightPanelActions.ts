@@ -1,4 +1,4 @@
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 import type { Dispatch } from "react";
 import type { ThreadPreviewState } from "../../previewStateStore";
 import { formatFilePathForClipboard } from "@vekrel/client-runtime/media-actions";
@@ -6,7 +6,7 @@ import { resolvePathLinkTarget } from "@vekrel/shared/fileLinks";
 import { resolveExplicitDiffOpenOnActivate } from "../ChatView.logic";
 import { useStableCallback } from "../../hooks/useStableCallback";
 import { type ScopedThreadRef, type RunId } from "@vekrel/contracts";
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import { type SetStateAction, useEffect } from "react";
 import {
   isAtomCommandInterrupted,
@@ -28,12 +28,12 @@ import type { threadPullRequestPanelTarget } from "../pullRequest/pullRequestDet
 import type { useDeviceState } from "../../state/device";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { openDeviceSetupDialog } from "./ChatOverlayHosts";
-import { previewEnvironment } from "../../state/preview";
+import { previewMachine } from "../../state/preview";
 import { useAtomCommand } from "../../state/use-atom-command";
 import type { ChatShortcutCommands } from "./useChatShortcuts";
 interface RightPanelActionsInput {
   readonly activeThreadRef: ScopedThreadRef | null;
-  readonly activeProject: EnvironmentProject | null;
+  readonly activeProject: MachineProject | null;
   readonly activeRightPanelSurface: RightPanelSurface | null;
   readonly activePreviewState: ThreadPreviewState;
   readonly deviceState: ReturnType<typeof useDeviceState>["state"];
@@ -90,7 +90,7 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     onDiffPanelOpen,
   } = input;
 
-  const openPreview = useAtomCommand(previewEnvironment.open, { reportFailure: false });
+  const openPreview = useAtomCommand(previewMachine.open, { reportFailure: false });
   const onToggleDiff = () => {
     if (!isServerThread) {
       return;

@@ -6,7 +6,7 @@ import {
   type WorkflowOpening,
 } from "@vekrel/client-runtime/state/subagentRuntime";
 import type {
-  EnvironmentId,
+  MachineId,
   ProviderDriverKind,
   ProviderInstanceId,
   ServerProvider,
@@ -24,7 +24,7 @@ import { AgentElapsed } from "./AgentElapsed";
 import { findRevealRef } from "./markdownFindContext";
 import { shouldCollapseUserMessage } from "./MessagesTimeline.logic";
 import { SubagentTooltipContent } from "./SubagentTooltipContent";
-import { EnvironmentSubagentAvatar } from "./V2LifecycleRow";
+import { MachineSubagentAvatar } from "./V2LifecycleRow";
 
 const FOLDED_SCRIPT_MASK = "linear-gradient(to bottom, black calc(100% - 1.75rem), transparent)";
 
@@ -38,11 +38,11 @@ function scriptMarkdown(script: string) {
 /** Opens a workflow coordinator's thread in place of its script: the plan, its agents, then the script. */
 export function WorkflowOpeningBlock(props: {
   readonly opening: WorkflowOpening;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly onOpenThread: (threadId: string) => void;
 }) {
   const { opening } = props;
-  const providers = useAtomValue(providersIgnoringCheckedAtAtom(props.environmentId));
+  const providers = useAtomValue(providersIgnoringCheckedAtAtom(props.machineId));
   const headline = workflowOpeningHeadline(opening);
   const phases = opening.group?.phases.filter((phase) => phase.members.length > 0) ?? [];
   const memberRow = (member: RuntimeSubagent) =>
@@ -50,7 +50,7 @@ export function WorkflowOpeningBlock(props: {
       <WorkflowMemberRow
         key={member.id}
         member={member}
-        environmentId={props.environmentId}
+        machineId={props.machineId}
         providerInstanceId={opening.providerInstanceId}
         providers={providers}
         driver={opening.driver ?? undefined}
@@ -106,7 +106,7 @@ export function WorkflowOpeningBlock(props: {
 /** One member agent, drawn like the timeline's subagent rows; it opens the member's thread. */
 function WorkflowMemberRow(props: {
   readonly member: RuntimeSubagent;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly providerInstanceId: ProviderInstanceId;
   readonly providers: ReadonlyArray<ServerProvider>;
   readonly driver: ProviderDriverKind | undefined;
@@ -147,8 +147,8 @@ function WorkflowMemberRow(props: {
             )
           }
         >
-          <EnvironmentSubagentAvatar
-            environmentId={props.environmentId}
+          <MachineSubagentAvatar
+            machineId={props.machineId}
             providerInstanceId={props.providerInstanceId}
             driver={props.driver}
             status={member.status}

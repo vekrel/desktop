@@ -1,13 +1,13 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import type { EnvironmentId, ScopedThreadRef, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import type { MachineId, ScopedThreadRef, ThreadId } from "@vekrel/contracts";
 import { useState } from "react";
 
 function toThreadRef(
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   threadId: ThreadId | null,
 ): ScopedThreadRef | null {
-  return environmentId !== null && threadId !== null
-    ? scopeThreadRef(environmentId, threadId)
+  return machineId !== null && threadId !== null
+    ? scopeThreadRef(machineId, threadId)
     : null;
 }
 
@@ -16,13 +16,13 @@ function toThreadRef(
  * during a run, and effects keyed on this ref must not re-run for that.
  */
 export function useActiveThreadRef(
-  thread: { readonly environmentId: EnvironmentId; readonly id: ThreadId } | null | undefined,
+  thread: { readonly machineId: MachineId; readonly id: ThreadId } | null | undefined,
 ): ScopedThreadRef | null {
-  const environmentId = thread?.environmentId ?? null;
+  const machineId = thread?.machineId ?? null;
   const threadId = thread?.id ?? null;
-  const [ref, setRef] = useState(() => toThreadRef(environmentId, threadId));
-  if ((ref?.environmentId ?? null) !== environmentId || (ref?.threadId ?? null) !== threadId) {
-    const next = toThreadRef(environmentId, threadId);
+  const [ref, setRef] = useState(() => toThreadRef(machineId, threadId));
+  if ((ref?.machineId ?? null) !== machineId || (ref?.threadId ?? null) !== threadId) {
+    const next = toThreadRef(machineId, threadId);
     setRef(next);
     return next;
   }

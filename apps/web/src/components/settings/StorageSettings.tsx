@@ -11,8 +11,8 @@ import {
   squashAtomCommandFailure,
 } from "@vekrel/client-runtime/state/runtime";
 import { formatBytes } from "../../lib/formatBytes";
-import { environmentAtomList, environmentIdsKey } from "../../state/environmentAtomList";
-import { serverEnvironment } from "../../state/server";
+import { machineAtomList, machineIdsKey } from "../../state/machineAtomList";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
 import { Button } from "../ui/button";
@@ -48,22 +48,22 @@ import {
   useScopedSettingsMixed,
   useUpdateScopedSettings,
 } from "./useScopedSettings";
-import { settingsScopeEnvironmentLabel } from "./settingsScopeAxis";
+import { settingsScopeMachineLabel } from "./settingsScopeAxis";
 
 function WorktreesDirectoryRow() {
-  const { connectedEnvironments, targets } = useSettingsScope();
+  const { connectedMachines, targets } = useSettingsScope();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const mixed = useScopedSettingsMixed(["worktreesDirectory"]);
   const edited = useRef(false);
   if (
-    connectedEnvironments.some(
-      (environment) =>
-        environment.serverConfig?.environment.capabilities.worktreesDirectory !== true,
+    connectedMachines.some(
+      (machine) =>
+        machine.serverConfig?.machine.capabilities.worktreesDirectory !== true,
     )
   )
     return null;
-  const scopeKey = targets.map((target) => target.environmentId).join(",");
+  const scopeKey = targets.map((target) => target.machineId).join(",");
 
   return (
     <SettingsRow
@@ -189,10 +189,10 @@ function lastRunSummary(
 
 function CleanupResults({
   report,
-  environmentLabel,
+  machineLabel,
 }: {
   report: StorageCleanupReport;
-  environmentLabel: string;
+  machineLabel: string;
 }) {
   return (
     <>
@@ -216,7 +216,7 @@ function CleanupResults({
                 </span>
                 <span className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 border-l border-border/60 pl-3">
                   <span>Machine</span>
-                  <span className="text-foreground/80">{environmentLabel}</span>
+                  <span className="text-foreground/80">{machineLabel}</span>
                   {entry.projectPath && (
                     <>
                       <span>Project</span>
@@ -258,50 +258,50 @@ function CleanupResults({
       })}
       {report.omittedCount > 0 && (
         <p className="px-3 py-2.5 text-xs text-muted-foreground sm:px-4">
-          {environmentLabel}: {report.omittedCount.toLocaleString()} more results.
+          {machineLabel}: {report.omittedCount.toLocaleString()} more results.
         </p>
       )}
       {report.entries.length === 0 && report.omittedCount === 0 && (
         <p className="px-3 py-2.5 text-xs text-muted-foreground sm:px-4">
-          {environmentLabel}: Nothing needed cleanup.
+          {machineLabel}: Nothing needed cleanup.
         </p>
       )}
     </>
   );
 }
 
-const storageCleanupReportsAtom = environmentAtomList(
+const storageCleanupReportsAtom = machineAtomList(
   "web-storage-cleanup-reports",
-  (environmentId) => serverEnvironment.storageCleanupReport({ environmentId, input: {} }),
+  (machineId) => serverMachine.storageCleanupReport({ machineId, input: {} }),
 );
-const storageCleanupPermissionsAtom = environmentAtomList(
+const storageCleanupPermissionsAtom = machineAtomList(
   "web-storage-cleanup-permissions",
-  serverEnvironment.runStorageCleanup.permissionAtom,
+  serverMachine.runStorageCleanup.permissionAtom,
 );
 
 function CleanupSection() {
   useRelativeTimeTick(60_000);
-  const { connectedEnvironments } = useSettingsScope();
+  const { connectedMachines } = useSettingsScope();
   const [pending, setPending] = useState(false);
-  const run = useAtomCommand(serverEnvironment.runStorageCleanup);
-  const supported = connectedEnvironments.filter(
-    (environment) => environment.serverConfig?.environment.capabilities.storageCleanupRun === true,
+  const run = useAtomCommand(serverMachine.runStorageCleanup);
+  const supported = connectedMachines.filter(
+    (machine) => machine.serverConfig?.machine.capabilities.storageCleanupRun === true,
   );
-  const supportedIds = supported.map(({ environmentId }) => environmentId);
-  const reports = useAtomValue(storageCleanupReportsAtom(environmentIdsKey(supportedIds)));
-  const permissions = useAtomValue(storageCleanupPermissionsAtom(environmentIdsKey(supportedIds)));
-  const state = supportedIds.map((environmentId, index) => {
+  const supportedIds = supported.map(({ machineId }) => machineId);
+  const reports = useAtomValue(storageCleanupReportsAtom(machineIdsKey(supportedIds)));
+  const permissions = useAtomValue(storageCleanupPermissionsAtom(machineIdsKey(supportedIds)));
+  const state = supportedIds.map((machineId, index) => {
     const query = reports[index]!;
     return {
-      environmentId,
+      machineId,
       allowed: permissions[index]!,
       report: query._tag === "Success" ? query.value : null,
       loading: query.waiting,
       failed: query._tag === "Failure",
     };
   });
-  const hasRules = supported.some((environment) => {
-    const settings = environment.serverConfig?.settings;
+  const hasRules = supported.some((machine) => {
+    const settings = machine.serverConfig?.settings;
     if (!settings) return false;
     const enabled = (rules: WorktreeCleanupRules) =>
       rules.worktreeAfterDays !== null ||
@@ -320,13 +320,13 @@ function CleanupSection() {
     );
   });
   if (supported.length === 0) return null;
-  const summaries = supported.map((environment) => {
-    const query = state.find((entry) => entry.environmentId === environment.environmentId);
+  const summaries = supported.map((machine) => {
+    const query = state.find((entry) => entry.machineId === machine.machineId);
     const report = query?.report ?? null;
     return {
-      environment,
+      machine,
       report,
-      label: settingsScopeEnvironmentLabel(environment, connectedEnvironments),
+      label: settingsScopeMachineLabel(machine, connectedMachines),
       counts: report
         ? `${report.counts.removed} removed, ${report.counts.kept} kept${report.counts.failed > 0 ? `, ${report.counts.failed} failed` : ""}`
         : "",
@@ -344,23 +344,23 @@ function CleanupSection() {
     setPending(true);
     await Promise.all(
       supported
-        .filter((environment) =>
-          state.some((entry) => entry.environmentId === environment.environmentId && entry.allowed),
+        .filter((machine) =>
+          state.some((entry) => entry.machineId === machine.machineId && entry.allowed),
         )
-        .map(async (environment) => {
-          const result = await run({ environmentId: environment.environmentId, input: {} });
+        .map(async (machine) => {
+          const result = await run({ machineId: machine.machineId, input: {} });
           if (result._tag === "Success") {
             const failures = result.value.entries.filter((entry) => entry.outcome === "failed");
             if (failures.length > 0)
               toastManager.add({
                 type: "error",
-                title: `Cleanup failed on ${environment.label}`,
+                title: `Cleanup failed on ${machine.label}`,
                 description: failures[0]!.reason,
               });
           } else if (!isAtomCommandInterrupted(result)) {
             toastManager.add({
               type: "error",
-              title: `Could not run cleanup on ${environment.label}`,
+              title: `Could not run cleanup on ${machine.label}`,
               description: String(squashAtomCommandFailure(result)),
             });
           }
@@ -376,8 +376,8 @@ function CleanupSection() {
             <span>
               {!hasRules
                 ? "Turn on a cleanup rule to use this."
-                : summaries.map(({ environment, label, description }) => (
-                    <span key={environment.environmentId} className="block">
+                : summaries.map(({ machine, label, description }) => (
+                    <span key={machine.machineId} className="block">
                       {supported.length > 1 ? `${label}: ` : ""}
                       {description}
                     </span>
@@ -403,16 +403,16 @@ function CleanupSection() {
           headerPlacement="inside"
           summary={lastRunSummary(
             summaries.filter(({ report }) => report !== null),
-            connectedEnvironments.length,
+            connectedMachines.length,
           )}
         >
           {summaries.map(
-            ({ environment, label, report }) =>
+            ({ machine, label, report }) =>
               report && (
                 <CleanupResults
-                  key={environment.environmentId}
+                  key={machine.machineId}
                   report={report}
-                  environmentLabel={label}
+                  machineLabel={label}
                 />
               ),
           )}
@@ -423,7 +423,7 @@ function CleanupSection() {
 }
 
 export function StorageSettingsPanel() {
-  const { scope, environments, connectedEnvironments, targets, target } = useSettingsScope();
+  const { scope, machines, connectedMachines, targets, target } = useSettingsScope();
   const scopedSettings = useScopedSettings();
   const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
   const settings = {
@@ -456,9 +456,9 @@ export function StorageSettingsPanel() {
 
   if (
     isProjectScope &&
-    connectedEnvironments.some(
-      (environment) =>
-        environment.serverConfig?.environment.capabilities.projectWorktreeCleanup !== true,
+    connectedMachines.some(
+      (machine) =>
+        machine.serverConfig?.machine.capabilities.projectWorktreeCleanup !== true,
     )
   ) {
     return (
@@ -469,21 +469,21 @@ export function StorageSettingsPanel() {
   }
 
   if (
-    connectedEnvironments.some(
-      (environment) => environment.serverConfig?.environment.capabilities.storageCleanup !== true,
+    connectedMachines.some(
+      (machine) => machine.serverConfig?.machine.capabilities.storageCleanup !== true,
     )
   ) {
     return (
       <SettingsScopeNotice
-        target="environment"
-        eligibleEnvironmentIds={connectedEnvironments
+        target="machine"
+        eligibleMachineIds={connectedMachines
           .filter(
-            (environment) =>
-              environment.serverConfig?.environment.capabilities.storageCleanup === true,
+            (machine) =>
+              machine.serverConfig?.machine.capabilities.storageCleanup === true,
           )
-          .map((environment) => environment.environmentId)}
+          .map((machine) => machine.machineId)}
       >
-        Update the selected environments to use storage cleanup, or choose a machine that supports
+        Update the selected machines to use storage cleanup, or choose a machine that supports
         it.
       </SettingsScopeNotice>
     );
@@ -493,9 +493,9 @@ export function StorageSettingsPanel() {
     <SettingsPageContainer>
       {!isProjectScope && (
         <DatabaseStorageNotice
-          environments={connectedEnvironments.filter(
-            (environment) =>
-              environment.serverConfig?.environment.capabilities.databaseStorage === true,
+          machines={connectedMachines.filter(
+            (machine) =>
+              machine.serverConfig?.machine.capabilities.databaseStorage === true,
           )}
         />
       )}
@@ -572,17 +572,17 @@ export function StorageSettingsPanel() {
                 />
               }
             />
-            {connectedEnvironments.length > 0 &&
-              connectedEnvironments.every(
-                (environment) =>
-                  environment.serverConfig?.environment.capabilities.settledWorktreeCleanup ===
+            {connectedMachines.length > 0 &&
+              connectedMachines.every(
+                (machine) =>
+                  machine.serverConfig?.machine.capabilities.settledWorktreeCleanup ===
                   true,
               ) && (
                 <SettingsRow
                   title="Delete settled worktrees"
                   status={[
                     ruleStatus("worktreeSettledAfterDays"),
-                    environments.length > connectedEnvironments.length
+                    machines.length > connectedMachines.length
                       ? "Offline machines will not get this setting"
                       : undefined,
                   ]
@@ -628,9 +628,9 @@ export function StorageSettingsPanel() {
                 />
               }
             />
-            {connectedEnvironments.every(
-              (environment) =>
-                environment.serverConfig?.environment.capabilities.storageCleanupRun === true,
+            {connectedMachines.every(
+              (machine) =>
+                machine.serverConfig?.machine.capabilities.storageCleanupRun === true,
             ) && (
               <SettingsRow
                 {...searchableSetting("storage-worktree-keep-when")}

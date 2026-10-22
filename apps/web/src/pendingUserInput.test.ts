@@ -1,4 +1,4 @@
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { MachineId, ThreadId } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import { formatInlineContextReference } from "./lib/composerContextReferences";
 import { threadContextRecord, threadContextReference } from "./lib/composerContextRecords";
@@ -18,7 +18,7 @@ import {
 describe("projectPendingUserInputAnswer", () => {
   const record = threadContextRecord(
     {
-      environmentId: EnvironmentId.make("env-answer"),
+      machineId: MachineId.make("env-answer"),
       threadId: ThreadId.make("reference-thread"),
     },
     "Reference work",
@@ -41,11 +41,11 @@ describe("projectPendingUserInputAnswer", () => {
 
 describe("threadContextsReferencedByAnswer", () => {
   const kept = threadContextRecord(
-    { environmentId: EnvironmentId.make("env-answer"), threadId: ThreadId.make("kept-thread") },
+    { machineId: MachineId.make("env-answer"), threadId: ThreadId.make("kept-thread") },
     "Kept work",
   );
   const deleted = threadContextRecord(
-    { environmentId: EnvironmentId.make("env-answer"), threadId: ThreadId.make("deleted-thread") },
+    { machineId: MachineId.make("env-answer"), threadId: ThreadId.make("deleted-thread") },
     "Deleted work",
   );
 

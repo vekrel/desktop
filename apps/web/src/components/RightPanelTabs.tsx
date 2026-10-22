@@ -1,5 +1,5 @@
 import { pullRequestHostOf, type SourceControlProviderKind } from "@vekrel/contracts";
-import type { EnvironmentThreadShell } from "@vekrel/client-runtime/state/shell";
+import type { MachineThreadShell } from "@vekrel/client-runtime/state/shell";
 import { useProjects, useServerConfigs, useThreadShells } from "~/state/entities";
 import {
   threadPullRequestKeysEqual,
@@ -7,7 +7,7 @@ import {
 } from "@vekrel/shared/threadPullRequests";
 import type {
   ContextMenuItem,
-  EnvironmentId,
+  MachineId,
   PreviewSessionSnapshot,
   ProjectId,
   PullRequestState,
@@ -79,10 +79,10 @@ import { useDeviceState } from "~/state/device";
 import type { PreviewPanelInlineSize } from "~/hooks/usePreviewPanelInlineSize";
 import {
   newestPullRequestSummary,
-  pullRequestEnvironment,
+  pullRequestMachine,
   useSharedPullRequestSummary,
 } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { useMachineQuery } from "~/state/query";
 import { COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS } from "~/workspaceTitlebar";
 
 import { PreviewPanelShell, type PreviewPanelMode } from "./preview/PreviewPanelShell";
@@ -104,7 +104,7 @@ export interface RightPanelTabsProps {
   inlineSize?: PreviewPanelInlineSize;
   layoutControls?: ReactNode;
   surfaces: readonly RightPanelSurface[];
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   activeSurfaceId: string | null;
   pendingSurfaceIds: ReadonlySet<string>;
   previewSessions: Readonly<Record<string, PreviewSessionSnapshot>>;
@@ -617,14 +617,14 @@ function SurfaceIcon({
   previewUrl,
   previewCapturedUrl,
   theme,
-  environmentId,
+  machineId,
   pullRequestStatusSeed,
 }: {
   surface: RightPanelSurface;
   previewUrl: string | null;
   previewCapturedUrl: string | null;
   theme: "light" | "dark";
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   pullRequestStatusSeed: PullRequestTabStatusSeed | undefined;
 }) {
   switch (surface.kind) {
@@ -649,7 +649,7 @@ function SurfaceIcon({
       return (
         <PullRequestSurfaceIcon
           surface={surface}
-          environmentId={environmentId}
+          machineId={machineId}
           seed={pullRequestStatusSeed}
         />
       );
@@ -667,15 +667,15 @@ function SurfaceIcon({
 }
 
 export function resolvePullRequestTabLink(
-  threads: readonly Pick<EnvironmentThreadShell, "environmentId" | "pullRequests">[],
-  environmentId: EnvironmentId | null,
+  threads: readonly Pick<MachineThreadShell, "machineId" | "pullRequests">[],
+  machineId: MachineId | null,
   host: string | null,
   reference: { repository: string; number: number },
 ) {
-  if (environmentId === null || host === null) return undefined;
-  let newest: EnvironmentThreadShell["pullRequests"][number] | undefined;
+  if (machineId === null || host === null) return undefined;
+  let newest: MachineThreadShell["pullRequests"][number] | undefined;
   for (const thread of threads) {
-    if (thread.environmentId !== environmentId) continue;
+    if (thread.machineId !== machineId) continue;
     for (const link of visibleThreadPullRequests(thread.pullRequests)) {
       if (
         !threadPullRequestKeysEqual(link, {
@@ -697,19 +697,19 @@ export function resolvePullRequestTabLink(
 
 function PullRequestSurfaceIcon({
   surface,
-  environmentId,
+  machineId,
   seed,
 }: {
   surface: Extract<RightPanelSurface, { kind: "pull-request" }>;
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   seed: PullRequestTabStatusSeed | undefined;
 }) {
-  const resolvedEnvironmentId =
-    (surface.environmentId as EnvironmentId | undefined) ?? environmentId;
+  const resolvedMachineId =
+    (surface.machineId as MachineId | undefined) ?? machineId;
   const projects = useProjects();
   const threads = useThreadShells();
   const project = projects.find(
-    (entry) => entry.environmentId === resolvedEnvironmentId && entry.id === surface.projectId,
+    (entry) => entry.machineId === resolvedMachineId && entry.id === surface.projectId,
   );
   const identity = project?.repositoryIdentity;
   const host =
@@ -719,18 +719,18 @@ function PullRequestSurfaceIcon({
       : null);
   const configs = useServerConfigs();
   const capabilities =
-    resolvedEnvironmentId === null
+    resolvedMachineId === null
       ? undefined
-      : configs.get(resolvedEnvironmentId)?.environment.capabilities;
+      : configs.get(resolvedMachineId)?.machine.capabilities;
   const linkedSnapshot =
     capabilities?.threadPullRequests === true
-      ? (resolvePullRequestTabLink(threads, resolvedEnvironmentId, host, surface)?.snapshot ?? null)
+      ? (resolvePullRequestTabLink(threads, resolvedMachineId, host, surface)?.snapshot ?? null)
       : null;
-  const detail = useEnvironmentQuery(
-    resolvedEnvironmentId === null || capabilities?.pullRequests !== true || linkedSnapshot !== null
+  const detail = useMachineQuery(
+    resolvedMachineId === null || capabilities?.pullRequests !== true || linkedSnapshot !== null
       ? null
-      : pullRequestEnvironment.detail({
-          environmentId: resolvedEnvironmentId,
+      : pullRequestMachine.detail({
+          machineId: resolvedMachineId,
           input: {
             projectId: surface.projectId as ProjectId,
             ...(capabilities?.threadPullRequests === true && surface.host !== undefined
@@ -746,7 +746,7 @@ function PullRequestSurfaceIcon({
     repository: surface.repository,
     number: surface.number,
   };
-  const sharedSummary = useSharedPullRequestSummary(resolvedEnvironmentId, reference, null);
+  const sharedSummary = useSharedPullRequestSummary(resolvedMachineId, reference, null);
   const status = linkedSnapshot ?? newestPullRequestSummary(detail, sharedSummary) ?? seed ?? null;
   if (status === null) {
     return <PullRequestGlyph.pullRequest className="size-3 shrink-0 text-muted-foreground" />;
@@ -821,7 +821,7 @@ function RightPanelTab(
     previewUrl: string | null;
     previewCapturedUrl: string | null;
     theme: "light" | "dark";
-    environmentId: EnvironmentId | null;
+    machineId: MachineId | null;
     pullRequestStatusSeed: PullRequestTabStatusSeed | undefined;
     renaming: boolean;
     canRename: boolean;
@@ -852,7 +852,7 @@ function RightPanelTab(
           previewUrl={props.previewUrl}
           previewCapturedUrl={props.previewCapturedUrl}
           theme={props.theme}
-          environmentId={props.environmentId}
+          machineId={props.machineId}
           pullRequestStatusSeed={props.pullRequestStatusSeed}
         />
         {props.pending ? (
@@ -923,7 +923,7 @@ function RightPanelTab(
             {surface.kind === "device" ? (
               <DeviceTabTooltip
                 surface={surface}
-                environmentId={props.environmentId}
+                machineId={props.machineId}
                 title={title}
               />
             ) : (
@@ -1299,7 +1299,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
                     previewUrl={favicon.url}
                     previewCapturedUrl={favicon.capturedUrl}
                     theme={resolvedTheme}
-                    environmentId={props.environmentId}
+                    machineId={props.machineId}
                     pullRequestStatusSeed={props.pullRequestStatusSeeds?.[surface.id]}
                     renaming={renamingDevice === surface.id}
                     canRename={props.onRenameDevice !== undefined}
@@ -1475,11 +1475,11 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
 
 function DeviceTabTooltip(props: {
   surface: Extract<RightPanelSurface, { kind: "device" }>;
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   title: string;
 }) {
   const target = props.surface.target;
-  const { state } = useDeviceState(target ? props.environmentId : null);
+  const { state } = useDeviceState(target ? props.machineId : null);
   const device = target
     ? state.devices.find((entry) => entry.hostId === target.hostId && entry.id === target.deviceId)
     : undefined;

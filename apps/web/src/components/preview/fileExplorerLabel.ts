@@ -1,4 +1,4 @@
-import type { ExecutionEnvironmentPlatformOs, FileManagerRevealKind } from "@vekrel/contracts";
+import type { ExecutionMachinePlatformOs, FileManagerRevealKind } from "@vekrel/contracts";
 
 export function revealInFileExplorerLabel(platform: string): string {
   const normalized = platform.toLowerCase();
@@ -7,7 +7,7 @@ export function revealInFileExplorerLabel(platform: string): string {
   return "Reveal in Files";
 }
 
-export function revealInFileExplorerLabelForOs(os: ExecutionEnvironmentPlatformOs): string {
+export function revealInFileExplorerLabelForOs(os: ExecutionMachinePlatformOs): string {
   if (os === "darwin") return "Reveal in Finder";
   if (os === "windows") return "Reveal in File Explorer";
   return "Reveal in Files";

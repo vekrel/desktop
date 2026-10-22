@@ -4,8 +4,8 @@ import { validateSettingsScopeSearch, type SettingsScopeSearch } from "./setting
 
 export function validateSettingsRouteSearch(raw: Record<string, unknown>) {
   return validateSettingsScopeSearch(
-    typeof raw.environmentId === "string" && raw.machine === undefined && raw.project === undefined
-      ? { ...raw, machine: raw.environmentId }
+    typeof raw.machineId === "string" && raw.machine === undefined && raw.project === undefined
+      ? { ...raw, machine: raw.machineId }
       : raw,
   );
 }
@@ -15,7 +15,7 @@ const SCOPE_KEYS = [
   "machine",
   "checkout",
 ] as const satisfies readonly (keyof SettingsScopeSearch)[];
-const TARGET_INPUT_KEYS = [...SCOPE_KEYS, "environmentId"];
+const TARGET_INPUT_KEYS = [...SCOPE_KEYS, "machineId"];
 
 export const retainSettingsScope: SearchMiddleware<SettingsScopeSearch> = ({ search, next }) => {
   const result = next(search);

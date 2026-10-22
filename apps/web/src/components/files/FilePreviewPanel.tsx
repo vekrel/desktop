@@ -2,7 +2,7 @@ import { Spinner } from "~/components/ui/spinner";
 import {
   AuthPreviewOperateScope,
   type EditorId,
-  type EnvironmentId,
+  type MachineId,
   type ResolvedKeybindingsConfig,
   type ScopedThreadRef,
 } from "@vekrel/contracts";
@@ -64,12 +64,12 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { buildFileReviewComment } from "~/reviewCommentContext";
-import { assetEnvironment } from "~/state/assets";
+import { assetMachine } from "~/state/assets";
 import { usePreviewAvailable } from "~/browser/previewRuntime";
-import { useEnvironmentHttpBaseUrl, usePrimaryEnvironmentId } from "~/state/environments";
-import { previewEnvironment } from "~/state/preview";
-import { serverEnvironment } from "~/state/server";
-import { useEnvironmentScope } from "~/state/session";
+import { useMachineHttpBaseUrl, usePrimaryMachineId } from "~/state/machines";
+import { previewMachine } from "~/state/preview";
+import { serverMachine } from "~/state/server";
+import { useMachineScope } from "~/state/session";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { useAtomQueryRunner } from "~/state/use-atom-query-runner";
 
@@ -120,7 +120,7 @@ import {
 } from "./projectFilesQueryState";
 
 interface FilePreviewPanelProps {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   cwd: string;
   projectName: string;
   relativePath: string | null;
@@ -153,7 +153,7 @@ type FilePostRender = <LAnnotation>(
 ) => void;
 
 function WorkspaceImagePreview(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadRef: ScopedThreadRef;
   readonly draft: boolean;
   readonly absolutePath: string;
@@ -168,7 +168,7 @@ function WorkspaceImagePreview(props: {
     workspaceRoot: props.workspaceRoot,
     absolutePath: props.absolutePath,
   });
-  const assetUrl = useAssetUrlState(props.environmentId, resource);
+  const assetUrl = useAssetUrlState(props.machineId, resource);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const revisionSuffix =
     props.workspaceMutationId === null
@@ -180,7 +180,7 @@ function WorkspaceImagePreview(props: {
     name: props.alt,
     src: imageUrl,
     reference: mediaFileReference(props.absolutePath, props.workspaceRoot),
-    asset: { environmentId: props.environmentId, resource },
+    asset: { machineId: props.machineId, resource },
   };
 
   if (assetUrl._tag === "Failure" || (imageUrl !== null && failedUrl === imageUrl)) {
@@ -217,7 +217,7 @@ function WorkspaceImagePreview(props: {
  * the app's session or storage.
  */
 function WorkspaceBrowserPreview(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadRef: ScopedThreadRef;
   readonly draft: boolean;
   readonly absolutePath: string;
@@ -234,7 +234,7 @@ function WorkspaceBrowserPreview(props: {
     workspaceRoot: props.workspaceRoot,
     absolutePath: props.absolutePath,
   });
-  const assetUrl = useAssetUrlState(props.environmentId, resource);
+  const assetUrl = useAssetUrlState(props.machineId, resource);
   const revisionSuffix =
     props.workspaceMutationId === null
       ? ""
@@ -257,7 +257,7 @@ function WorkspaceBrowserPreview(props: {
   return (
     <BrowserDocumentFrame
       src={`${assetUrl.url}${revisionSuffix}`}
-      documentKey={`${props.environmentId}:${resource._tag}:${props.threadRef.threadId}:${props.absolutePath}:${props.workspaceMutationId}`}
+      documentKey={`${props.machineId}:${resource._tag}:${props.threadRef.threadId}:${props.absolutePath}:${props.workspaceMutationId}`}
       title={props.title}
       pdf={isPdfPreviewFile(props.absolutePath)}
     />
@@ -265,7 +265,7 @@ function WorkspaceBrowserPreview(props: {
 }
 
 function WorkspaceVideoPreview(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadRef: ScopedThreadRef;
   readonly draft: boolean;
   readonly absolutePath: string;
@@ -280,11 +280,11 @@ function WorkspaceVideoPreview(props: {
     workspaceRoot: props.workspaceRoot,
     absolutePath: props.absolutePath,
   });
-  const assetUrl = useAssetUrlState(props.environmentId, resource);
-  const refreshAssetUrl = useAssetUrlRefresh(props.environmentId, resource);
+  const assetUrl = useAssetUrlState(props.machineId, resource);
+  const refreshAssetUrl = useAssetUrlRefresh(props.machineId, resource);
   useWorkspaceMutationRefresh({
     mutationId: props.workspaceMutationId,
-    resourceKey: JSON.stringify([props.environmentId, resource]),
+    resourceKey: JSON.stringify([props.machineId, resource]),
     refresh: () => {
       void refreshAssetUrl().catch(() => undefined);
     },
@@ -315,7 +315,7 @@ function WorkspaceVideoPreview(props: {
           name: props.name,
           src: latestUrl,
           reference: mediaFileReference(props.absolutePath, props.workspaceRoot),
-          asset: { environmentId: props.environmentId, resource },
+          asset: { machineId: props.machineId, resource },
         }}
       />
     </div>
@@ -323,7 +323,7 @@ function WorkspaceVideoPreview(props: {
 }
 
 function WorkspaceAudioPreview(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadRef: ScopedThreadRef;
   readonly draft: boolean;
   readonly absolutePath: string;
@@ -338,12 +338,12 @@ function WorkspaceAudioPreview(props: {
     workspaceRoot: props.workspaceRoot,
     absolutePath: props.absolutePath,
   });
-  const assetUrl = useAssetUrlState(props.environmentId, resource);
-  const refreshAssetUrl = useAssetUrlRefresh(props.environmentId, resource);
+  const assetUrl = useAssetUrlState(props.machineId, resource);
+  const refreshAssetUrl = useAssetUrlRefresh(props.machineId, resource);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   useWorkspaceMutationRefresh({
     mutationId: props.workspaceMutationId,
-    resourceKey: JSON.stringify([props.environmentId, resource]),
+    resourceKey: JSON.stringify([props.machineId, resource]),
     refresh: () => {
       void refreshAssetUrl().catch(() => undefined);
     },
@@ -593,7 +593,7 @@ const createFileEditor: EditorFactory<FileCommentAnnotationGroup, undefined> = (
 ) => new Editor(editorType, options, editStateKey);
 
 function editableFileContents(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string,
   contents: string,
@@ -601,7 +601,7 @@ function editableFileContents(
   return {
     name: relativePath,
     contents,
-    cacheKey: `editor:${environmentId}:${projectFileCacheKey(cwd, relativePath, contents)}`,
+    cacheKey: `editor:${machineId}:${projectFileCacheKey(cwd, relativePath, contents)}`,
   };
 }
 
@@ -645,7 +645,7 @@ function useEditableAfterHighlight(file: FileContents) {
 }
 
 interface EditableFileSurfaceProps {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   cwd: string;
   relativePath: string;
   composerDraftTarget: ScopedThreadRef | DraftId;
@@ -663,7 +663,7 @@ interface FileSelectionOverride {
 }
 
 function EditableFileSurface({
-  environmentId,
+  machineId,
   cwd,
   relativePath,
   composerDraftTarget,
@@ -686,7 +686,7 @@ function EditableFileSurface({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const selectionFrameRef = useRef<number | null>(null);
   const saveCoordinator = useFileSaveCoordinator({
-    environmentId,
+    machineId,
     cwd,
     relativePath,
     onPendingChange,
@@ -694,11 +694,11 @@ function EditableFileSurface({
   // The editor owns the draft, so its own edits echoing back through the file
   // query keep the file identity. Only a change from elsewhere replaces it.
   const [externalFile, setExternalFile] = useState(() =>
-    editableFileContents(environmentId, cwd, relativePath, contents),
+    editableFileContents(machineId, cwd, relativePath, contents),
   );
   const [editedContents, setEditedContents] = useState<string | null>(null);
   if (contents !== (editedContents ?? externalFile.contents)) {
-    setExternalFile(editableFileContents(environmentId, cwd, relativePath, contents));
+    setExternalFile(editableFileContents(machineId, cwd, relativePath, contents));
     setEditedContents(null);
   }
   const { ready: editable, onPostRender: onEditablePostRender } =
@@ -717,9 +717,9 @@ function EditableFileSurface({
     file,
     lineAnnotations: nextLineAnnotations,
   }: EditorChangeEvent<"file", FileCommentAnnotationGroup, undefined>) => {
-    if (file.contents === getProjectFileContents(environmentId, cwd, relativePath)) return;
+    if (file.contents === getProjectFileContents(machineId, cwd, relativePath)) return;
     setEditedContents(file.contents);
-    setProjectFileQueryData(environmentId, cwd, relativePath, file.contents);
+    setProjectFileQueryData(machineId, cwd, relativePath, file.contents);
     saveCoordinator.change(file.contents);
     if (!nextLineAnnotations) return;
     const remapped = remapFileCommentAnnotations(nextLineAnnotations);
@@ -916,7 +916,7 @@ function EditableFileSurface({
 }
 
 function RenderedMarkdownSurface({
-  environmentId,
+  machineId,
   cwd,
   relativePath,
   contents,
@@ -938,7 +938,7 @@ function RenderedMarkdownSurface({
   workspaceMutationId: string | null;
 }) {
   const saveCoordinator = useFileSaveCoordinator({
-    environmentId,
+    machineId,
     cwd,
     relativePath,
     onPendingChange,
@@ -957,11 +957,11 @@ function RenderedMarkdownSurface({
             ? undefined
             : ({ markerOffset, checked }) => {
                 const currentContents =
-                  getOptimisticProjectFileQueryData(environmentId, cwd, relativePath)?.contents ??
+                  getOptimisticProjectFileQueryData(machineId, cwd, relativePath)?.contents ??
                   contents;
                 const nextContents = setMarkdownTaskChecked(currentContents, markerOffset, checked);
                 if (nextContents === currentContents) return;
-                setProjectFileQueryData(environmentId, cwd, relativePath, nextContents);
+                setProjectFileQueryData(machineId, cwd, relativePath, nextContents);
                 saveCoordinator.change(nextContents);
               }
         }
@@ -986,7 +986,7 @@ function initialExplorerOpen(): boolean {
 }
 
 export default function FilePreviewPanel({
-  environmentId,
+  machineId,
   cwd,
   projectName,
   relativePath: requestedPath,
@@ -1010,16 +1010,16 @@ export default function FilePreviewPanel({
   const draft = typeof composerDraftTarget === "string";
   const { resolvedTheme } = useTheme();
   const wordWrap = useClientSettings((settings) => settings.wordWrap);
-  const canOperatePreview = useEnvironmentScope(environmentId, AuthPreviewOperateScope);
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const remoteOpenState = useRemoteOpenState(environmentId);
-  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
-  const environmentHttpBaseUrl = useEnvironmentHttpBaseUrl(environmentId);
-  const previewAvailable = usePreviewAvailable(environmentId);
-  const createAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, {
+  const canOperatePreview = useMachineScope(machineId, AuthPreviewOperateScope);
+  const primaryMachineId = usePrimaryMachineId();
+  const remoteOpenState = useRemoteOpenState(machineId);
+  const serverConfig = useAtomValue(serverMachine.configValueAtom(machineId));
+  const machineHttpBaseUrl = useMachineHttpBaseUrl(machineId);
+  const previewAvailable = usePreviewAvailable(machineId);
+  const createAssetUrl = useAtomQueryRunner(assetMachine.createUrl, {
     reportFailure: false,
   });
-  const openPreview = useAtomCommand(previewEnvironment.open, {
+  const openPreview = useAtomCommand(previewMachine.open, {
     reportFailure: false,
   });
   const isVideo = relativePath !== null && isWorkspaceVideoPreviewPath(relativePath);
@@ -1030,11 +1030,11 @@ export default function FilePreviewPanel({
   const isHtml = relativePath !== null && !isPdf && isBrowserPreviewFile(relativePath);
   const isHostFile =
     attachment !== undefined || (relativePath !== null && isHostPath(relativePath));
-  const fileAccess = useFilesystemReadAccess(environmentId);
+  const fileAccess = useFilesystemReadAccess(machineId);
   const { canReadFiles } = fileAccess;
-  const canWriteFiles = useEnvironmentScope(environmentId, AuthFilesystemWriteScope);
+  const canWriteFiles = useMachineScope(machineId, AuthFilesystemWriteScope);
   const file = useProjectFileQuery(
-    environmentId,
+    machineId,
     cwd,
     relativePath,
     attachment === undefined && relativePath !== null,
@@ -1159,7 +1159,7 @@ export default function FilePreviewPanel({
       !selectedFilePending,
     mutationId: workspaceMutationId,
     refresh: file.refresh,
-    resourceKey: `file:${environmentId}:${cwd}:${relativePath ?? ""}`,
+    resourceKey: `file:${machineId}:${cwd}:${relativePath ?? ""}`,
   });
 
   useEffect(() => {
@@ -1185,13 +1185,13 @@ export default function FilePreviewPanel({
   };
 
   const handleOpenInBrowser = () => {
-    if (!canReadFiles || !canOperatePreview || !absolutePath || !environmentHttpBaseUrl) return;
+    if (!canReadFiles || !canOperatePreview || !absolutePath || !machineHttpBaseUrl) return;
     void (async () => {
       const result = await openFileInPreview({
         threadRef,
         filePath: absolutePath,
         workspaceRoot: cwd,
-        httpBaseUrl: environmentHttpBaseUrl,
+        httpBaseUrl: machineHttpBaseUrl,
         createAssetUrl,
         openPreview,
       });
@@ -1240,7 +1240,7 @@ export default function FilePreviewPanel({
             <div className="flex h-full w-max min-w-full items-center text-xs">
               <FileBreadcrumbs
                 cwd={cwd}
-                environmentId={environmentId}
+                machineId={machineId}
                 onNavigateFolder={navigateToFolder}
                 onOpenFile={onOpenFile}
                 projectName={projectName}
@@ -1251,9 +1251,9 @@ export default function FilePreviewPanel({
             </div>
           </ScrollArea>
           {absolutePath &&
-          (environmentId === primaryEnvironmentId || remoteOpenState.mode !== "local-exec") ? (
+          (machineId === primaryMachineId || remoteOpenState.mode !== "local-exec") ? (
             <OpenInPicker
-              environmentId={environmentId}
+              machineId={machineId}
               keybindings={keybindings}
               availableEditors={availableEditors}
               enableShortcut={openInShortcutEnabled}
@@ -1328,18 +1328,18 @@ export default function FilePreviewPanel({
         >
           {isFolder ? null : relativePath && attachment ? (
             <AttachmentFilePreview
-              key={`${environmentId}:${attachment.id}`}
+              key={`${machineId}:${attachment.id}`}
               name={attachment.name}
               mimeType={attachment.mimeType}
               sizeBytes={attachment.sizeBytes}
-              asset={{ environmentId, attachmentId: attachment.id }}
+              asset={{ machineId, attachmentId: attachment.id }}
               htmlRender={attachment.htmlRender === true}
               threadRef={threadRef}
             />
           ) : relativePath && isVideo && absolutePath ? (
             <WorkspaceVideoPreview
-              key={`${environmentId}:${threadRef.threadId}:${absolutePath}`}
-              environmentId={environmentId}
+              key={`${machineId}:${threadRef.threadId}:${absolutePath}`}
+              machineId={machineId}
               threadRef={threadRef}
               draft={draft}
               absolutePath={absolutePath}
@@ -1349,8 +1349,8 @@ export default function FilePreviewPanel({
             />
           ) : relativePath && isAudio && absolutePath ? (
             <WorkspaceAudioPreview
-              key={`${environmentId}:${threadRef.threadId}:${absolutePath}`}
-              environmentId={environmentId}
+              key={`${machineId}:${threadRef.threadId}:${absolutePath}`}
+              machineId={machineId}
               threadRef={threadRef}
               draft={draft}
               absolutePath={absolutePath}
@@ -1361,7 +1361,7 @@ export default function FilePreviewPanel({
           ) : relativePath && isImage && absolutePath ? (
             <WorkspaceImagePreview
               key={absolutePath}
-              environmentId={environmentId}
+              machineId={machineId}
               threadRef={threadRef}
               draft={draft}
               absolutePath={absolutePath}
@@ -1372,7 +1372,7 @@ export default function FilePreviewPanel({
           ) : relativePath && renderBrowserFile && absolutePath ? (
             <WorkspaceBrowserPreview
               key={absolutePath}
-              environmentId={environmentId}
+              machineId={machineId}
               threadRef={threadRef}
               draft={draft}
               absolutePath={absolutePath}
@@ -1416,7 +1416,7 @@ export default function FilePreviewPanel({
             isMarkdown && renderMarkdown ? (
               <RenderedMarkdownSurface
                 key={relativePath}
-                environmentId={environmentId}
+                machineId={machineId}
                 cwd={cwd}
                 relativePath={relativePath}
                 threadRef={threadRef}
@@ -1443,7 +1443,7 @@ export default function FilePreviewPanel({
               <DiffWorkerPoolProvider>
                 <EditableFileSurface
                   key={`${relativePath}:${resolvedTheme}`}
-                  environmentId={environmentId}
+                  machineId={machineId}
                   cwd={cwd}
                   relativePath={relativePath}
                   composerDraftTarget={composerDraftTarget}
@@ -1468,8 +1468,8 @@ export default function FilePreviewPanel({
             )}
           >
             <FileBrowserPanel
-              key={`${environmentId}:${hostFolderPath ?? cwd}`}
-              environmentId={environmentId}
+              key={`${machineId}:${hostFolderPath ?? cwd}`}
+              machineId={machineId}
               cwd={hostFolderPath ?? cwd}
               projectName={hostFolderPath ?? projectName}
               hostFolder={hostFolderPath !== null}

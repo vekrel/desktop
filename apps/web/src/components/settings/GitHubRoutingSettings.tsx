@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { resolveEnvironmentMachineKind } from "@vekrel/contracts";
+import { resolveMachineKind } from "@vekrel/contracts";
 import {
   gitHubRoutingConnectionKey,
   gitHubRoutingPermissionFor,
@@ -7,12 +7,12 @@ import {
 } from "@vekrel/client-runtime/connection";
 import { useState } from "react";
 
-import { environmentCatalog } from "~/connection/catalog";
-import type { EnvironmentPresentation } from "~/state/environments";
+import { machineCatalog } from "~/connection/catalog";
+import type { MachinePresentation } from "~/state/machines";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { toastManager } from "../ui/toast";
-import { EnvironmentRow, environmentTransportLabel } from "./EnvironmentRow";
+import { MachineRow, machineTransportLabel } from "./MachineRow";
 import { FoldedSettingsSection } from "./FoldedSettingsSection";
 import { searchableSetting } from "./settingsSearch";
 
@@ -37,16 +37,16 @@ function summarizeGitHubRouting(
 }
 
 export function GitHubRoutingSettings({
-  environments,
+  machines,
 }: {
-  readonly environments: ReadonlyArray<EnvironmentPresentation>;
+  readonly machines: ReadonlyArray<MachinePresentation>;
 }) {
-  const permissions = useAtomValue(environmentCatalog.githubRoutingPermissionsValueAtom);
-  const catalog = useAtomValue(environmentCatalog.catalogValueAtom);
-  const update = useAtomCommand(environmentCatalog.setGitHubRoutingPermission);
+  const permissions = useAtomValue(machineCatalog.githubRoutingPermissionsValueAtom);
+  const catalog = useAtomValue(machineCatalog.catalogValueAtom);
+  const update = useAtomCommand(machineCatalog.setGitHubRoutingPermission);
   const [saving, setSaving] = useState(false);
 
-  if (environments.length < 2) return null;
+  if (machines.length < 2) return null;
 
   const { id, title } = searchableSetting("github-routing");
   return (
@@ -55,9 +55,9 @@ export function GitHubRoutingSettings({
       title={title}
       summary={
         summarizeGitHubRouting(
-          environments.map((environment) => ({
-            label: environment.label,
-            permission: gitHubRoutingPermissionFor(environment.entry, permissions),
+          machines.map((machine) => ({
+            label: machine.label,
+            permission: gitHubRoutingPermissionFor(machine.entry, permissions),
           })),
         ) ?? "Off"
       }
@@ -67,23 +67,23 @@ export function GitHubRoutingSettings({
         machines. Read and act may use broader permissions than the machine that owns them. This
         applies only to this device.
       </p>
-      {environments.map((environment) => (
-        <EnvironmentRow
-          key={environment.environmentId}
-          kind={resolveEnvironmentMachineKind(environment.serverConfig)}
-          label={environment.label}
-          subtitle={environmentTransportLabel(environment)}
+      {machines.map((machine) => (
+        <MachineRow
+          key={machine.machineId}
+          kind={resolveMachineKind(machine.serverConfig)}
+          label={machine.label}
+          subtitle={machineTransportLabel(machine)}
         >
           <Select
             items={options}
-            value={gitHubRoutingPermissionFor(environment.entry, permissions)}
+            value={gitHubRoutingPermissionFor(machine.entry, permissions)}
             disabled={
-              !catalog.isReady || saving || gitHubRoutingConnectionKey(environment.entry) === null
+              !catalog.isReady || saving || gitHubRoutingConnectionKey(machine.entry) === null
             }
             onValueChange={(permission) => {
               if (permission === null) return;
               setSaving(true);
-              void update({ environmentId: environment.environmentId, permission }).then(
+              void update({ machineId: machine.machineId, permission }).then(
                 (result) => {
                   setSaving(false);
                   if (result._tag === "Failure")
@@ -98,7 +98,7 @@ export function GitHubRoutingSettings({
             <SelectTrigger
               size="xs"
               className="w-32"
-              aria-label={`${environment.label} GitHub routing`}
+              aria-label={`${machine.label} GitHub routing`}
             >
               <SelectValue />
             </SelectTrigger>
@@ -110,7 +110,7 @@ export function GitHubRoutingSettings({
               ))}
             </SelectPopup>
           </Select>
-        </EnvironmentRow>
+        </MachineRow>
       ))}
     </FoldedSettingsSection>
   );

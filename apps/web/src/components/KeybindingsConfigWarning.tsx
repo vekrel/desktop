@@ -1,28 +1,28 @@
 import {
   AuthOrchestrationOperateScope,
   type EditorId,
-  type EnvironmentId,
+  type MachineId,
 } from "@vekrel/contracts";
 import { squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
 
 import { useOpenInPreferredEditor } from "../editorPreferences";
-import { useEnvironmentScope } from "../state/session";
+import { useMachineScope } from "../state/session";
 import { Button } from "./ui/button";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 
 export function KeybindingsConfigWarning({
   message,
-  environmentId,
+  machineId,
   configPath,
   availableEditors,
 }: {
   message: string;
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   configPath: string | null;
   availableEditors: readonly EditorId[];
 }) {
-  const canOpenEditor = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
-  const openInEditor = useOpenInPreferredEditor(environmentId, availableEditors);
+  const canOpenEditor = useMachineScope(machineId, AuthOrchestrationOperateScope);
+  const openInEditor = useOpenInPreferredEditor(machineId, availableEditors);
 
   return (
     <>

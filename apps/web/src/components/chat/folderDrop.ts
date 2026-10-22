@@ -1,14 +1,14 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 
 export function folderDropTarget(input: {
-  localEnvironmentDisabled: boolean;
-  environmentId: EnvironmentId;
-  primaryEnvironmentId: EnvironmentId | null;
+  localMachineDisabled: boolean;
+  machineId: MachineId;
+  primaryMachineId: MachineId | null;
 }): "local" | "remote" {
   if (
-    input.localEnvironmentDisabled ||
-    input.primaryEnvironmentId === null ||
-    input.environmentId !== input.primaryEnvironmentId
+    input.localMachineDisabled ||
+    input.primaryMachineId === null ||
+    input.machineId !== input.primaryMachineId
   ) {
     return "remote";
   }

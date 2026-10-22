@@ -1,7 +1,7 @@
 import { RegistryContext } from "@effect/atom-react";
 import {
   DEFAULT_SERVER_SETTINGS,
-  EnvironmentId,
+  MachineId,
   ProviderInstanceId,
   type ServerSettings,
   type ServerSettingsPatch,
@@ -21,7 +21,7 @@ import { act, render, type Screen } from "../../test/render";
 const state = vi.hoisted(() => ({
   settings: new Map<string, unknown>(),
   connections: new Map<
-    EnvironmentId,
+    MachineId,
     Atom.Writable<AsyncResult.AsyncResult<SupervisorConnectionState>>
   >(),
   persist: vi.fn(),
@@ -31,9 +31,9 @@ vi.mock(import("~/connection/catalog"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    environmentCatalog: {
-      ...actual.environmentCatalog,
-      stateAtom: ((id: EnvironmentId) => state.connections.get(id)) as never,
+    machineCatalog: {
+      ...actual.machineCatalog,
+      stateAtom: ((id: MachineId) => state.connections.get(id)) as never,
     },
   };
 });
@@ -49,9 +49,9 @@ vi.mock(import("~/state/server"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    serverEnvironment: {
-      ...actual.serverEnvironment,
-      settingsValueAtom: ((id: EnvironmentId) => state.settings.get(id)) as never,
+    serverMachine: {
+      ...actual.serverMachine,
+      settingsValueAtom: ((id: MachineId) => state.settings.get(id)) as never,
     },
   };
 });
@@ -60,10 +60,10 @@ vi.mock(import("~/state/use-atom-command"), async (original) => ({
   useAtomCommand: (() => state.persist) as never,
 }));
 
-import { useEnvironmentModelPreferences, useToggleEnvironmentModelFavorite } from "./useSettings";
+import { useMachineModelPreferences, useToggleMachineModelFavorite } from "./useSettings";
 
-const primaryId = EnvironmentId.make("primary");
-const remoteId = EnvironmentId.make("remote");
+const primaryId = MachineId.make("primary");
+const remoteId = MachineId.make("remote");
 const provider = ProviderInstanceId.make("codex_work");
 const model = "gpt-6.1-sol";
 const initialSettings = {
@@ -72,24 +72,24 @@ const initialSettings = {
   providerModelPreferences: {},
 } satisfies ServerSettings;
 interface Write {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   patch: ServerSettingsPatch;
   finish: (success?: boolean) => void;
 }
 
-const settingsAtom = (id: EnvironmentId) =>
+const settingsAtom = (id: MachineId) =>
   state.settings.get(id) as Atom.Writable<ServerSettings | null>;
 
 function FavoriteEditor({
-  environmentId,
+  machineId,
   toggles,
   onClicked,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   toggles: Array<() => Promise<void>>;
   onClicked: (pending: Promise<void>) => void;
 }) {
-  const toggle = useToggleEnvironmentModelFavorite(environmentId);
+  const toggle = useToggleMachineModelFavorite(machineId);
   const onClick = () => toggle(provider, model);
   toggles.push(onClick);
   return <button onClick={() => onClicked(onClick())}>Toggle favorite</button>;
@@ -100,7 +100,7 @@ async function setup() {
   const registry = stack.adopt(AtomRegistry.make(), (registry) => registry.dispose());
   state.settings.clear();
   state.connections.clear();
-  const durable = new Map<EnvironmentId, ServerSettings>();
+  const durable = new Map<MachineId, ServerSettings>();
   const toggles: Array<() => Promise<void>> = [];
   const writes: Write[] = [];
   let pendingClick: Promise<void> | undefined;
@@ -110,35 +110,35 @@ async function setup() {
   }
   state.persist.mockReset().mockImplementation(
     ({
-      environmentId,
+      machineId,
       input,
     }: {
-      environmentId: EnvironmentId;
+      machineId: MachineId;
       input: { patch: ServerSettingsPatch };
     }) =>
       new Promise((resolve) => {
         writes.push({
-          environmentId,
+          machineId,
           patch: input.patch,
           finish: (success = true) => {
             if (!success) {
               resolve(AsyncResult.failure(Cause.fail(new Error("save failed"))));
               return;
             }
-            const settings = applyServerSettingsPatch(durable.get(environmentId)!, input.patch);
-            durable.set(environmentId, settings);
+            const settings = applyServerSettingsPatch(durable.get(machineId)!, input.patch);
+            durable.set(machineId, settings);
             resolve(AsyncResult.success(settings));
           },
         });
       }),
   );
 
-  const environment = stack.move();
+  const machine = stack.move();
   let screen: Screen | undefined;
   const show = async (ui: ReactNode) => {
     const tree = <RegistryContext.Provider value={registry}>{ui}</RegistryContext.Provider>;
     if (screen) await screen.rerender(tree);
-    else screen = environment.use(await render(tree));
+    else screen = machine.use(await render(tree));
   };
 
   return {
@@ -147,10 +147,10 @@ async function setup() {
     toggles,
     writes,
     show,
-    mount: (environmentId = primaryId) =>
+    mount: (machineId = primaryId) =>
       show(
         <FavoriteEditor
-          environmentId={environmentId}
+          machineId={machineId}
           toggles={toggles}
           onClicked={(pending) => {
             pendingClick = pending;
@@ -161,11 +161,11 @@ async function setup() {
       screen!.container.querySelector("button")!.click();
       return pendingClick!;
     },
-    [Symbol.asyncDispose]: () => environment.disposeAsync(),
+    [Symbol.asyncDispose]: () => machine.disposeAsync(),
   };
 }
 
-describe("environment favorite toggles", () => {
+describe("machine favorite toggles", () => {
   it.each([false, true])(
     "toggles twice before any server echo when initially favorited=%s",
     async (initiallyFavorited) => {
@@ -210,7 +210,7 @@ describe("environment favorite toggles", () => {
     expect(durable.get(primaryId)!.favorites).toEqual([]);
   });
 
-  it("does not reuse another environment's pending intent for the same model", async () => {
+  it("does not reuse another machine's pending intent for the same model", async () => {
     await using fixture = await setup();
     const { durable, writes, mount, click } = fixture;
     await mount();
@@ -242,8 +242,8 @@ describe("environment favorite toggles", () => {
   });
 });
 
-function ModelPreferencesReader({ environmentId }: { environmentId: EnvironmentId }) {
-  useEnvironmentModelPreferences(environmentId);
+function ModelPreferencesReader({ machineId }: { machineId: MachineId }) {
+  useMachineModelPreferences(machineId);
   return null;
 }
 
@@ -253,9 +253,9 @@ describe("legacy model preferences migration", () => {
     async (outcome) => {
       await using fixture = await setup();
       const { registry, show } = fixture;
-      const environmentId = EnvironmentId.make(`migration-${outcome}`);
-      const otherId = EnvironmentId.make(`other-${outcome}`);
-      for (const id of [environmentId, otherId]) {
+      const machineId = MachineId.make(`migration-${outcome}`);
+      const otherId = MachineId.make(`other-${outcome}`);
+      for (const id of [machineId, otherId]) {
         state.settings.set(
           id,
           Atom.keepAlive(Atom.make<ServerSettings | null>(DEFAULT_SERVER_SETTINGS)),
@@ -281,9 +281,9 @@ describe("legacy model preferences migration", () => {
       state.persist
         .mockReturnValueOnce(firstSave)
         .mockResolvedValue(AsyncResult.success(DEFAULT_SERVER_SETTINGS));
-      const renderReader = (id = environmentId) =>
-        show(<ModelPreferencesReader key={id} environmentId={id} />);
-      const connect = (id: EnvironmentId, generation: number) =>
+      const renderReader = (id = machineId) =>
+        show(<ModelPreferencesReader key={id} machineId={id} />);
+      const connect = (id: MachineId, generation: number) =>
         act(() =>
           registry.set(
             state.connections.get(id)!,
@@ -295,10 +295,10 @@ describe("legacy model preferences migration", () => {
             }),
           ),
         );
-      const pushSettings = (id = environmentId) =>
+      const pushSettings = (id = machineId) =>
         act(() => registry.set(settingsAtom(id), { ...DEFAULT_SERVER_SETTINGS }));
-      const migration = (id: EnvironmentId) => ({
-        environmentId: id,
+      const migration = (id: MachineId) => ({
+        machineId: id,
         input: { patch: { migrateModelPreferences: { favorites: [{ provider, model }] } } },
       });
 
@@ -306,8 +306,8 @@ describe("legacy model preferences migration", () => {
       await pushSettings();
       expect(state.persist).not.toHaveBeenCalled();
 
-      await connect(environmentId, 1);
-      expect(state.persist).toHaveBeenCalledExactlyOnceWith(migration(environmentId));
+      await connect(machineId, 1);
+      expect(state.persist).toHaveBeenCalledExactlyOnceWith(migration(machineId));
       await pushSettings();
       expect(state.persist).toHaveBeenCalledTimes(1);
       await act(finishFirstSave);
@@ -326,18 +326,18 @@ describe("legacy model preferences migration", () => {
 
       await act(() =>
         registry.set(
-          state.connections.get(environmentId)!,
+          state.connections.get(machineId)!,
           AsyncResult.success({ ...AVAILABLE_CONNECTION_STATE, generation: 1 }),
         ),
       );
       await pushSettings();
       expect(state.persist).toHaveBeenCalledTimes(2);
-      await connect(environmentId, 2);
+      await connect(machineId, 2);
       await pushSettings();
       expect(state.persist.mock.calls).toEqual([
-        [migration(environmentId)],
+        [migration(machineId)],
         [migration(otherId)],
-        [migration(environmentId)],
+        [migration(machineId)],
       ]);
     },
   );

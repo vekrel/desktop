@@ -1,5 +1,5 @@
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
-import type { EnvironmentId, PullRequestRef, PullRequestStackMembership } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef, PullRequestStackMembership } from "@vekrel/contracts";
 import { useState } from "react";
 import { usePullRequestStack } from "~/state/usePullRequestStack";
 import { Menu, MenuTrigger, MenuPopup, MenuGroup, MenuGroupLabel, MenuItem } from "../ui/menu";
@@ -9,17 +9,17 @@ import { PullRequestGlyph } from "./pullRequestIcons";
 
 /** Mounted only while the menu is open, so list rows do not each fetch a stack. */
 function StackBody({
-  environmentId,
+  machineId,
   reference,
   onSelect,
   stackNumber,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   onSelect: (reference: PullRequestRef) => void;
   stackNumber: number;
 }) {
-  const query = usePullRequestStack(environmentId, reference);
+  const query = usePullRequestStack(machineId, reference);
   if (query.data !== null) {
     return (
       <>
@@ -45,12 +45,12 @@ function StackBody({
 }
 
 export function PullRequestStackPopover({
-  environmentId,
+  machineId,
   reference,
   membership,
   onSelect,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   membership: PullRequestStackMembership;
   onSelect: (reference: PullRequestRef) => void;
@@ -91,7 +91,7 @@ export function PullRequestStackPopover({
         <MenuGroup>
           {open ? (
             <StackBody
-              environmentId={environmentId}
+              machineId={machineId}
               reference={reference}
               stackNumber={membership.number}
               onSelect={(target) => {

@@ -8,9 +8,9 @@ import {
   type ProviderInstanceId,
 } from "@vekrel/contracts";
 
-import { primaryServerProvidersAtom, serverEnvironment } from "../state/server";
-import { usePrimaryEnvironment } from "../state/environments";
-import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
+import { primaryServerProvidersAtom, serverMachine } from "../state/server";
+import { usePrimaryMachine } from "../state/machines";
+import { readMachineScope, useMachineScope } from "../state/session";
 import { useDismissedProviderUpdateNotificationKeys } from "../providerUpdateDismissal";
 import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
 import {
@@ -104,12 +104,12 @@ function addProviderUpdateToast(input: {
 export function ProviderUpdatePrimaryNotification() {
   const navigate = useNavigate();
   const providers = useAtomValue(primaryServerProvidersAtom);
-  const primaryEnvironment = usePrimaryEnvironment();
-  const canManageProviders = useEnvironmentScope(
-    primaryEnvironment?.environmentId ?? null,
+  const primaryMachine = usePrimaryMachine();
+  const canManageProviders = useMachineScope(
+    primaryMachine?.machineId ?? null,
     AuthProvidersManageScope,
   );
-  const updateProvider = useAtomCommand(serverEnvironment.updateProvider, {
+  const updateProvider = useAtomCommand(serverMachine.updateProvider, {
     reportFailure: false,
   });
   const activeToastRef = useRef<ActiveProviderUpdateToast | null>(null);
@@ -204,8 +204,8 @@ export function ProviderUpdatePrimaryNotification() {
       if (
         updateStarted ||
         oneClickProviders.length === 0 ||
-        !primaryEnvironment ||
-        !readEnvironmentScope(primaryEnvironment.environmentId, AuthProvidersManageScope)
+        !primaryMachine ||
+        !readMachineScope(primaryMachine.machineId, AuthProvidersManageScope)
       ) {
         return;
       }
@@ -226,7 +226,7 @@ export function ProviderUpdatePrimaryNotification() {
       void (async () => {
         const results = [];
         for (const provider of oneClickProviders) {
-          if (!readEnvironmentScope(primaryEnvironment.environmentId, AuthProvidersManageScope)) {
+          if (!readMachineScope(primaryMachine.machineId, AuthProvidersManageScope)) {
             if (activeToastRef.current === activeUpdate) {
               addProviderUpdateToast({
                 view: getProviderUpdateRejectedToastView(
@@ -241,7 +241,7 @@ export function ProviderUpdatePrimaryNotification() {
           }
           results.push(
             await updateProvider({
-              environmentId: primaryEnvironment.environmentId,
+              machineId: primaryMachine.machineId,
               input: {
                 provider: provider.driver,
                 instanceId: provider.instanceId,
@@ -332,7 +332,7 @@ export function ProviderUpdatePrimaryNotification() {
     notificationKey,
     oneClickProviders,
     openProviderSettings,
-    primaryEnvironment,
+    primaryMachine,
     updateProviders,
   ]);
 

@@ -1,12 +1,12 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import { MachineId, ThreadId } from "@vekrel/contracts";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { openDiffFilePrimaryAction, resolveDiffPathForWorkspace } from "./diffFileActions";
 import { selectThreadRightPanelState, useRightPanelStore } from "./rightPanelStore";
 
 const THREAD_REF = scopeThreadRef(
-  EnvironmentId.make("environment-local"),
+  MachineId.make("machine-local"),
   ThreadId.make("thread-1"),
 );
 

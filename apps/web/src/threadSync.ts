@@ -1,11 +1,11 @@
-import type { EnvironmentThreadStatus } from "@vekrel/client-runtime/state/threads";
+import type { MachineThreadStatus } from "@vekrel/client-runtime/state/threads";
 
 export type ThreadSyncPhase = "loading" | "syncing";
 
 export function resolveThreadSyncPhase(input: {
   readonly detailExists: boolean;
   readonly shellExists: boolean;
-  readonly status: EnvironmentThreadStatus;
+  readonly status: MachineThreadStatus;
 }): ThreadSyncPhase | null {
   if (!input.shellExists) {
     return null;

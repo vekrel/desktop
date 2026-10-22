@@ -1,5 +1,5 @@
 import type { DeviceServiceState, ScopedThreadRef } from "@vekrel/contracts";
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import { useEffect, useRef } from "react";
 import { useClientSettings } from "../../hooks/useSettings";
 import {
@@ -22,7 +22,7 @@ export function useAgentOpenedPreviews(input: {
   readonly deviceState: DeviceServiceState;
   readonly deviceStateLoaded: boolean;
   readonly previewState: ThreadPreviewState;
-  // Whether the environment hosts browser tabs for this client.
+  // Whether the machine hosts browser tabs for this client.
   readonly serverBrowserAvailable: boolean;
   readonly panelSurfaces: ReadonlyArray<RightPanelSurface>;
   readonly miniPlayerSource: PreviewMiniPlayerState["source"] | null;
@@ -49,7 +49,7 @@ export function useAgentOpenedPreviews(input: {
   const previousDeviceSessions = useRef(new Map<string, Set<string>>());
   useEffect(() => {
     if (!threadRef || !deviceStateLoaded) return;
-    const threadKey = `${threadRef.environmentId}:${threadRef.threadId}`;
+    const threadKey = `${threadRef.machineId}:${threadRef.threadId}`;
     const sessions = deviceState.sessions.filter(
       (session) => session.threadId === threadRef.threadId,
     );

@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 
 /**
- * The wizard otherwise shows on every sign-in, since sign-out clears the connected environments.
+ * The wizard otherwise shows on every sign-in, since sign-out clears the connected machines.
  */
 export const CONNECT_ONBOARDING_OPT_OUT_STORAGE_KEY = "t3code:connect-onboarding-opt-out:v1";
 

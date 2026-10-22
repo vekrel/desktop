@@ -2,9 +2,9 @@ import type {
   KeybindingCommand,
   ProjectId,
   ProjectScript,
-  EnvironmentId,
+  MachineId,
 } from "@vekrel/contracts";
-import { AuthSettingsWriteScope, EnvironmentAuthorizationError } from "@vekrel/contracts";
+import { AuthSettingsWriteScope, MachineAuthorizationError } from "@vekrel/contracts";
 import type { UnifiedSettings } from "@vekrel/contracts/settings";
 import {
   isAtomCommandInterrupted,
@@ -12,7 +12,7 @@ import {
   squashAtomCommandFailure,
   type AtomCommandResult,
 } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 import { resolveProjectScripts } from "@vekrel/shared/projectScripts";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
@@ -29,8 +29,8 @@ import {
   releaseClaimedRoles,
 } from "../../projectScripts";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
-import { serverEnvironment } from "../../state/server";
-import { readEnvironmentScope } from "../../state/session";
+import { serverMachine } from "../../state/server";
+import { readMachineScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useProjects } from "../../state/entities";
 import { type NewProjectScriptInput } from "../ProjectScriptsControl";
@@ -38,24 +38,24 @@ import { stackedThreadToast, toastManager } from "../ui/toast";
 
 /**
  * Adds, edits, and deletes the active project's scripts. A script's keyboard
- * shortcut lives in the environment's keybindings, so each change writes the
+ * shortcut lives in the machine's keybindings, so each change writes the
  * script settings first and then reconciles the shortcut.
  */
 export function useProjectScriptEditing(input: {
-  readonly environmentId: EnvironmentId;
-  readonly project: EnvironmentProject | null;
+  readonly machineId: MachineId;
+  readonly project: MachineProject | null;
   readonly scripts: ReadonlyArray<ProjectScript>;
   readonly settings: UnifiedSettings;
 }) {
-  const { environmentId, project, scripts, settings } = input;
+  const { machineId, project, scripts, settings } = input;
   const allProjects = useProjects();
-  const updateProjectScriptSettings = useAtomCommand(serverEnvironment.updateSettings, {
+  const updateProjectScriptSettings = useAtomCommand(serverMachine.updateSettings, {
     reportFailure: false,
   });
-  const upsertKeybinding = useAtomCommand(serverEnvironment.upsertKeybinding, {
+  const upsertKeybinding = useAtomCommand(serverMachine.upsertKeybinding, {
     reportFailure: false,
   });
-  const removeKeybinding = useAtomCommand(serverEnvironment.removeKeybinding, {
+  const removeKeybinding = useAtomCommand(serverMachine.removeKeybinding, {
     reportFailure: false,
   });
   const persistProjectScripts = async (input: {
@@ -66,7 +66,7 @@ export function useProjectScriptEditing(input: {
     keybinding: NewProjectScriptInput["keybinding"];
     keybindingCommand: KeybindingCommand | null;
   }): Promise<AtomCommandResult<void, unknown>> => {
-    const serverConfig = appAtomRegistry.get(serverEnvironment.configValueAtom(environmentId));
+    const serverConfig = appAtomRegistry.get(serverMachine.configValueAtom(machineId));
     const previousKeybinding = keybindingValueForCommand(
       serverConfig?.keybindings ?? [],
       input.keybindingCommand,
@@ -77,11 +77,11 @@ export function useProjectScriptEditing(input: {
     const changesKeybinding =
       input.keybinding !== undefined &&
       (input.keybinding?.trim() || null) !== previousKeybinding &&
-      (!isDeletingScript || readEnvironmentScope(environmentId, AuthSettingsWriteScope));
-    if (changesKeybinding && !readEnvironmentScope(environmentId, AuthSettingsWriteScope)) {
+      (!isDeletingScript || readMachineScope(machineId, AuthSettingsWriteScope));
+    if (changesKeybinding && !readMachineScope(machineId, AuthSettingsWriteScope)) {
       return AsyncResult.failure(
         Cause.fail(
-          new EnvironmentAuthorizationError({
+          new MachineAuthorizationError({
             requiredScope: AuthSettingsWriteScope,
             message: "This connection cannot change keyboard shortcuts.",
           }),
@@ -96,10 +96,10 @@ export function useProjectScriptEditing(input: {
       : null;
     const updateResult = mapAtomCommandResult(
       await updateProjectScriptSettings({
-        environmentId,
+        machineId,
         input: {
           patch:
-            serverConfig?.environment.capabilities.projectSettingsOverrides === true
+            serverConfig?.machine.capabilities.projectSettingsOverrides === true
               ? {
                   projectSettingsOverrides: {
                     [input.projectId]: {
@@ -122,10 +122,10 @@ export function useProjectScriptEditing(input: {
     }
 
     if (!changesKeybinding) return updateResult;
-    if (!readEnvironmentScope(environmentId, AuthSettingsWriteScope)) {
+    if (!readMachineScope(machineId, AuthSettingsWriteScope)) {
       return AsyncResult.failure(
         Cause.fail(
-          new EnvironmentAuthorizationError({
+          new MachineAuthorizationError({
             requiredScope: AuthSettingsWriteScope,
             message: isDeletingScript
               ? "The script was deleted, but its keyboard shortcut could not be removed because permission changed."
@@ -151,7 +151,7 @@ export function useProjectScriptEditing(input: {
         ) ||
         allProjects.some(
           (other) =>
-            other.environmentId === environmentId &&
+            other.machineId === machineId &&
             other.id !== input.projectId &&
             resolveProjectScripts(settings, other).some((script) => script.id === scriptId),
         ));
@@ -167,13 +167,13 @@ export function useProjectScriptEditing(input: {
     });
     const previous = previousRules.at(-1);
     for (const rule of keybindingRule ? previousRules.slice(0, -1) : previousRules) {
-      const result = await removeKeybinding({ environmentId, input: rule });
+      const result = await removeKeybinding({ machineId, input: rule });
       if (result._tag === "Failure") return mapAtomCommandResult(result, () => undefined);
     }
     return keybindingRule
       ? mapAtomCommandResult(
           await upsertKeybinding({
-            environmentId,
+            machineId,
             input:
               previous && previous.key !== keybindingRule.key
                 ? { ...keybindingRule, replace: previous }

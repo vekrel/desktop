@@ -1,10 +1,10 @@
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { resolveFileContextMenuAbsolutePath } from "./fileContextMenu";
 
 const BASE_TARGET = {
-  environmentId: EnvironmentId.make("environment-local"),
+  machineId: MachineId.make("machine-local"),
   filePath: "src/index.ts",
   workspaceRoot: "/workspace/project",
 };

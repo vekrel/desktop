@@ -9,19 +9,19 @@ import {
   AuthProvidersManageScope,
   ProviderInstanceId,
   ProviderDriverKind,
-  type EnvironmentId,
+  type MachineId,
   type ProviderInstanceConfig,
   type ProviderInstanceEnvironmentVariable,
 } from "@vekrel/contracts";
 
 import {
-  useEnvironmentSettings,
-  usePersistEnvironmentProviderInstanceMutation,
+  useMachineSettings,
+  usePersistMachineProviderInstanceMutation,
 } from "../../hooks/useSettings";
 
 import { cn } from "../../lib/utils";
 import { normalizeProviderAccentColor } from "../../providerInstances";
-import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { readMachineScope, useMachineScope } from "../../state/session";
 import { Button } from "../ui/button";
 import { ChatGptConnectionButton } from "./ChatGptConnectionButton";
 import { Dialog } from "../ui/dialog";
@@ -92,22 +92,22 @@ function validateInstanceId(id: string, existing: ReadonlySet<string>): string |
 
 interface AddProviderInstanceDialogProps {
   readonly open: boolean;
-  readonly environmentId: EnvironmentId;
-  readonly environmentLabel: string;
+  readonly machineId: MachineId;
+  readonly machineLabel: string;
   readonly onOpenChange: (open: boolean) => void;
   readonly onCreated?: (instanceId: ProviderInstanceId) => void;
 }
 
 export function AddProviderInstanceDialog({
   open,
-  environmentId,
-  environmentLabel,
+  machineId,
+  machineLabel,
   onOpenChange,
   onCreated,
 }: AddProviderInstanceDialogProps) {
-  const settings = useEnvironmentSettings(environmentId);
-  const persistProviderInstance = usePersistEnvironmentProviderInstanceMutation(environmentId);
-  const canManageProviders = useEnvironmentScope(environmentId, AuthProvidersManageScope);
+  const settings = useMachineSettings(machineId);
+  const persistProviderInstance = usePersistMachineProviderInstanceMutation(machineId);
+  const canManageProviders = useMachineScope(machineId, AuthProvidersManageScope);
 
   const [wizardStep, setWizardStep] = useState(0);
   const [addingChatGptAccount, setAddingChatGptAccount] = useState(false);
@@ -294,7 +294,7 @@ export function AddProviderInstanceDialog({
   };
 
   const handleSave = async () => {
-    if (!readEnvironmentScope(environmentId, AuthProvidersManageScope)) return;
+    if (!readMachineScope(machineId, AuthProvidersManageScope)) return;
     if (isSaving || createdInstanceId) return;
     setHasAttemptedSubmit(true);
     if (instanceIdError !== null || (isAcpRegistry && acpSelectionError !== null)) return;
@@ -349,7 +349,7 @@ export function AddProviderInstanceDialog({
   if (addingChatGptAccount) {
     return (
       <AddManagedCodexAccountDialog
-        environmentId={environmentId}
+        machineId={machineId}
         onClose={() => onOpenChange(false)}
       />
     );
@@ -360,7 +360,7 @@ export function AddProviderInstanceDialog({
       <WizardPopup size="wide">
         <WizardHeader
           title="Add provider"
-          description={<>Add an account or configure a provider on {environmentLabel}.</>}
+          description={<>Add an account or configure a provider on {machineLabel}.</>}
         >
           {isAcpRegistry ? (
             <AddProviderInstanceWizardSteps
@@ -386,8 +386,8 @@ export function AddProviderInstanceDialog({
 
         {createdInstanceId ? (
           <ProviderWizardAuthenticationStep
-            environmentId={environmentId}
-            environmentLabel={environmentLabel}
+            machineId={machineId}
+            machineLabel={machineLabel}
             instanceId={createdInstanceId}
             onFinish={() => onOpenChange(false)}
           />
@@ -462,7 +462,7 @@ export function AddProviderInstanceDialog({
                           </h3>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {isLocalAcp
-                              ? `Run an installed ACP executable on ${environmentLabel}.`
+                              ? `Run an installed ACP executable on ${machineLabel}.`
                               : "Enter an official registry ID and any local executable or auth override."}
                           </p>
                         </div>
@@ -499,7 +499,7 @@ export function AddProviderInstanceDialog({
                   ) : (
                     <>
                       <AcpRegistrySearchStep
-                        environmentId={environmentId}
+                        machineId={machineId}
                         providerInstances={settings.providerInstances}
                         onPrepared={handleAcpPrepared}
                         onManualConfiguration={handleManualAcpConfiguration}

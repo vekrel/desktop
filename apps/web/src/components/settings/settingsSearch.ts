@@ -2,8 +2,8 @@ import { HOSTED_APP_CHANNEL } from "~/branding";
 import { isElectron } from "~/env";
 import { isMacPlatform, isWindowsPlatform, normalizeSearchText } from "~/lib/utils";
 import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@vekrel/contracts";
-import type { EnvironmentId } from "@vekrel/contracts";
-import type { EnvironmentConnectionPhase } from "@vekrel/client-runtime/connection";
+import type { MachineId } from "@vekrel/contracts";
+import type { MachineConnectionPhase } from "@vekrel/client-runtime/connection";
 import { sourceControlClients } from "@vekrel/client-runtime/source-control-clients";
 import { DEFAULT_KEYBINDINGS } from "@vekrel/shared/keybindings";
 import { commandLabel } from "./KeybindingsSettings.logic";
@@ -29,8 +29,8 @@ export type SettingsPath =
   | "/settings/archived";
 
 export type SettingsSearchScope =
-  | "environment"
-  | "environment-defaults"
+  | "machine"
+  | "machine-defaults"
   | "project-defaults"
   | "project"
   | "checkout"
@@ -48,11 +48,11 @@ export interface SettingsSearchItem {
   readonly windowsOnly?: boolean;
   readonly releaseChannelOnly?: boolean;
   readonly cloudOnly?: boolean;
-  readonly environmentOnly?: boolean;
+  readonly machineOnly?: boolean;
   readonly providerSettingsOnly?: boolean;
   readonly macProviderSettingsOnly?: boolean;
   readonly localBackendManagementOnly?: boolean;
-  readonly localEnvironmentOnly?: boolean;
+  readonly localMachineOnly?: boolean;
   readonly wslAvailableOnly?: boolean;
   readonly managedTunnelOnly?: boolean;
   readonly secondary?: boolean;
@@ -60,11 +60,11 @@ export interface SettingsSearchItem {
 }
 
 export interface SettingsSearchAvailability {
-  readonly localEnvironmentDisabled?: boolean;
+  readonly localMachineDisabled?: boolean;
   readonly hasCloudPublicConfig: boolean;
-  readonly hasEnvironment: boolean;
-  readonly hasProviderSettingsEnvironment: boolean;
-  readonly hasMacProviderSettingsEnvironment: boolean;
+  readonly hasMachine: boolean;
+  readonly hasProviderSettingsMachine: boolean;
+  readonly hasMacProviderSettingsMachine: boolean;
   readonly canManageLocalBackend: boolean;
   readonly isWslSettingsRowVisible: boolean;
   readonly hasThreadAutoSettlement: boolean;
@@ -121,8 +121,8 @@ const SOURCE_CONTROL_HOST_SEARCH_ITEMS = sourceControlClients.definitions.flatMa
           searchTerms: [
             `${definition.label} ${Object.keys(definition.settings.fields).join(" ")} token credentials sign in`,
           ],
-          environmentOnly: true,
-          scope: "environment-defaults" as const,
+          machineOnly: true,
+          scope: "machine-defaults" as const,
         },
       ]
     : [],
@@ -143,7 +143,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "storage-delete-now",
     title: "Delete now",
     to: "/settings/storage",
-    scope: "environment-defaults",
+    scope: "machine-defaults",
     searchTerms: ["storage cleanup run now results report removed kept failed"],
   },
   {
@@ -159,14 +159,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "storage-worktrees-location",
     title: "Worktree location",
     to: "/settings/storage",
-    scope: "environment-defaults",
+    scope: "machine-defaults",
     searchTerms: ["worktree location folder directory path drive external disk"],
   },
   {
     id: "storage-artifacts",
     title: "Artifacts and logs",
     to: "/settings/storage",
-    scope: "environment-defaults",
+    scope: "machine-defaults",
     searchTerms: ["disk storage browser screenshots captures rotated logs cleanup retention"],
   },
   {
@@ -174,7 +174,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Project defaults and overrides",
     to: "/settings/general",
     scope: "project-defaults",
-    searchTerms: ["model workspace environments projects inheritance checkout"],
+    searchTerms: ["model workspace machines projects inheritance checkout"],
   },
   {
     id: "project-overview",
@@ -250,8 +250,8 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/appearance",
   },
   {
-    id: "environment-identification",
-    title: "Environment identification",
+    id: "machine-identification",
+    title: "Machine identification",
     to: "/settings/appearance",
     searchTerms: ["dev nightly artwork pill label hide none"],
     targetId: "appearance-interface",
@@ -302,7 +302,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "project-grouping",
     title: "Project grouping",
     to: "/settings/general",
-    searchTerms: ["combine matching repositories environments sidebar"],
+    searchTerms: ["combine matching repositories machines sidebar"],
   },
   {
     id: "project-order",
@@ -340,7 +340,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "compact-idle-threads",
     title: "Compact idle threads",
     to: "/settings/general",
-    scope: "environment-defaults",
+    scope: "machine-defaults",
     searchTerms: ["claude context compaction idle cache tokens usage summary resume"],
   },
   {
@@ -444,7 +444,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Provider update checks",
     to: "/settings/general",
     searchTerms: ["installed cli versions newer available codex claude cursor grok opencode"],
-    scope: "environment-defaults",
+    scope: "machine-defaults",
   },
   {
     id: "continue-threads-after-server-update",
@@ -459,7 +459,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "background-activity",
     title: "Background activity",
     to: "/settings/general",
-    scope: "environment-defaults",
+    scope: "machine-defaults",
     searchTerms: [
       "balanced performance battery saver advanced git fetch provider health refresh host power monitor idle policy",
     ],
@@ -489,7 +489,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "add-project-starts-in",
     title: "Add project starts in",
     to: "/settings/general",
-    scope: "environment-defaults",
+    scope: "machine-defaults",
     searchTerms: ["base directory folder browser path home"],
   },
   {
@@ -561,7 +561,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "OpenTelemetry export",
     to: "/settings/diagnostics",
     targetId: "telemetry-export",
-    scope: "environment",
+    scope: "machine",
     searchTerms: ["OTel OTLP telemetry export endpoints logs traces metrics Grafana"],
   },
   {
@@ -801,9 +801,9 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "source-control",
     title: "Source control",
     to: "/settings/source-control",
-    scope: "environment-defaults",
+    scope: "machine-defaults",
     searchTerms: [
-      "version control git github gitlab forgejo gitea tea codeberg bitbucket azure devops hosting integrations credentials scan server environment",
+      "version control git github gitlab forgejo gitea tea codeberg bitbucket azure devops hosting integrations credentials scan server machine",
     ],
   },
   {
@@ -813,15 +813,15 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [
       "automatic remote branch refresh background credentials security keys seconds off",
     ],
-    environmentOnly: true,
-    scope: "environment-defaults",
+    machineOnly: true,
+    scope: "machine-defaults",
   },
   {
     id: "worktree-branch-naming",
     title: "Worktree branch naming",
     to: "/settings/source-control",
     searchTerms: ["static semantic prefix custom prompt instructions feat fix refactor chore"],
-    environmentOnly: true,
+    machineOnly: true,
     scope: "project-defaults",
   },
   {
@@ -831,8 +831,8 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [
       "github gh account login user host enterprise ghes switch multiple accounts disable sign in token personal access token pat api key credential",
     ],
-    environmentOnly: true,
-    scope: "environment-defaults",
+    machineOnly: true,
+    scope: "machine-defaults",
   },
   ...SOURCE_CONTROL_HOST_SEARCH_ITEMS,
   {
@@ -842,14 +842,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [
       "repository conventions conventional commits custom instructions change descriptions request titles",
     ],
-    environmentOnly: true,
+    machineOnly: true,
   },
   {
     id: "follow-change-request-templates",
     title: "Follow change request templates",
     to: "/settings/source-control",
     searchTerms: ["repository pr pull request description structure"],
-    environmentOnly: true,
+    machineOnly: true,
   },
   {
     id: "source-control-writer-model",
@@ -858,7 +858,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [
       "override generated commit change request pr titles descriptions branch bookmark",
     ],
-    environmentOnly: true,
+    machineOnly: true,
     scope: "project-defaults",
   },
   {
@@ -866,7 +866,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Review guides (beta)",
     to: "/settings/source-control",
     searchTerms: ["pull request pr guided review guide tour beta experimental"],
-    environmentOnly: true,
+    machineOnly: true,
   },
   {
     id: "review-guide-model",
@@ -875,7 +875,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     // Hidden until review guides are on, so a search lands on the switch that shows it.
     targetId: "review-guides",
     searchTerms: ["pull request pr guided review guide brief maintainer"],
-    environmentOnly: true,
+    machineOnly: true,
     scope: "project-defaults",
   },
   {
@@ -884,7 +884,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/source-control",
     targetId: "review-guides",
     searchTerms: ["pull request pr guided review guide preferences taste prompt custom"],
-    environmentOnly: true,
+    machineOnly: true,
     scope: "project-defaults",
   },
   {
@@ -894,17 +894,17 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["commands scripts setup run dev server checkout worktree t3.json import"],
   },
   {
-    id: "environment-icon",
-    title: "Environment icon",
+    id: "machine-icon",
+    title: "Machine icon",
     to: "/settings/connections",
-    targetId: "connections-environment",
+    targetId: "connections-machine",
     searchTerms: ["machine glyph sidebar mac mini studio laptop desktop server cloud vm"],
   },
   {
-    id: "local-environment",
-    title: "Local environment",
+    id: "local-machine",
+    title: "Local machine",
     to: "/settings/connections",
-    targetId: "connections-environment",
+    targetId: "connections-machine",
     searchTerms: ["turn off on disable enable local server agents remote only restart"],
     desktopOnly: true,
   },
@@ -912,7 +912,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "network-access",
     title: "Network access",
     to: "/settings/connections",
-    targetId: "connections-environment",
+    targetId: "connections-machine",
     searchTerms: ["expose backend remote pairing local machine interfaces host restart"],
     localBackendManagementOnly: true,
   },
@@ -920,7 +920,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "tailscale-https",
     title: "Tailscale HTTPS",
     to: "/settings/connections",
-    targetId: "connections-environment",
+    targetId: "connections-machine",
     searchTerms: ["serve magicdns endpoint remote secure network"],
     desktopOnly: true,
     localBackendManagementOnly: true,
@@ -939,35 +939,35 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "t3-connect",
-    localEnvironmentOnly: true,
+    localMachineOnly: true,
     title: "T3 Connect",
     to: "/settings/connections",
-    targetId: "connections-environment",
+    targetId: "connections-machine",
     searchTerms: ["managed tunnel cloud other devices remote"],
     desktopOnly: true,
     cloudOnly: true,
   },
   {
     id: "hold-webhooks-while-offline",
-    localEnvironmentOnly: true,
+    localMachineOnly: true,
     title: "Hold webhooks while offline",
     to: "/settings/connections",
-    targetId: "connections-environment",
+    targetId: "connections-machine",
     searchTerms: ["webhook automations offline queue mailbox t3 connect"],
     cloudOnly: true,
     managedTunnelOnly: true,
   },
   {
     id: "publish-agent-activity",
-    localEnvironmentOnly: true,
+    localMachineOnly: true,
     title: "Publish agent activity",
     to: "/settings/connections",
-    targetId: "connections-environment",
+    targetId: "connections-machine",
     searchTerms: ["mobile push notifications live activities cloud tunnel"],
     cloudOnly: true,
   },
   {
-    id: "connections-environment",
+    id: "connections-machine",
     title: "This machine",
     to: "/settings/connections",
     searchTerms: [
@@ -975,8 +975,8 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
-    id: "remote-environments",
-    title: "Environments",
+    id: "remote-machines",
+    title: "Machines",
     to: "/settings/connections",
     searchTerms: ["add pair backend host code ssh config agent tunnel saved t3 connect"],
   },
@@ -985,14 +985,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Load balancing",
     to: "/settings/connections",
     searchTerms: [
-      "automatic machine environment resources cpu memory capacity preference weight shared projects",
+      "automatic machine resources cpu memory capacity preference weight shared projects",
     ],
   },
   {
     id: "github-routing",
     title: "GitHub sharing",
     to: "/settings/connections",
-    searchTerms: ["pull request trusted environments shared credentials permissions read actions"],
+    searchTerms: ["pull request trusted machines shared credentials permissions read actions"],
   },
   {
     id: "archive",
@@ -1007,7 +1007,7 @@ export type SettingsSearchItemId = (typeof SETTINGS_SEARCH_ITEMS)[number]["id"];
 const SEARCH_ITEMS_BY_ID = new Map(SETTINGS_SEARCH_ITEMS.map((item) => [item.id, item] as const));
 
 const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScope | null>> = {
-  "/settings/diagnostics": "environment",
+  "/settings/diagnostics": "machine",
   "/settings/projects": "project",
   "/settings/general": null,
   "/settings/appearance": null,
@@ -1015,7 +1015,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/keybindings": null,
   "/settings/providers": null,
   "/settings/integrations": null,
-  "/settings/source-control": "environment-defaults",
+  "/settings/source-control": "machine-defaults",
   "/settings/storage": "project-defaults",
   "/settings/connections": "connections",
   "/settings/scheduled-tasks": null,
@@ -1036,40 +1036,40 @@ export function getSettingsSearchTargetScope(targetId: string) {
     : null;
 }
 
-interface AutoSettlementSearchEnvironment {
-  readonly environmentId: EnvironmentId;
-  readonly connection: { readonly phase: EnvironmentConnectionPhase };
+interface AutoSettlementSearchMachine {
+  readonly machineId: MachineId;
+  readonly connection: { readonly phase: MachineConnectionPhase };
   readonly serverConfig: {
-    readonly environment: {
+    readonly machine: {
       readonly capabilities: { readonly threadAutoSettlement?: boolean };
     };
   } | null;
 }
 
 export function getThreadAutoSettlementSearchAvailability(
-  environments: readonly AutoSettlementSearchEnvironment[],
-  scope?: Pick<ResolvedSettingsScope, "kind" | "environmentIds">,
+  machines: readonly AutoSettlementSearchMachine[],
+  scope?: Pick<ResolvedSettingsScope, "kind" | "machineIds">,
 ) {
-  const connected = environments.filter(
-    (environment) =>
-      environment.connection.phase === "connected" && environment.serverConfig !== null,
+  const connected = machines.filter(
+    (machine) =>
+      machine.connection.phase === "connected" && machine.serverConfig !== null,
   );
-  const eligibleEnvironmentIds = connected
+  const eligibleMachineIds = connected
     .filter(
-      (environment) =>
-        environment.serverConfig?.environment.capabilities.threadAutoSettlement === true,
+      (machine) =>
+        machine.serverConfig?.machine.capabilities.threadAutoSettlement === true,
     )
-    .map((environment) => environment.environmentId);
-  const selected = connected.filter((environment) =>
-    scope?.environmentIds.includes(environment.environmentId),
+    .map((machine) => machine.machineId);
+  const selected = connected.filter((machine) =>
+    scope?.machineIds.includes(machine.machineId),
   );
   return {
-    eligibleEnvironmentIds,
+    eligibleMachineIds,
     isTargetAvailable:
       scope !== undefined &&
       scope.kind !== "unavailable" &&
       selected.length > 0 &&
-      selected.every((environment) => eligibleEnvironmentIds.includes(environment.environmentId)),
+      selected.every((machine) => eligibleMachineIds.includes(machine.machineId)),
   };
 }
 
@@ -1081,16 +1081,16 @@ export function isSettingsSearchScopeAvailable(
     case null:
     case "connections":
       return true;
-    case "environment":
+    case "machine":
     case "checkout":
       return requiredScope === scopeKind;
     case "project":
       return scopeKind === "project" || scopeKind === "checkout";
-    case "environment-defaults":
-      return scopeKind === "environment" || scopeKind === "all";
+    case "machine-defaults":
+      return scopeKind === "machine" || scopeKind === "all";
     case "project-defaults":
       return (
-        scopeKind === "environment" ||
+        scopeKind === "machine" ||
         scopeKind === "all" ||
         scopeKind === "project" ||
         scopeKind === "checkout"
@@ -1102,7 +1102,7 @@ function settingsScopeKindFromSearch(search: SettingsScopeSearch): ResolvedSetti
   const target = validateSettingsScopeSearch({ ...search });
   if (target.checkout && !target.project) return "unavailable";
   if (target.project) return target.checkout ? "checkout" : "project";
-  return target.machine ? "environment" : "all";
+  return target.machine ? "machine" : "all";
 }
 
 export function isSettingsOverviewVisible(search: SettingsScopeSearch): boolean {
@@ -1125,11 +1125,11 @@ export function filterAvailableSettingsSearchItems(
   return items.filter(
     (item) =>
       (!item.cloudOnly || availability.hasCloudPublicConfig) &&
-      (!item.environmentOnly || availability.hasEnvironment) &&
-      (!item.providerSettingsOnly || availability.hasProviderSettingsEnvironment) &&
-      (!item.macProviderSettingsOnly || availability.hasMacProviderSettingsEnvironment) &&
+      (!item.machineOnly || availability.hasMachine) &&
+      (!item.providerSettingsOnly || availability.hasProviderSettingsMachine) &&
+      (!item.macProviderSettingsOnly || availability.hasMacProviderSettingsMachine) &&
       (!item.localBackendManagementOnly || availability.canManageLocalBackend) &&
-      (!item.localEnvironmentOnly || !availability.localEnvironmentDisabled) &&
+      (!item.localMachineOnly || !availability.localMachineDisabled) &&
       (!item.wslAvailableOnly || availability.isWslSettingsRowVisible) &&
       (!item.requiresThreadAutoSettlement || availability.hasThreadAutoSettlement) &&
       (!item.managedTunnelOnly || availability.managedTunnelActive === true),

@@ -3,8 +3,8 @@ import {
   parseScopedThreadKey,
   scopeThreadRef,
   scopedThreadKey,
-} from "@vekrel/client-runtime/environment";
-import { type EnvironmentId, type ScopedThreadRef, ThreadId } from "@vekrel/contracts";
+} from "@vekrel/client-runtime/machine";
+import { type MachineId, type ScopedThreadRef, ThreadId } from "@vekrel/contracts";
 import * as Schema from "effect/Schema";
 import { AsyncResult, Atom } from "effect/reactivity";
 
@@ -14,7 +14,7 @@ import {
   reconcilePreviewServerSessions,
 } from "~/previewStateStore";
 import { isElectron } from "~/env";
-import { previewEnvironment } from "~/state/preview";
+import { previewMachine } from "~/state/preview";
 
 class PreviewSessionThreadKeyParseError extends Schema.TaggedError<PreviewSessionThreadKeyParseError>()(
   "PreviewSessionThreadKeyParseError",
@@ -31,12 +31,12 @@ const previewSessionSyncAtom = Atom.family((threadKey: string) => {
     throw new PreviewSessionThreadKeyParseError({ threadKey });
   }
 
-  const sessionsAtom = previewEnvironment.list({
-    environmentId: threadRef.environmentId,
+  const sessionsAtom = previewMachine.list({
+    machineId: threadRef.machineId,
     input: { threadId: threadRef.threadId },
   });
-  const eventsAtom = previewEnvironment.events({
-    environmentId: threadRef.environmentId,
+  const eventsAtom = previewMachine.events({
+    machineId: threadRef.machineId,
     input: {},
   });
 
@@ -102,8 +102,8 @@ const inactiveAtom = Atom.make(() => undefined);
 
 // Discover background tabs without listing every thread at startup. Retain each
 // sync for the host's lifetime so later events still arrive while chat is absent.
-const desktopHostedPreviewSyncAtom = Atom.family((environmentId: EnvironmentId) => {
-  const eventsAtom = previewEnvironment.events({ environmentId, input: {} });
+const desktopHostedPreviewSyncAtom = Atom.family((machineId: MachineId) => {
+  const eventsAtom = previewMachine.events({ machineId, input: {} });
   return Atom.make((get) => {
     const syncedThreadIds = new Set<string>();
     get.subscribe(
@@ -115,19 +115,19 @@ const desktopHostedPreviewSyncAtom = Atom.family((environmentId: EnvironmentId) 
         syncedThreadIds.add(threadId);
         get.mount(
           previewSessionSyncAtom(
-            scopedThreadKey(scopeThreadRef(environmentId, ThreadId.make(threadId))),
+            scopedThreadKey(scopeThreadRef(machineId, ThreadId.make(threadId))),
           ),
         );
       },
       { immediate: true },
     );
-  }).pipe(Atom.withLabel(`preview:desktop-hosted-sync:${environmentId}`));
+  }).pipe(Atom.withLabel(`preview:desktop-hosted-sync:${machineId}`));
 });
 
-export function useDesktopHostedPreviewSessions(environmentId: EnvironmentId | null): void {
+export function useDesktopHostedPreviewSessions(machineId: MachineId | null): void {
   useAtomValue(
-    isElectron && environmentId !== null
-      ? desktopHostedPreviewSyncAtom(environmentId)
+    isElectron && machineId !== null
+      ? desktopHostedPreviewSyncAtom(machineId)
       : inactiveAtom,
   );
 }

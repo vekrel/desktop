@@ -1,5 +1,5 @@
 import { render, fakeTimers } from "../../../test/render";
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { StrictMode, useEffect } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -12,8 +12,8 @@ const { writeFile, confirmFile, readScope, getUnsavedFile } = vi.hoisted(() => (
 }));
 vi.mock(import("~/state/session"), async (original) => ({
   ...(await original()),
-  readEnvironmentScope: readScope,
-  useEnvironmentScope: readScope,
+  readMachineScope: readScope,
+  useMachineScope: readScope,
 }));
 vi.mock(import("~/state/use-atom-command"), async (original) => ({
   ...(await original()),
@@ -27,10 +27,10 @@ vi.mock(import("./projectFilesQueryState"), async (original) => ({
 
 import { useFileSaveCoordinator } from "./useFileSaveCoordinator";
 
-const environmentId = EnvironmentId.make("save-lifecycle-audit");
+const machineId = MachineId.make("save-lifecycle-audit");
 const onPendingChange = vi.fn();
 const defaultProps = {
-  environmentId,
+  machineId,
   cwd: "/workspace",
   relativePath: "file.txt",
   onPendingChange,
@@ -75,11 +75,11 @@ describe("file-save React lifecycle", () => {
     expect(onPendingChange).toHaveBeenCalledWith("file.txt", true);
     await vi.advanceTimersByTimeAsync(500);
     expect(writeFile).toHaveBeenCalledExactlyOnceWith({
-      environmentId,
+      machineId,
       input: { cwd: "/workspace", relativePath: "file.txt", contents: "AUDIT7907NATIVE\n" },
     });
     expect(confirmFile).toHaveBeenCalledExactlyOnceWith(
-      environmentId,
+      machineId,
       "/workspace",
       "file.txt",
       "AUDIT7907NATIVE\n",
@@ -131,7 +131,7 @@ describe("file-save React lifecycle", () => {
     await screen.rerender(defaultProps);
     await vi.advanceTimersByTimeAsync(500);
     expect(writeFile).toHaveBeenCalledExactlyOnceWith({
-      environmentId,
+      machineId,
       input: { cwd: "/workspace", relativePath: "file.txt", contents: "pending draft" },
     });
     expect(onPendingChange).toHaveBeenLastCalledWith("file.txt", false);
@@ -140,7 +140,7 @@ describe("file-save React lifecycle", () => {
   it.each([
     { relativePath: "other.txt" },
     { cwd: "/other-workspace" },
-    { environmentId: EnvironmentId.make("other-environment") },
+    { machineId: MachineId.make("other-machine") },
   ])("retires callbacks when the file identity changes: %j", async (change) => {
     setup();
     using _timers = fakeTimers();
@@ -154,11 +154,11 @@ describe("file-save React lifecycle", () => {
     await vi.runAllTimersAsync();
     expect(writeFile.mock.calls.map(([request]) => request)).toEqual([
       {
-        environmentId,
+        machineId,
         input: { cwd: "/workspace", relativePath: "file.txt", contents: "old file edit" },
       },
       {
-        environmentId: nextProps.environmentId,
+        machineId: nextProps.machineId,
         input: {
           cwd: nextProps.cwd,
           relativePath: nextProps.relativePath,

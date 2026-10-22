@@ -1,6 +1,6 @@
 import { useScopedSettingsWriteAllowed } from "./useScopedSettings";
 import { AuthSettingsWriteScope } from "@vekrel/contracts";
-import { EnvironmentId, type T3ProjectFileScript } from "@vekrel/contracts";
+import { MachineId, type T3ProjectFileScript } from "@vekrel/contracts";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -9,7 +9,7 @@ import { DEFAULT_RESOLVED_KEYBINDINGS } from "@vekrel/shared/keybindings";
 import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { useT3ProjectFileState } from "../../hooks/useT3ProjectFileScripts";
-import { useEnvironments } from "../../state/environments";
+import { useMachines } from "../../state/machines";
 import {
   EMPTY_PROJECT_SCRIPT_INPUT,
   editorRequestForScript,
@@ -35,10 +35,10 @@ import { useSettingsScope } from "./SettingsScopeContext";
 
 export function ProjectActionsSettings() {
   const { scope, targets, target } = useSettingsScope();
-  const { environments } = useEnvironments();
+  const { machines } = useMachines();
   const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
   const representativeConfig = target
-    ? environments.find((environment) => environment.environmentId === target.environmentId)
+    ? machines.find((machine) => machine.machineId === target.machineId)
         ?.serverConfig
     : undefined;
   const scripts = target?.settings.defaultProjectScripts ?? [];
@@ -54,25 +54,25 @@ export function ProjectActionsSettings() {
   );
   const { saving, persist, submit } = useProjectScriptSettings(
     targets.flatMap((candidate) => {
-      const environment = environments.find(
-        (entry) => entry.environmentId === candidate.environmentId,
+      const machine = machines.find(
+        (entry) => entry.machineId === candidate.machineId,
       );
-      if (!environment?.serverConfig) return [];
+      if (!machine?.serverConfig) return [];
       const member = candidate.projectId ? memberById.get(candidate.projectId) : undefined;
       // An older server ignores the override record, so a project edit there
-      // would report success and vanish; such environments are left out and
+      // would report success and vanish; such machines are left out and
       // the legacy per-project map keeps serving them.
       if (
         member &&
-        environment.serverConfig.environment?.capabilities.projectSettingsOverrides !== true
+        machine.serverConfig.machine?.capabilities.projectSettingsOverrides !== true
       ) {
         return [];
       }
       return [
         {
-          environmentId: candidate.environmentId,
-          settings: environment.serverConfig.settings,
-          keybindings: environment.serverConfig.keybindings,
+          machineId: candidate.machineId,
+          settings: machine.serverConfig.settings,
+          keybindings: machine.serverConfig.keybindings,
           ...(member ? { project: member } : {}),
         },
       ];
@@ -81,7 +81,7 @@ export function ProjectActionsSettings() {
 
   const representativeMember = target?.projectId ? memberById.get(target.projectId) : undefined;
   const t3File = useT3ProjectFileState(
-    representativeMember?.environmentId ?? EnvironmentId.make("none"),
+    representativeMember?.machineId ?? MachineId.make("none"),
     representativeMember?.workspaceRoot ?? null,
   );
   const importableScripts = t3File.scripts.filter(
@@ -181,8 +181,8 @@ export function ProjectActionsSettings() {
       />
       {mixed ? (
         <SettingsRow
-          title="Different actions across environments"
-          description="Choose one environment to edit its list. Adding an action here adds it on every selected environment."
+          title="Different actions across machines"
+          description="Choose one machine to edit its list. Adding an action here adds it on every selected machine."
         />
       ) : (
         <ProjectActionsList
@@ -201,7 +201,7 @@ export function ProjectActionsSettings() {
       ) : null}
       {target && (
         <ProjectScriptEditorDialog
-          environmentId={target.environmentId}
+          machineId={target.machineId}
           editScope={AuthSettingsWriteScope}
           request={request}
           scripts={scripts}

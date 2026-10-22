@@ -1,4 +1,4 @@
-import { EnvironmentId, ProviderDriverKind, type AcpRegistrySearchAgent } from "@vekrel/contracts";
+import { MachineId, ProviderDriverKind, type AcpRegistrySearchAgent } from "@vekrel/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 
@@ -18,8 +18,8 @@ vi.mock(import("../../state/server"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    serverEnvironment: {
-      ...actual.serverEnvironment,
+    serverMachine: {
+      ...actual.serverMachine,
       searchAcpRegistry: ((input: unknown) => {
         state.search(input);
         return "search";
@@ -29,12 +29,12 @@ vi.mock(import("../../state/server"), async (original) => {
 });
 vi.mock(import("../../state/session"), async (original) => ({
   ...(await original()),
-  useEnvironmentScope: () => state.canManage,
-  readEnvironmentScope: () => state.canManage,
+  useMachineScope: () => state.canManage,
+  readMachineScope: () => state.canManage,
 }));
 vi.mock(import("../../state/query"), async (original) => ({
   ...(await original()),
-  useEnvironmentQuery: (() => ({
+  useMachineQuery: (() => ({
     data: state.result,
     error: state.error,
     isPending: state.isPending,
@@ -48,7 +48,7 @@ vi.mock(import("../../state/use-atom-command"), async (original) => ({
 
 import { AcpRegistrySearchStep } from "./AcpRegistrySearchStep";
 
-const environmentId = EnvironmentId.make("remote-device");
+const machineId = MachineId.make("remote-device");
 const gemini: AcpRegistrySearchAgent = {
   id: "gemini",
   name: "Gemini CLI",
@@ -69,7 +69,7 @@ function step(options?: {
 }) {
   return (
     <AcpRegistrySearchStep
-      environmentId={environmentId}
+      machineId={machineId}
       providerInstances={
         options?.configured
           ? {

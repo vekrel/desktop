@@ -1,5 +1,5 @@
 import { sourceControlClients } from "@vekrel/client-runtime/source-control-clients";
-import type { EnvironmentId, PullRequestDetailView, PullRequestRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestDetailView, PullRequestRef } from "@vekrel/contracts";
 import { MessageSquareIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
 
@@ -15,7 +15,7 @@ import {
 } from "./pullRequestReviewStore";
 
 export function PullRequestComposer({
-  environmentId,
+  machineId,
   reference,
   detail,
   actionPending,
@@ -24,7 +24,7 @@ export function PullRequestComposer({
   onReviewSubmitted,
   openReviewRequest,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   detail: PullRequestDetailView;
   actionPending: boolean;
@@ -149,7 +149,7 @@ export function PullRequestComposer({
         {verdicts.length > 0 ? (
           <div hidden={mode !== "review"}>
             <PullRequestReviewForm
-              environmentId={environmentId}
+              machineId={machineId}
               reference={reference}
               verdicts={verdicts}
               requestChangesSummaryRequired={sourceControlClients
@@ -168,7 +168,7 @@ export function PullRequestComposer({
         {canComment ? (
           <div hidden={mode !== "comment"}>
             <PullRequestCommentForm
-              environmentId={environmentId}
+              machineId={machineId}
               reference={reference}
               detail={detail}
               actionPending={actionPending}

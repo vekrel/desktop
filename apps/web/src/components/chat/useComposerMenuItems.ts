@@ -1,6 +1,6 @@
 import { matchComposerThreadItems } from "@vekrel/client-runtime/composerThreadItems";
 import type {
-  EnvironmentId,
+  MachineId,
   ProjectId,
   ProviderDriverKind,
   PullRequestListInput,
@@ -23,11 +23,11 @@ import {
 import { searchProviderSkills } from "../../providerSkillSearch";
 import { useThreadShells } from "~/state/entities";
 import {
-  pullRequestEnvironment,
+  pullRequestMachine,
   usePullRequestList,
-  type EnvironmentQueryTarget,
+  type MachineQueryTarget,
 } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { useMachineQuery } from "~/state/query";
 import { useComposerPathSearch, useDebouncedValue } from "~/state/queries";
 import {
   matchesPullRequestQuery,
@@ -41,13 +41,13 @@ import {
 
 const COMPOSER_PULL_REQUEST_LIST_LIMIT = 99;
 const COMPOSER_PULL_REQUEST_RESULT_LIMIT = 12;
-const EMPTY_PULL_REQUEST_LIST_TARGETS: ReadonlyArray<EnvironmentQueryTarget<PullRequestListInput>> =
+const EMPTY_PULL_REQUEST_LIST_TARGETS: ReadonlyArray<MachineQueryTarget<PullRequestListInput>> =
   [];
 
 /** Builds the @, /, $ and # suggestion lists, running the searches each trigger needs. */
 export function useComposerMenuItems({
   composerTrigger,
-  environmentId,
+  machineId,
   gitCwd,
   activeThreadId,
   pullRequestProjectId,
@@ -61,7 +61,7 @@ export function useComposerMenuItems({
   showSkillsInSlashMenu,
 }: {
   readonly composerTrigger: ComposerTrigger | null;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly gitCwd: string | null;
   readonly activeThreadId: ThreadId | null;
   readonly pullRequestProjectId: ProjectId | null;
@@ -88,9 +88,9 @@ export function useComposerMenuItems({
   const settledPullRequestTextQuery =
     pullRequestTextQuery === debouncedPullRequestTextQuery ? pullRequestTextQuery : null;
   const isPathTrigger = composerTriggerKind === "path";
-  const environmentThreadShells = useThreadShells(isPathTrigger);
+  const machineThreadShells = useThreadShells(isPathTrigger);
   const workspaceEntries = useComposerPathSearch({
-    environmentId,
+    machineId,
     cwd: isPathTrigger ? gitCwd : null,
     query: isPathTrigger ? pathTriggerQuery : null,
   });
@@ -102,7 +102,7 @@ export function useComposerMenuItems({
       ? EMPTY_PULL_REQUEST_LIST_TARGETS
       : [
           {
-            environmentId,
+            machineId,
             input: {
               state: "all" as const,
               projectId: pullRequestProjectId,
@@ -132,14 +132,14 @@ export function useComposerMenuItems({
         entry.repository.trim().toLowerCase() === pullRequestRepository?.trim().toLowerCase() &&
         entry.number === settledPullRequestNumber,
     ) === true;
-  const exactPullRequestLookup = useEnvironmentQuery(
+  const exactPullRequestLookup = useMachineQuery(
     settledPullRequestNumber === null ||
       pullRequestProjectId === null ||
       pullRequestRepository === null ||
       recentHasExactPullRequest
       ? null
-      : pullRequestEnvironment.detail({
-          environmentId,
+      : pullRequestMachine.detail({
+          machineId,
           input: {
             projectId: pullRequestProjectId,
             repository: pullRequestRepository,
@@ -158,8 +158,8 @@ export function useComposerMenuItems({
     if (composerTrigger.kind === "path") {
       return [
         ...matchComposerThreadItems({
-          shells: environmentThreadShells,
-          environmentId,
+          shells: machineThreadShells,
+          machineId,
           excludeThreadId: activeThreadId,
           query: composerTrigger.query,
         }),

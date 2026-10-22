@@ -80,11 +80,11 @@ import { confirmTerminalClose } from "~/lib/terminalCloseConfirm";
 import { useClientSettings } from "../hooks/useSettings";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useAttachedTerminalSession } from "../state/terminalSessions";
-import { serverEnvironment } from "../state/server";
-import { previewEnvironment } from "../state/preview";
-import { readEnvironmentScope } from "../state/session";
-import { terminalEnvironment } from "../state/terminal";
-import { useEnvironmentScope } from "../state/session";
+import { serverMachine } from "../state/server";
+import { previewMachine } from "../state/preview";
+import { readMachineScope } from "../state/session";
+import { terminalMachine } from "../state/terminal";
+import { useMachineScope } from "../state/session";
 import { openTerminalLinkInPreview } from "./preview/openTerminalLinkInPreview";
 import { useAtomCommand } from "../state/use-atom-command";
 import { preventTerminalCloseShortcut } from "../lib/terminalCloseShortcut";
@@ -443,7 +443,7 @@ export function TerminalViewport(props: TerminalViewportProps) {
   // A different launch is a different session, so it gets a fresh surface and fresh
   // session bookkeeping.
   const sessionKey = JSON.stringify([
-    props.threadRef.environmentId,
+    props.threadRef.machineId,
     props.threadId,
     props.terminalId,
     props.cwd,
@@ -475,29 +475,29 @@ function TerminalSessionViewport({
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<GhosttyTerminalSurface | null>(null);
   const visibleRef = useRef(visible);
-  const environmentId = threadRef.environmentId;
-  const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
+  const machineId = threadRef.machineId;
+  const canOperateTerminal = useMachineScope(machineId, AuthTerminalOperateScope);
   const hasTerminalWriteAccess = useEffectEvent(() =>
-    readEnvironmentScope(environmentId, AuthTerminalOperateScope),
+    readMachineScope(machineId, AuthTerminalOperateScope),
   );
-  const canOpenHostEditor = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
+  const canOpenHostEditor = useMachineScope(machineId, AuthOrchestrationOperateScope);
   const canActivateTerminalLink = useEffectEvent(
     (text: string) =>
-      isTerminalUrl(text) || readEnvironmentScope(environmentId, AuthOrchestrationOperateScope),
+      isTerminalUrl(text) || readMachineScope(machineId, AuthOrchestrationOperateScope),
   );
-  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
+  const serverConfig = useAtomValue(serverMachine.configValueAtom(machineId));
   const openInPreferredEditor = useOpenInPreferredEditor(
-    environmentId,
+    machineId,
     serverConfig?.availableEditors ?? [],
   );
   const openTerminalPath = useEffectEvent((target: string) => openInPreferredEditor(target));
-  const openPreview = useAtomCommand(previewEnvironment.open, {
+  const openPreview = useAtomCommand(previewMachine.open, {
     reportFailure: false,
   });
-  const runTerminalWrite = useAtomCommand(terminalEnvironment.write, {
+  const runTerminalWrite = useAtomCommand(terminalMachine.write, {
     reportFailure: false,
   });
-  const runTerminalResize = useAtomCommand(terminalEnvironment.resize, {
+  const runTerminalResize = useAtomCommand(terminalMachine.resize, {
     reportFailure: false,
   });
   const hasHandledExitRef = useRef(false);
@@ -528,7 +528,7 @@ function TerminalSessionViewport({
   );
   const terminalFontRef = useRef({ family: terminalFontFamily, size: terminalFontSize });
   const terminalSession = useAttachedTerminalSession({
-    environmentId,
+    machineId,
     terminal: {
       threadId,
       terminalId,
@@ -543,14 +543,14 @@ function TerminalSessionViewport({
   const resizeSessionGeneration = canResizeTerminal ? terminalSession.output.generation : null;
   const writeTerminal = useEffectEvent((data: string) =>
     runTerminalWrite({
-      environmentId,
+      machineId,
       input: { threadId, terminalId, data },
     }),
   );
   const resizeTerminal = useEffectEvent((cols: number, rows: number) => {
     if (!canResizeTerminal || !hasTerminalWriteAccess()) return;
     return runTerminalResize({
-      environmentId,
+      machineId,
       input: { threadId, terminalId, cols, rows },
     });
   });
@@ -953,7 +953,7 @@ function TerminalSessionViewport({
               );
             });
           };
-          if (!readEnvironmentScope(environmentId, AuthPreviewOperateScope)) {
+          if (!readMachineScope(machineId, AuthPreviewOperateScope)) {
             fallbackToBrowser();
             return;
           }
@@ -1079,7 +1079,7 @@ function TerminalSessionViewport({
         mount.focus({ preventScroll: true });
       }
     };
-  }, [cwd, environmentId, terminalId]);
+  }, [cwd, machineId, terminalId]);
 
   useEffect(() => {
     const terminal = terminalRef.current;
@@ -1443,7 +1443,7 @@ export default function ThreadTerminalDrawer({
   terminalLabelsById,
   terminalLaunchLocationsById,
 }: ThreadTerminalDrawerProps) {
-  const canOperateTerminal = useEnvironmentScope(threadRef.environmentId, AuthTerminalOperateScope);
+  const canOperateTerminal = useMachineScope(threadRef.machineId, AuthTerminalOperateScope);
   const isPanel = mode === "panel";
   const [advancedTypography] = useLocalStorage(
     TYPOGRAPHY_ADVANCED_STORAGE_KEY,
@@ -1643,7 +1643,7 @@ export default function ThreadTerminalDrawer({
     if (!canOperateTerminal) return;
     const label = terminalLabelById.get(terminalId) ?? getTerminalLabel(terminalId);
     void confirmTerminalClose([label]).then((confirmed) => {
-      if (confirmed && readEnvironmentScope(threadRef.environmentId, AuthTerminalOperateScope)) {
+      if (confirmed && readMachineScope(threadRef.machineId, AuthTerminalOperateScope)) {
         onCloseTerminal(terminalId);
       }
     });

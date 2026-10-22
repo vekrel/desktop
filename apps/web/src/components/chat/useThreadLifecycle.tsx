@@ -1,5 +1,5 @@
-import type { EnvironmentServerConfig } from "@vekrel/client-runtime/connection";
-import type { EnvironmentThreadShell } from "@vekrel/client-runtime/state/shell";
+import type { MachineServerConfig } from "@vekrel/client-runtime/connection";
+import type { MachineThreadShell } from "@vekrel/client-runtime/state/shell";
 import type { Dispatch } from "react";
 import type { ComposerThreadTarget } from "../../composerDraftStore";
 import type { ComposerHandleRef } from "../../composerHandleContext";
@@ -16,7 +16,7 @@ import type { usePendingThreadRequests } from "./usePendingThreadRequests";
 import {
   AuthOrchestrationOperateScope,
   AuthSourceControlWriteScope,
-  type EnvironmentId,
+  type MachineId,
   type ScopedThreadRef,
   type ThreadId,
   ProviderInteractionMode,
@@ -27,7 +27,7 @@ import { useAcknowledgeThreadWoke, useThreadActions } from "../../hooks/useThrea
 import { settleAndAdvance } from "../../settleAndAdvance";
 import type { ChatShortcutCommands } from "./useChatShortcuts";
 import { resolveThreadLastVisitedAt } from "../Sidebar.logic";
-import { scopedThreadKey, scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey, scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { type SetStateAction, useEffect, useRef, useState } from "react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import {
@@ -42,15 +42,15 @@ import { stackedThreadToast, toastManager } from "../ui/toast";
 import { newMessageId } from "~/lib/utils";
 import { buildThreadRouteParams } from "../../threadRoutes";
 import { composerDraftHasUserContent, useComposerDraftStore } from "../../composerDraftStore";
-import { useEnvironmentScope } from "~/state/session";
-import { threadEnvironment } from "../../state/threads";
-import { vcsEnvironment } from "../../state/vcs";
+import { useMachineScope } from "~/state/session";
+import { threadMachine } from "../../state/threads";
+import { vcsMachine } from "../../state/vcs";
 import { useChildThreadInputs, readThreadShell, waitForThreadShell } from "../../state/entities";
-import { environmentShell } from "../../state/shell";
+import { machineShell } from "../../state/shell";
 import { ThreadStatusLine } from "./ThreadStatusLine";
 import { formatRelativeTimeLabel, formatRelativeTimeUntilLabel } from "../../timestampFormat";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
-import { readEnvironmentScope } from "../../state/session";
+import { readMachineScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import {
@@ -65,19 +65,19 @@ type PendingThreadRequests = ReturnType<typeof usePendingThreadRequests>;
 type LocalDispatchState = ReturnType<typeof useLocalDispatchState>;
 
 interface ThreadLifecycleInput {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly routeThreadKey: string;
   readonly currentRouteThreadKeyRef: { readonly current: string | null };
   readonly canOperateThread: boolean;
   readonly clientSettingsHydrated: boolean;
-  readonly activeThread: EnvironmentThreadShell | undefined;
+  readonly activeThread: MachineThreadShell | undefined;
   readonly activeThreadId: ThreadId | null;
   readonly activeThreadRef: ScopedThreadRef | null;
   readonly activeThreadKey: string | null;
-  readonly activeThreadShell: EnvironmentThreadShell | null;
-  readonly activeLatestRun: EnvironmentThreadShell["latestRun"];
+  readonly activeThreadShell: MachineThreadShell | null;
+  readonly activeLatestRun: MachineThreadShell["latestRun"];
   readonly activeProjectCwd: string | null;
-  readonly serverConfig: EnvironmentServerConfig | null;
+  readonly serverConfig: MachineServerConfig | null;
   readonly runtimeMode: RuntimeMode;
   readonly isWorking: boolean;
   readonly pendingBackgroundTasks: Parameters<typeof backgroundWorkBannerItem>[0]["tasks"];
@@ -115,7 +115,7 @@ interface ThreadLifecycleInput {
  */
 export function useThreadLifecycle(input: ThreadLifecycleInput) {
   const {
-    environmentId,
+    machineId,
     routeThreadKey,
     currentRouteThreadKeyRef,
     canOperateThread,
@@ -151,21 +151,21 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
   const navigate = useNavigate();
   const router = useRouter();
   const { settleThread, pinThread, confirmAndUnpinThread } = useThreadActions();
-  const canWriteSourceControl = useEnvironmentScope(environmentId, AuthSourceControlWriteScope);
-  const switchGitRef = useAtomCommand(vcsEnvironment.switchRef, { reportFailure: false });
-  const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
+  const canWriteSourceControl = useMachineScope(machineId, AuthSourceControlWriteScope);
+  const switchGitRef = useAtomCommand(vcsMachine.switchRef, { reportFailure: false });
+  const updateThreadMetadata = useOrchestrationCommand(threadMachine.updateMetadata, {
     reportFailure: false,
   });
-  const startThreadTurn = useOrchestrationCommand(threadEnvironment.startTurn, {
+  const startThreadTurn = useOrchestrationCommand(threadMachine.startTurn, {
     reportFailure: false,
   });
-  const interruptThreadTurn = useOrchestrationCommand(threadEnvironment.interruptTurn, {
+  const interruptThreadTurn = useOrchestrationCommand(threadMachine.interruptTurn, {
     reportFailure: false,
   });
 
-  const supportsSettlement = serverConfig?.environment.capabilities.threadSettlement === true;
-  const supportsSnooze = serverConfig?.environment.capabilities.threadSnooze === true;
-  const supportsPinning = serverConfig?.environment.capabilities.threadPinning === true;
+  const supportsSettlement = serverConfig?.machine.capabilities.threadSettlement === true;
+  const supportsSnooze = serverConfig?.machine.capabilities.threadSnooze === true;
+  const supportsPinning = serverConfig?.machine.capabilities.threadPinning === true;
   const activeThreadPinned = supportsPinning && activeThreadShell?.pinnedAt != null;
   // The compiler caches render results on their inputs, so a clock read in render
   // stays frozen until the shell changes. The clock is state: reset with the shell,
@@ -218,7 +218,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
   });
   const activeThreadSettled =
     supportsSettlement && activeThreadShell?.settledOverride === "settled";
-  const unsettleThreadMutation = useOrchestrationCommand(threadEnvironment.unsettle, {
+  const unsettleThreadMutation = useOrchestrationCommand(threadMachine.unsettle, {
     reportFailure: false,
   });
   const [unsettlingThreadKey, setUnsettlingThreadKey] = useState<string | null>(null);
@@ -226,14 +226,14 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
   const handleUnsettleActiveThread = async () => {
     if (
       !activeThreadRef ||
-      !readEnvironmentScope(activeThreadRef.environmentId, AuthOrchestrationOperateScope)
+      !readMachineScope(activeThreadRef.machineId, AuthOrchestrationOperateScope)
     )
       return;
     const threadKey = scopedThreadKey(activeThreadRef);
     setUnsettlingThreadKey(threadKey);
     // Commands settle into a result, so this always runs.
     const result = await unsettleThreadMutation({
-      environmentId: activeThreadRef.environmentId,
+      machineId: activeThreadRef.machineId,
       input: { threadId: activeThreadRef.threadId, reason: "user" },
     });
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
@@ -249,7 +249,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
     setUnsettlingThreadKey((current) => (current === threadKey ? null : current));
   };
   const handleUnsettleActiveThreadStable = useStableCallback(handleUnsettleActiveThread);
-  const unsnoozeThreadMutation = useOrchestrationCommand(threadEnvironment.unsnooze, {
+  const unsnoozeThreadMutation = useOrchestrationCommand(threadMachine.unsnooze, {
     reportFailure: false,
   });
   const [unsnoozingThreadKey, setUnsnoozingThreadKey] = useState<string | null>(null);
@@ -257,7 +257,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
   const handleUnsnoozeActiveThread = async () => {
     if (
       !activeThreadRef ||
-      !readEnvironmentScope(activeThreadRef.environmentId, AuthOrchestrationOperateScope)
+      !readMachineScope(activeThreadRef.machineId, AuthOrchestrationOperateScope)
     )
       return;
     const threadKey = scopedThreadKey(activeThreadRef);
@@ -271,14 +271,14 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
       Date.parse(activeThreadShell.snoozedUntil) === Date.parse(recovery.resetAt);
     const result = recoveryOwnsSnooze
       ? await updateThreadMetadata({
-          environmentId: activeThreadRef.environmentId,
+          machineId: activeThreadRef.machineId,
           input: {
             threadId: activeThreadRef.threadId,
             limitRecovery: { runId: recovery.runId, resetAt: recovery.resetAt, snooze: false },
           },
         })
       : await unsnoozeThreadMutation({
-          environmentId: activeThreadRef.environmentId,
+          machineId: activeThreadRef.machineId,
           input: { threadId: activeThreadRef.threadId, reason: "user" },
         });
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
@@ -331,7 +331,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
     }
     setIsRestoringThreadBranch(true);
     const checkoutResult = await switchGitRef({
-      environmentId,
+      machineId,
       input: {
         cwd: activeProjectCwd,
         refName: localCheckoutBranchMismatch.threadBranch,
@@ -351,14 +351,14 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
       return;
     }
 
-    if (!readEnvironmentScope(environmentId, AuthSourceControlWriteScope)) {
+    if (!readMachineScope(machineId, AuthSourceControlWriteScope)) {
       setIsRestoringThreadBranch(false);
       return;
     }
     const nextBranch = checkoutResult.value.refName ?? localCheckoutBranchMismatch.threadBranch;
     if (nextBranch !== activeThread.branch) {
       const updateResult = await updateThreadMetadata({
-        environmentId,
+        machineId,
         input: { threadId: activeThread.id, branch: nextBranch, worktreePath: null },
       });
       if (updateResult._tag === "Failure") {
@@ -388,14 +388,14 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
   const activeBackgroundTasks = !isWorking && activeThread ? pendingBackgroundTasks : [];
   const [stoppingBackgroundWorkKey, setStoppingBackgroundWorkKey] = useState<string | null>(null);
   const isStoppingBackgroundWork =
-    stoppingBackgroundWorkKey === `${environmentId}:${activeThreadId}`;
+    stoppingBackgroundWorkKey === `${machineId}:${activeThreadId}`;
   const handleStopBackgroundWork = async () => {
-    if (!activeThread || !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope))
+    if (!activeThread || !readMachineScope(machineId, AuthOrchestrationOperateScope))
       return;
-    const requestKey = `${environmentId}:${activeThread.id}`;
+    const requestKey = `${machineId}:${activeThread.id}`;
     setStoppingBackgroundWorkKey(requestKey);
     const result = await interruptThreadTurn({
-      environmentId,
+      machineId,
       input: { threadId: activeThread.id },
     });
     // Acceptance does not confirm termination. Allow retry while the provider
@@ -415,11 +415,11 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
   const openRelatedThreadGenerationRef = useRef(0);
   const onOpenRelatedThread = async (threadId: ThreadId) => {
     const generation = ++openRelatedThreadGenerationRef.current;
-    const threadRef = scopeThreadRef(environmentId, threadId);
-    const isEnvironmentLive = () =>
-      appAtomRegistry.get(environmentShell.stateValueAtom(environmentId)).status === "live";
+    const threadRef = scopeThreadRef(machineId, threadId);
+    const isMachineLive = () =>
+      appAtomRegistry.get(machineShell.stateValueAtom(machineId)).status === "live";
     // A just-launched child can reach this timeline before its shell syncs.
-    if (isEnvironmentLive() && readThreadShell(threadRef) === null) {
+    if (isMachineLive() && readThreadShell(threadRef) === null) {
       const location = router.latestLocation;
       await waitForThreadShell(threadRef, RELATED_THREAD_SHELL_WAIT_MS);
       if (
@@ -431,12 +431,12 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
       }
     }
     const shell = readThreadShell(threadRef);
-    if (shell === null ? isEnvironmentLive() : shell.deletedAt != null) {
+    if (shell === null ? isMachineLive() : shell.deletedAt != null) {
       toastManager.add({ type: "info", title: "This thread is no longer available" });
       return;
     }
     void navigate({
-      to: "/$environmentId/$threadId",
+      to: "/$machineId/$threadId",
       params: buildThreadRouteParams(threadRef),
     });
   };
@@ -486,7 +486,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
       settingsResult._tag === "Failure"
         ? settingsResult
         : await startThreadTurn({
-            environmentId,
+            machineId,
             input: {
               threadId,
               message: { messageId, role: "user", text, attachments: [] },
@@ -575,7 +575,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
     };
   const shortcuts = {
     "thread.settle": () => {
-      if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return false;
+      if (!readMachineScope(machineId, AuthOrchestrationOperateScope)) return false;
       if (!activeThreadShell || !activeThreadRef || !supportsSettlement) return;
       if (activeThreadSettled) {
         void handleUnsettleActiveThread();
@@ -585,7 +585,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
       void settleThread(activeThreadRef).then(toastThreadActionFailure("Failed to settle thread"));
     },
     "thread.pin": () => {
-      if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return false;
+      if (!readMachineScope(machineId, AuthOrchestrationOperateScope)) return false;
       if (!activeThreadShell || !activeThreadRef || !supportsPinning) return;
       void (
         activeThreadPinned ? confirmAndUnpinThread(activeThreadRef) : pinThread(activeThreadRef)

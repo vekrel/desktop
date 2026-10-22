@@ -1,7 +1,7 @@
 import { ExternalLinkIcon, PaperclipIcon } from "lucide-react";
 import { markdownImageSourceFragment } from "@vekrel/client-runtime/markdown-images";
 import { githubMediaFetchUrl } from "@vekrel/shared/githubMedia";
-import type { AssetResource, EnvironmentId, ScopedThreadRef } from "@vekrel/contracts";
+import type { AssetResource, MachineId, ScopedThreadRef } from "@vekrel/contracts";
 import { createContext, useContext } from "react";
 import type { Options as ReactMarkdownOptions } from "react-markdown";
 
@@ -19,19 +19,19 @@ export const PullRequestMarkdownContext = createContext<{
 } | null>(null);
 
 function PullRequestGitHubVideo({
-  environmentId,
+  machineId,
   cwd,
   url,
   fetchUrl,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   cwd: string;
   url: string;
   fetchUrl: string;
 }) {
   const resource: AssetResource = { _tag: "github-media", cwd, url: fetchUrl };
-  const assetUrl = useAssetUrlState(environmentId, resource);
-  const refreshAssetUrl = useAssetUrlRefresh(environmentId, resource);
+  const assetUrl = useAssetUrlState(machineId, resource);
+  const refreshAssetUrl = useAssetUrlRefresh(machineId, resource);
   const src =
     assetUrl._tag === "Success" ? assetUrl.url : assetUrl._tag === "Failure" ? fetchUrl : null;
   return (
@@ -49,13 +49,13 @@ function PullRequestGitHubVideo({
 export function PullRequestMarkdown({
   text,
   cwd,
-  environmentId,
+  machineId,
   threadRef,
   className,
 }: {
   text: string;
   cwd: string;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   threadRef?: ScopedThreadRef | null;
   className?: string;
 }) {
@@ -83,7 +83,7 @@ export function PullRequestMarkdown({
               cwd={cwd}
               threadRef={resolvedThreadRef}
               pullRequestPanelRef={resolvedThreadRef ?? PULL_REQUESTS_PANEL_REF}
-              environmentId={environmentId}
+              machineId={machineId}
               extraRemarkPlugins={extraRemarkPlugins}
               githubMedia
             />
@@ -94,7 +94,7 @@ export function PullRequestMarkdown({
           return (
             <PullRequestGitHubVideo
               key={`${segment.id}:${segment.url}`}
-              environmentId={environmentId}
+              machineId={machineId}
               cwd={cwd}
               url={segment.url}
               fetchUrl={githubMediaUrl}

@@ -2,14 +2,14 @@ import { useAuth } from "@clerk/react";
 import { useAtomValue } from "@effect/atom-react";
 import type {
   AgentSessionProjectCandidate,
-  EnvironmentId,
+  MachineId,
   ProjectId,
   ProviderInstanceId,
   ScopedProjectRef,
   ServerConfig,
   ServerProvider,
 } from "@vekrel/contracts";
-import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/machine";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -58,20 +58,20 @@ import {
 import { newProjectId, randomUUID } from "../../lib/utils";
 import { agentSessionImport } from "../../state/agentSessions";
 import { readProjects, useProjects } from "../../state/entities";
-import { useEnvironments, usePrimaryEnvironment } from "../../state/environments";
+import { useMachines, usePrimaryMachine } from "../../state/machines";
 import {
-  isOnboardingRelayEnvironment,
+  isOnboardingRelayMachine,
   resolveOnboardingSetup,
-} from "../../onboarding/targetEnvironment.logic";
+} from "../../onboarding/targetMachine.logic";
 import { useProjectScans } from "../../onboarding/useProjectScans";
-import { projectEnvironment } from "../../state/projects";
-import { serverEnvironment } from "../../state/server";
+import { projectMachine } from "../../state/projects";
+import { serverMachine } from "../../state/server";
 import {
-  readEnvironmentScope,
-  useEnvironmentScope,
-  useEnvironmentsWithScope,
+  readMachineScope,
+  useMachineScope,
+  useMachinesWithScope,
 } from "../../state/session";
-import { terminalEnvironment } from "../../state/terminal";
+import { terminalMachine } from "../../state/terminal";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { connectPairing } from "../../connection/onboarding";
 import { getProviderSummary } from "../settings/providerStatus";
@@ -81,8 +81,8 @@ import { AddManagedCodexAccountDialog, CodexSetupSection } from "../settings/Cod
 import { readCodexSetupMode } from "../settings/CodexSetupSection.logic";
 import { buildProviderInstanceUpdatePatch } from "../settings/SettingsPanels.logic";
 import { TerminalViewport } from "../ThreadTerminalDrawer";
-import { CloudEnvironmentConnectRows } from "../cloud/CloudEnvironmentConnectList";
-import { presentSavedCloudEnvironmentConnection } from "../cloud/cloudEnvironmentConnectionPresentation";
+import { CloudMachineConnectRows } from "../cloud/CloudMachineConnectList";
+import { presentSavedCloudMachineConnection } from "../cloud/cloudMachineConnectionPresentation";
 import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
 import { T3Wordmark } from "../T3Wordmark";
 import { Alert, AlertDescription } from "../ui/alert";
@@ -101,7 +101,7 @@ import { cn } from "../../lib/utils";
 import { formatRelativeTime } from "../../timestampFormat";
 
 type WizardStep = "connection" | "agents" | "import";
-const NO_ENVIRONMENTS: readonly EnvironmentId[] = [];
+const NO_MACHINES: readonly MachineId[] = [];
 
 const AGENT_ONBOARDING_THREAD_ID = ThreadId.make("onboarding-agent-setup");
 const ONBOARDING_STAGES = ["Connect", "Agents", "Projects"] as const;
@@ -110,52 +110,52 @@ const SCAN_LIMIT_MESSAGE = "Scan limit reached. Some projects or conversations m
 export function WelcomeWizard({
   localAvailable,
   onDone,
-  resumeEnvironmentId,
+  resumeMachineId,
 }: {
   readonly localAvailable: boolean;
-  readonly resumeEnvironmentId?: EnvironmentId | undefined;
+  readonly resumeMachineId?: MachineId | undefined;
   readonly onDone: (projectRef?: ScopedProjectRef) => void | Promise<void>;
 }) {
-  const [step, setStep] = useState<WizardStep>(resumeEnvironmentId ? "agents" : "connection");
-  const { environments } = useEnvironments();
-  const [selection, setSelection] = useState<ReadonlySet<EnvironmentId> | null>(null);
+  const [step, setStep] = useState<WizardStep>(resumeMachineId ? "agents" : "connection");
+  const { machines } = useMachines();
+  const [selection, setSelection] = useState<ReadonlySet<MachineId> | null>(null);
   // One registry for the wizard's lifetime, shared with the connect list, so a computer is
   // auto-selected once even after the user unchecks it.
-  const [autoSelectedComputers] = useState(() => new Set<EnvironmentId>());
-  const [setupIds, setSetupIds] = useState<readonly EnvironmentId[]>(
-    resumeEnvironmentId ? [resumeEnvironmentId] : [],
+  const [autoSelectedComputers] = useState(() => new Set<MachineId>());
+  const [setupIds, setSetupIds] = useState<readonly MachineId[]>(
+    resumeMachineId ? [resumeMachineId] : [],
   );
   const [isImporting, setIsImporting] = useState(false);
   const finishingPromiseRef = useRef<Promise<boolean> | null>(null);
   const completionErrorToastIdRef = useRef<ReturnType<typeof toastManager.add> | null>(null);
-  const primaryEnvironment = usePrimaryEnvironment();
+  const primaryMachine = usePrimaryMachine();
   useEffect(() => {
-    const newComputers = environments.filter(
-      (environment) => !autoSelectedComputers.has(environment.environmentId),
+    const newComputers = machines.filter(
+      (machine) => !autoSelectedComputers.has(machine.machineId),
     );
     if (newComputers.length === 0) return;
-    for (const environment of newComputers) {
-      autoSelectedComputers.add(environment.environmentId);
+    for (const machine of newComputers) {
+      autoSelectedComputers.add(machine.machineId);
     }
-    const enabledComputers = newComputers.filter((environment) => environment.entry.enabled);
+    const enabledComputers = newComputers.filter((machine) => machine.entry.enabled);
     if (enabledComputers.length === 0) return;
     // oxlint-disable-next-line react/set-state-in-effect -- The registry marks each computer once, and only after commit; render must not mutate it.
     setSelection(
       (current) =>
         new Set([
           ...(current ?? []),
-          ...enabledComputers.map((environment) => environment.environmentId),
+          ...enabledComputers.map((machine) => machine.machineId),
         ]),
     );
-  }, [autoSelectedComputers, environments]);
+  }, [autoSelectedComputers, machines]);
   const selectedIds =
-    selection ?? new Set(primaryEnvironment ? [primaryEnvironment.environmentId] : []);
-  const scans = useProjectScans(step === "import" ? setupIds : NO_ENVIRONMENTS);
+    selection ?? new Set(primaryMachine ? [primaryMachine.machineId] : []);
+  const scans = useProjectScans(step === "import" ? setupIds : NO_MACHINES);
   const isLoadingProjects =
     step === "import" &&
     scans.every((scan) => scan.data === null) &&
     scans.some((scan) => scan.isPending);
-  const startSetup = (ids: readonly EnvironmentId[]) => {
+  const startSetup = (ids: readonly MachineId[]) => {
     if (ids.length === 0) return;
     setSetupIds(ids);
     setStep("agents");
@@ -259,23 +259,23 @@ export function WelcomeWizard({
               selectedIds={selectedIds}
               autoSelectedComputers={autoSelectedComputers}
               onSelectionChange={setSelection}
-              onToggleEnvironment={(environmentId, checked) =>
+              onToggleMachine={(machineId, checked) =>
                 setSelection((current) => {
                   const next = new Set(current ?? selectedIds);
-                  if (checked) next.add(environmentId);
-                  else next.delete(environmentId);
+                  if (checked) next.add(machineId);
+                  else next.delete(machineId);
                   return next;
                 })
               }
               onContinue={() =>
-                startSetup(resolveOnboardingSetup(environments, selectedIds).environmentIds)
+                startSetup(resolveOnboardingSetup(machines, selectedIds).machineIds)
               }
-              onPaired={(environmentId) => {
-                setSelection(new Set([...selectedIds, environmentId]));
+              onPaired={(machineId) => {
+                setSelection(new Set([...selectedIds, machineId]));
               }}
             />
           ) : step === "agents" ? (
-            <AgentsStep environmentIds={setupIds} onContinue={() => setStep("import")} />
+            <AgentsStep machineIds={setupIds} onContinue={() => setStep("import")} />
           ) : (
             <ImportStep
               scans={scans}
@@ -296,29 +296,29 @@ function ConnectionStep({
   expandPairingInitially,
   selectedIds,
   onSelectionChange,
-  onToggleEnvironment,
+  onToggleMachine,
   onContinue,
   onPaired,
 }: {
-  readonly autoSelectedComputers: Set<EnvironmentId>;
+  readonly autoSelectedComputers: Set<MachineId>;
   readonly expandPairingInitially: boolean;
-  readonly selectedIds: ReadonlySet<EnvironmentId>;
-  readonly onSelectionChange: (ids: ReadonlySet<EnvironmentId>) => void;
-  readonly onToggleEnvironment: (environmentId: EnvironmentId, checked: boolean) => void;
+  readonly selectedIds: ReadonlySet<MachineId>;
+  readonly onSelectionChange: (ids: ReadonlySet<MachineId>) => void;
+  readonly onToggleMachine: (machineId: MachineId, checked: boolean) => void;
   readonly onContinue: () => void;
-  readonly onPaired: (environmentId: EnvironmentId) => void;
+  readonly onPaired: (machineId: MachineId) => void;
 }) {
-  const { environments } = useEnvironments();
+  const { machines } = useMachines();
   const cloudEnabled = hasCloudPublicConfig();
-  const directEnvironments = environments.filter(
-    (environment) => !cloudEnabled || !isOnboardingRelayEnvironment(environment),
+  const directMachines = machines.filter(
+    (machine) => !cloudEnabled || !isOnboardingRelayMachine(machine),
   );
   const [pairingOpen, setPairingOpen] = useState(expandPairingInitially);
   const [isPairing, setIsPairing] = useState(false);
-  const { ready, skippedIds } = resolveOnboardingSetup(environments, selectedIds);
-  const skippedLabels = environments
-    .filter((environment) => skippedIds.includes(environment.environmentId))
-    .map((environment) => environment.label);
+  const { ready, skippedIds } = resolveOnboardingSetup(machines, selectedIds);
+  const skippedLabels = machines
+    .filter((machine) => skippedIds.includes(machine.machineId))
+    .map((machine) => machine.label);
   const continueRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (
@@ -337,20 +337,20 @@ function ConnectionStep({
       <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
         Choose one or more computers. We’ll set up agents and projects on each.
       </p>
-      {directEnvironments.length > 0 ? (
+      {directMachines.length > 0 ? (
         <fieldset className="mt-5 space-y-2">
           <legend className="sr-only">Computers to set up</legend>
-          {directEnvironments.map((environment) => (
+          {directMachines.map((machine) => (
             <label
-              key={environment.environmentId}
+              key={machine.machineId}
               className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-background px-3 py-3"
             >
               <Checkbox
-                checked={selectedIds.has(environment.environmentId)}
+                checked={selectedIds.has(machine.machineId)}
                 onCheckedChange={(checked) => {
                   const next = new Set(selectedIds);
-                  if (checked) next.add(environment.environmentId);
-                  else next.delete(environment.environmentId);
+                  if (checked) next.add(machine.machineId);
+                  else next.delete(machine.machineId);
                   onSelectionChange(next);
                 }}
               />
@@ -358,22 +358,22 @@ function ConnectionStep({
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-3">
                   <span className="min-w-0 text-sm font-medium break-words">
-                    {environment.label}
+                    {machine.label}
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {!environment.entry.enabled && environment.connection.phase !== "unsupported"
+                    {!machine.entry.enabled && machine.connection.phase !== "unsupported"
                       ? "Off"
-                      : presentSavedCloudEnvironmentConnection(environment.connection).buttonLabel}
+                      : presentSavedCloudMachineConnection(machine.connection).buttonLabel}
                   </span>
                 </span>
-                {environment.displayUrl ? (
+                {machine.displayUrl ? (
                   <span className="mt-0.5 block text-xs break-all text-muted-foreground">
-                    {environment.displayUrl}
+                    {machine.displayUrl}
                   </span>
                 ) : null}
-                {environment.connection.phase === "unsupported" && environment.connection.error ? (
+                {machine.connection.phase === "unsupported" && machine.connection.error ? (
                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {environment.connection.error}
+                    {machine.connection.error}
                   </span>
                 ) : null}
               </span>
@@ -387,7 +387,7 @@ function ConnectionStep({
             autoSelectedComputers={autoSelectedComputers}
             disabled={isPairing}
             selectedIds={selectedIds}
-            onToggleEnvironment={onToggleEnvironment}
+            onToggleMachine={onToggleMachine}
           />
         ) : null}
         <div className="rounded-lg border border-border bg-background">
@@ -413,9 +413,9 @@ function ConnectionStep({
                 <PairingForm
                   isPairing={isPairing}
                   setIsPairing={setIsPairing}
-                  onPaired={(environmentId) => {
+                  onPaired={(machineId) => {
                     setPairingOpen(false);
-                    onPaired(environmentId);
+                    onPaired(machineId);
                     requestAnimationFrame(() => continueRef.current?.focus());
                   }}
                 />
@@ -463,14 +463,14 @@ function ConnectAccountOption({
   autoSelectedComputers,
   disabled,
   selectedIds,
-  onToggleEnvironment,
+  onToggleMachine,
 }: {
-  readonly autoSelectedComputers: Set<EnvironmentId>;
+  readonly autoSelectedComputers: Set<MachineId>;
   readonly disabled: boolean;
-  readonly selectedIds: ReadonlySet<EnvironmentId>;
-  readonly onToggleEnvironment: (environmentId: EnvironmentId, checked: boolean) => void;
+  readonly selectedIds: ReadonlySet<MachineId>;
+  readonly onToggleMachine: (machineId: MachineId, checked: boolean) => void;
 }) {
-  const { environments } = useEnvironments();
+  const { machines } = useMachines();
   const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const { openAuthPrompt } = useT3ConnectAuthPrompt();
   const [expanded, setExpanded] = useState(true);
@@ -512,12 +512,12 @@ function ConnectAccountOption({
           <div className="px-3 pb-3">
             <div className="mb-3 space-y-1.5">
               {isSignedIn ? (
-                <CloudEnvironmentConnectRows
-                  primaryEnvironmentId={null}
-                  savedEnvironments={environments}
-                  showSavedEnvironments
+                <CloudMachineConnectRows
+                  primaryMachineId={null}
+                  savedMachines={machines}
+                  showSavedMachines
                   onDiscoveryReady={onDiscoveryReady}
-                  selection={{ selectedIds, onChange: onToggleEnvironment, autoSelectedComputers }}
+                  selection={{ selectedIds, onChange: onToggleMachine, autoSelectedComputers }}
                   refreshWhileEmpty
                   empty={
                     <p className="py-3 text-sm text-muted-foreground">No computers linked yet.</p>
@@ -546,9 +546,9 @@ function PairingForm({
 }: {
   readonly isPairing: boolean;
   readonly setIsPairing: (value: boolean) => void;
-  readonly onPaired: (environmentId: EnvironmentId) => void;
+  readonly onPaired: (machineId: MachineId) => void;
 }) {
-  const connectPairingEnvironment = useAtomCommand(connectPairing, { reportFailure: false });
+  const connectPairingMachine = useAtomCommand(connectPairing, { reportFailure: false });
   const [pairingUrl, setPairingUrl] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const mountedRef = useRef(true);
@@ -564,7 +564,7 @@ function PairingForm({
     if (isPairing || pairingUrl.trim().length === 0) return;
     setIsPairing(true);
     setErrorMessage("");
-    const result = await connectPairingEnvironment({ pairingUrl: pairingUrl.trim() });
+    const result = await connectPairingMachine({ pairingUrl: pairingUrl.trim() });
     if (!mountedRef.current) return;
     setIsPairing(false);
     if (result._tag === "Success") {
@@ -653,7 +653,7 @@ const PRIMARY_AGENT_DRIVERS = ["codex", "claudeAgent"] as const;
 type OnboardingAgentDriver = (typeof PRIMARY_AGENT_DRIVERS)[number];
 
 interface AgentTerminalSession {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly driver: OnboardingAgentDriver;
   readonly providerInstanceId: ServerProvider["instanceId"];
   readonly cwd: string;
@@ -662,13 +662,13 @@ interface AgentTerminalSession {
 }
 
 function AgentsStep({
-  environmentIds,
+  machineIds,
   onContinue,
 }: {
-  readonly environmentIds: readonly EnvironmentId[];
+  readonly machineIds: readonly MachineId[];
   readonly onContinue: () => void;
 }) {
-  const { environments } = useEnvironments();
+  const { machines } = useMachines();
   return (
     <StepShell
       title="Connect your agents"
@@ -676,12 +676,12 @@ function AgentsStep({
     >
       <ScrollArea scrollFade className="mt-5 h-auto max-h-[min(32rem,55dvh)]">
         <div className="space-y-5 pr-3">
-          {environmentIds.map((environmentId) => (
+          {machineIds.map((machineId) => (
             <ConnectedAgentsStep
-              key={environmentId}
-              environmentId={environmentId}
+              key={machineId}
+              machineId={machineId}
               machineLabel={
-                environments.find((environment) => environment.environmentId === environmentId)
+                machines.find((machine) => machine.machineId === machineId)
                   ?.label ?? "Computer"
               }
             />
@@ -699,17 +699,17 @@ function AgentsStep({
 }
 
 function ConnectedAgentsStep({
-  environmentId,
+  machineId,
   machineLabel,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly machineLabel: string;
 }) {
-  const providers = useAtomValue(serverEnvironment.providersValueAtom(environmentId));
-  const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
+  const providers = useAtomValue(serverMachine.providersValueAtom(machineId));
+  const refreshProviders = useAtomCommand(serverMachine.refreshProviders, {
     reportFailure: false,
   });
-  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
+  const serverConfig = useAtomValue(serverMachine.configValueAtom(machineId));
   const [terminalSession, setTerminalSession] = useState<AgentTerminalSession | null>(null);
   const [addingAccount, setAddingAccount] = useState(false);
   const [createdAccount, setCreatedAccount] = useState<{
@@ -717,11 +717,11 @@ function ConnectedAgentsStep({
     displayName: string;
     autoStart: boolean;
   } | null>(null);
-  const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
+  const canOperateTerminal = useMachineScope(machineId, AuthTerminalOperateScope);
 
   useEffect(() => {
-    void refreshProviders({ environmentId, input: {} });
-  }, [environmentId, refreshProviders]);
+    void refreshProviders({ machineId, input: {} });
+  }, [machineId, refreshProviders]);
 
   const byDriver = selectOnboardingProvidersByDriver(providers);
 
@@ -758,7 +758,7 @@ function ConnectedAgentsStep({
           driver === "codex" && serverConfig !== null ? (
             <OnboardingCodexSetup
               key={instanceId ?? driver}
-              environmentId={environmentId}
+              machineId={machineId}
               provider={provider}
               serverConfig={serverConfig}
               createdAccount={instanceId === createdAccount?.instanceId ? createdAccount : null}
@@ -769,11 +769,11 @@ function ConnectedAgentsStep({
               onOpenTerminal={() => {
                 if (
                   provider === undefined ||
-                  !readEnvironmentScope(environmentId, AuthTerminalOperateScope)
+                  !readMachineScope(machineId, AuthTerminalOperateScope)
                 )
                   return;
                 setTerminalSession({
-                  environmentId,
+                  machineId,
                   driver,
                   providerInstanceId: provider.instanceId,
                   cwd: serverConfig.cwd,
@@ -781,11 +781,11 @@ function ConnectedAgentsStep({
                     ? resolveOnboardingProviderLoginCommand(
                         provider,
                         serverConfig.settings,
-                        serverConfig.environment.platform.os,
+                        serverConfig.machine.platform.os,
                       )
                     : resolveOnboardingProviderInstallCommand(
                         driver,
-                        serverConfig.environment.platform.os,
+                        serverConfig.machine.platform.os,
                       ),
                   keybindings: serverConfig.keybindings,
                 });
@@ -802,11 +802,11 @@ function ConnectedAgentsStep({
                 if (
                   provider === undefined ||
                   serverConfig === null ||
-                  !readEnvironmentScope(environmentId, AuthTerminalOperateScope)
+                  !readMachineScope(machineId, AuthTerminalOperateScope)
                 )
                   return;
                 setTerminalSession({
-                  environmentId,
+                  machineId,
                   driver,
                   providerInstanceId: provider.instanceId,
                   cwd: serverConfig.cwd,
@@ -814,11 +814,11 @@ function ConnectedAgentsStep({
                     ? resolveOnboardingProviderLoginCommand(
                         provider,
                         serverConfig.settings,
-                        serverConfig.environment.platform.os,
+                        serverConfig.machine.platform.os,
                       )
                     : resolveOnboardingProviderInstallCommand(
                         driver,
-                        serverConfig.environment.platform.os,
+                        serverConfig.machine.platform.os,
                       ),
                   keybindings: serverConfig.keybindings,
                 });
@@ -839,7 +839,7 @@ function ConnectedAgentsStep({
       ) : null}
       {addingAccount ? (
         <AddManagedCodexAccountDialog
-          environmentId={environmentId}
+          machineId={machineId}
           onClose={() => setAddingAccount(false)}
           onAccountCreated={(instanceId, displayName) =>
             setCreatedAccount({ instanceId, displayName, autoStart: true })
@@ -848,11 +848,11 @@ function ConnectedAgentsStep({
       ) : null}
       {terminalSession !== null ? (
         <AgentInstallTerminal
-          key={`${terminalSession.environmentId}:${terminalSession.providerInstanceId}:${terminalSession.driver}`}
+          key={`${terminalSession.machineId}:${terminalSession.providerInstanceId}:${terminalSession.driver}`}
           session={terminalSession}
           onClose={() => {
             setTerminalSession(null);
-            void refreshProviders({ environmentId, input: {} });
+            void refreshProviders({ machineId, input: {} });
           }}
         />
       ) : null}
@@ -863,13 +863,13 @@ function ConnectedAgentsStep({
 function OnboardingCodexSetup({
   createdAccount,
   onAutoStartConsumed,
-  environmentId,
+  machineId,
   provider,
   serverConfig,
   terminalOpen,
   onOpenTerminal,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly provider: ServerProvider | undefined;
   readonly serverConfig: ServerConfig;
   readonly terminalOpen: boolean;
@@ -881,8 +881,8 @@ function OnboardingCodexSetup({
   } | null;
   readonly onAutoStartConsumed: () => void;
 }) {
-  const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
-  const update = useAtomCommand(serverEnvironment.updateSettings, "Codex setup settings");
+  const canOperateTerminal = useMachineScope(machineId, AuthTerminalOperateScope);
+  const update = useAtomCommand(serverMachine.updateSettings, "Codex setup settings");
   const instanceId =
     createdAccount?.instanceId ??
     provider?.instanceId ??
@@ -901,7 +901,7 @@ function OnboardingCodexSetup({
     instance.config.setupMode === "existing";
   const changeMode = (setupMode: "managed" | "existing") => {
     void update({
-      environmentId,
+      machineId,
       input: {
         patch: buildProviderInstanceUpdatePatch({
           settings,
@@ -935,7 +935,7 @@ function OnboardingCodexSetup({
       autoStart={createdAccount?.autoStart === true}
       displayName={createdAccount?.displayName}
       onAutoStartConsumed={onAutoStartConsumed}
-      environmentId={environmentId}
+      machineId={machineId}
       instanceId={instanceId}
       provider={provider}
       mode={mode}
@@ -1013,21 +1013,21 @@ function AgentInstallTerminal({
   readonly session: AgentTerminalSession;
   readonly onClose: () => void;
 }) {
-  const { command, cwd, driver, environmentId, keybindings, providerInstanceId } = session;
-  const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
+  const { command, cwd, driver, machineId, keybindings, providerInstanceId } = session;
+  const canOperateTerminal = useMachineScope(machineId, AuthTerminalOperateScope);
   const [advancedTypography] = useLocalStorage(
     TYPOGRAPHY_ADVANCED_STORAGE_KEY,
     false,
     Schema.Boolean,
   );
-  const openTerminal = useAtomCommand(terminalEnvironment.open, { reportFailure: false });
-  const writeTerminal = useAtomCommand(terminalEnvironment.write, { reportFailure: false });
-  const closeTerminal = useAtomCommand(terminalEnvironment.close, { reportFailure: false });
+  const openTerminal = useAtomCommand(terminalMachine.open, { reportFailure: false });
+  const writeTerminal = useAtomCommand(terminalMachine.write, { reportFailure: false });
+  const closeTerminal = useAtomCommand(terminalMachine.close, { reportFailure: false });
   const setupQueueRef = useRef(Promise.resolve());
   const setupGenerationRef = useRef(0);
   const activeSetupGenerationRef = useRef<number | null>(null);
   const [terminalId] = useState(() => `onboarding-${driver}-${randomUUID()}`);
-  const threadRef = scopeThreadRef(environmentId, AGENT_ONBOARDING_THREAD_ID);
+  const threadRef = scopeThreadRef(machineId, AGENT_ONBOARDING_THREAD_ID);
   const [setupAttempt, setSetupAttempt] = useState(0);
   const [setupState, setSetupState] = useState<
     "preparing" | "ready" | "openFailed" | "writeFailed"
@@ -1046,12 +1046,12 @@ function AgentInstallTerminal({
 
     setupQueueRef.current = setupQueueRef.current.then(async () => {
       if (activeSetupGenerationRef.current !== generation) return;
-      if (!readEnvironmentScope(environmentId, AuthTerminalOperateScope)) {
+      if (!readMachineScope(machineId, AuthTerminalOperateScope)) {
         setSetupState("openFailed");
         return;
       }
       const opened = await openTerminal({
-        environmentId,
+        machineId,
         input: {
           threadId: AGENT_ONBOARDING_THREAD_ID,
           terminalId,
@@ -1065,13 +1065,13 @@ function AgentInstallTerminal({
       }
 
       if (activeSetupGenerationRef.current !== generation) return;
-      if (!readEnvironmentScope(environmentId, AuthTerminalOperateScope)) {
+      if (!readMachineScope(machineId, AuthTerminalOperateScope)) {
         setSetupState("writeFailed");
         return;
       }
 
       const wrote = await writeTerminal({
-        environmentId,
+        machineId,
         input: { threadId: AGENT_ONBOARDING_THREAD_ID, terminalId, data: command },
       });
       if (activeSetupGenerationRef.current !== generation) return;
@@ -1085,9 +1085,9 @@ function AgentInstallTerminal({
         activeSetupGenerationRef.current = null;
       }
       setupQueueRef.current = setupQueueRef.current.then(async () => {
-        if (!readEnvironmentScope(environmentId, AuthTerminalOperateScope)) return;
+        if (!readMachineScope(machineId, AuthTerminalOperateScope)) return;
         await closeTerminal({
-          environmentId,
+          machineId,
           input: { threadId: AGENT_ONBOARDING_THREAD_ID, terminalId, deleteHistory: true },
         });
       });
@@ -1096,7 +1096,7 @@ function AgentInstallTerminal({
     closeTerminal,
     command,
     cwd,
-    environmentId,
+    machineId,
     openTerminal,
     providerInstanceId,
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Retry bumps setupAttempt to open the terminal again.
@@ -1134,7 +1134,7 @@ function AgentInstallTerminal({
               variant="ghost"
               disabled={!canOperateTerminal}
               onClick={() => {
-                if (readEnvironmentScope(environmentId, AuthTerminalOperateScope)) {
+                if (readMachineScope(machineId, AuthTerminalOperateScope)) {
                   setSetupAttempt((value) => value + 1);
                 }
               }}
@@ -1188,9 +1188,9 @@ function ImportStep({
     importedThreadCount?: number,
   ) => Promise<boolean>;
 }) {
-  const { environments } = useEnvironments();
-  const writableEnvironments = useEnvironmentsWithScope(scans, AuthOrchestrationOperateScope);
-  const createProject = useAtomCommand(projectEnvironment.create, { reportFailure: false });
+  const { machines } = useMachines();
+  const writableMachines = useMachinesWithScope(scans, AuthOrchestrationOperateScope);
+  const createProject = useAtomCommand(projectMachine.create, { reportFailure: false });
   const importThreads = useAtomCommand(agentSessionImport, { reportFailure: false });
   const projects = useProjects();
   const [selectedPaths, setSelectedPaths] = useState<ReadonlySet<string> | null>(null);
@@ -1218,7 +1218,7 @@ function ImportStep({
       projects.some(
         (project) =>
           project.id === landingProject.projectId &&
-          project.environmentId === landingProject.environmentId,
+          project.machineId === landingProject.machineId,
       )
     ) {
       // oxlint-disable-next-line react/set-state-in-effect -- The landing project is known only once the projects subscription delivers it.
@@ -1235,8 +1235,8 @@ function ImportStep({
     scans.flatMap((scan) =>
       (scan.data?.candidates ?? []).map((candidate) => ({
         ...candidate,
-        environmentId: scan.environmentId,
-        key: onboardingProjectKey(scan.environmentId, candidate.path),
+        machineId: scan.machineId,
+        key: onboardingProjectKey(scan.machineId, candidate.path),
       })),
     ),
   );
@@ -1244,7 +1244,7 @@ function ImportStep({
   const selected = candidates.filter((candidate) => selectedKeys.has(candidate.key));
 
   const canImport = selected.every((candidate) =>
-    writableEnvironments.has(candidate.environmentId),
+    writableMachines.has(candidate.machineId),
   );
   const [importError, setImportError] = useState("");
   const visibleImportError = !canImport
@@ -1271,7 +1271,7 @@ function ImportStep({
     if (isImporting) return;
     const hasAccess = () =>
       selection.every((candidate) =>
-        readEnvironmentScope(candidate.environmentId, AuthOrchestrationOperateScope),
+        readMachineScope(candidate.machineId, AuthOrchestrationOperateScope),
       );
     const stopForDeniedAccess = () => {
       setIsImporting(false);
@@ -1298,9 +1298,9 @@ function ImportStep({
         : 0;
     let importedThreadCount = 0;
     let skippedThreadCount = 0;
-    const refreshEnvironments = new Set<EnvironmentId>();
+    const refreshMachines = new Set<MachineId>();
     for (const candidate of selection) {
-      const { environmentId } = candidate;
+      const { machineId } = candidate;
       if (
         importGeneration !== importGenerationRef.current ||
         importedProjects !== importedProjectsRef.current
@@ -1312,7 +1312,7 @@ function ImportStep({
         return;
       }
       if (importedProjects.has(candidate.key)) continue;
-      let projectId = resolveOnboardingProjectId(readProjects(), environmentId, candidate);
+      let projectId = resolveOnboardingProjectId(readProjects(), machineId, candidate);
       if (projectId === null) {
         let attempt = projectAttempts.get(candidate.key);
         if (attempt === undefined) {
@@ -1325,7 +1325,7 @@ function ImportStep({
         }
         projectId = attempt.projectId;
         const result = await createProject({
-          environmentId,
+          machineId,
           input: {
             projectId,
             commandId: attempt.commandId,
@@ -1344,7 +1344,7 @@ function ImportStep({
         if (result._tag !== "Success") {
           if (!isAtomCommandInterrupted(result)) {
             projectAttempts.delete(candidate.key);
-            refreshEnvironments.add(environmentId);
+            refreshMachines.add(machineId);
           }
           continue;
         }
@@ -1355,7 +1355,7 @@ function ImportStep({
         return;
       }
       const threadImportResult = await importThreads({
-        environmentId,
+        machineId,
         input: { projectId, expectedWorkspaceRoot: candidate.path },
       });
       if (
@@ -1370,20 +1370,20 @@ function ImportStep({
         if (threadImportResult.value.importedCount > 0) {
           projectsWithImportedHistoryRef.current.set(
             candidate.key,
-            scopeProjectRef(environmentId, projectId),
+            scopeProjectRef(machineId, projectId),
           );
         }
         if (threadImportResult.value.skippedCount === 0) {
           importedProjectsCount += 1;
-          importedProjects.set(candidate.key, scopeProjectRef(environmentId, projectId));
+          importedProjects.set(candidate.key, scopeProjectRef(machineId, projectId));
         }
       } else if (!isAtomCommandInterrupted(threadImportResult)) {
         projectAttempts.delete(candidate.key);
-        refreshEnvironments.add(environmentId);
+        refreshMachines.add(machineId);
       }
     }
     for (const scan of scans) {
-      if (refreshEnvironments.has(scan.environmentId)) scan.refresh();
+      if (refreshMachines.has(scan.machineId)) scan.refresh();
     }
     setIsImporting(false);
     importedThreadCountRef.current = importedThreadCount;
@@ -1454,14 +1454,14 @@ function ImportStep({
         <div className="space-y-5 pr-3">
           {scans.map((scan) => {
             const scanCandidates = candidates.filter(
-              (candidate) => candidate.environmentId === scan.environmentId,
+              (candidate) => candidate.machineId === scan.machineId,
             );
             const label =
-              environments.find((environment) => environment.environmentId === scan.environmentId)
+              machines.find((machine) => machine.machineId === scan.machineId)
                 ?.label ?? "Computer";
             return (
               <fieldset
-                key={scan.environmentId}
+                key={scan.machineId}
                 className="min-w-0 space-y-0.5"
                 disabled={isImporting}
               >
@@ -1525,7 +1525,7 @@ function ImportStep({
 }
 
 type ImportCandidate = AgentSessionProjectCandidate & {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly key: string;
 };
 

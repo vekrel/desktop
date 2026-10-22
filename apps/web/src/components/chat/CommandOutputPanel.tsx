@@ -1,19 +1,19 @@
-import type { EnvironmentId, ThreadId, TurnItemId } from "@vekrel/contracts";
+import type { MachineId, ThreadId, TurnItemId } from "@vekrel/contracts";
 import { TERMINAL_PALETTES, terminalOutputSpans } from "@vekrel/shared/terminalOutput";
 import { useLayoutEffect, useRef } from "react";
 
 import { useTheme } from "../../hooks/useTheme";
 import { useServerConfigs } from "../../state/entities";
-import { orchestrationEnvironment } from "../../state/orchestration";
-import { useEnvironmentQuery } from "../../state/query";
+import { orchestrationMachine } from "../../state/orchestration";
+import { useMachineQuery } from "../../state/query";
 
 // Within this many pixels of the end still counts as following the output.
 const FOLLOW_SLACK_PX = 8;
 
-/** True when the environment streams command output; older servers only return final output. */
-export function useCommandOutputStreaming(environmentId: EnvironmentId): boolean {
+/** True when the machine streams command output; older servers only return final output. */
+export function useCommandOutputStreaming(machineId: MachineId): boolean {
   return (
-    useServerConfigs().get(environmentId)?.environment.capabilities.commandOutputStreaming === true
+    useServerConfigs().get(machineId)?.machine.capabilities.commandOutputStreaming === true
   );
 }
 
@@ -23,13 +23,13 @@ export function useCommandOutputStreaming(environmentId: EnvironmentId): boolean
  * It subscribes only while mounted, so collapsed rows and other threads receive nothing.
  */
 export function CommandOutputPanel(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId: ThreadId;
   readonly itemId: TurnItemId;
 }) {
-  const { data, error } = useEnvironmentQuery(
-    orchestrationEnvironment.v2.commandOutput({
-      environmentId: props.environmentId,
+  const { data, error } = useMachineQuery(
+    orchestrationMachine.v2.commandOutput({
+      machineId: props.machineId,
       input: { threadId: props.threadId, itemId: props.itemId },
     }),
   );

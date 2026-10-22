@@ -1,10 +1,10 @@
 import {
-  type EnvironmentId,
+  type MachineId,
   type ProviderInteractionMode,
   type RunId,
   type RuntimeMode,
 } from "@vekrel/contracts";
-import type { EnvironmentThreadShell } from "@vekrel/client-runtime/state/shell";
+import type { MachineThreadShell } from "@vekrel/client-runtime/state/shell";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -13,7 +13,7 @@ import {
 import { useState } from "react";
 import { newMessageId } from "~/lib/utils";
 import type { ComposerHandleRef } from "../../composerHandleContext";
-import { threadEnvironment } from "../../state/threads";
+import { threadMachine } from "../../state/threads";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import type { makeThreadErrorSetter } from "../ChatView.logic";
 import { draftSendState } from "./chatViewSend";
@@ -21,23 +21,23 @@ import type { useTimelineFollow } from "./useTimelineFollow";
 import type { useUsageLimitsPanel } from "./useUsageLimitsPanel";
 
 interface ComposerResumeInput {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly routeThreadKey: string;
   readonly currentRouteThreadKeyRef: { readonly current: string | null };
-  readonly activeThread: EnvironmentThreadShell | undefined;
+  readonly activeThread: MachineThreadShell | undefined;
   readonly resumableRunId: RunId | null;
   readonly hasHeldQueuedRuns: boolean;
   readonly isSendBusy: boolean;
   readonly isConnecting: boolean;
   readonly isRevertingCheckpoint: boolean;
   readonly threadDetailLoading: boolean;
-  readonly activeEnvironmentUnavailable: boolean;
+  readonly activeMachineUnavailable: boolean;
   readonly runtimeMode: RuntimeMode;
   readonly interactionMode: ProviderInteractionMode;
   readonly localCheckoutBranchMismatch: { readonly currentBranch: string } | null;
   readonly composerRef: ComposerHandleRef;
   readonly persistThreadSettingsForNextTurn: (input: {
-    threadId: EnvironmentThreadShell["id"];
+    threadId: MachineThreadShell["id"];
     createdAt: string;
     branch?: string;
     runtimeMode: RuntimeMode;
@@ -54,7 +54,7 @@ interface ComposerResumeInput {
  */
 export function useComposerResume(input: ComposerResumeInput) {
   const {
-    environmentId,
+    machineId,
     routeThreadKey,
     currentRouteThreadKeyRef,
     activeThread,
@@ -64,7 +64,7 @@ export function useComposerResume(input: ComposerResumeInput) {
     isConnecting,
     isRevertingCheckpoint,
     threadDetailLoading,
-    activeEnvironmentUnavailable,
+    activeMachineUnavailable,
     runtimeMode,
     interactionMode,
     localCheckoutBranchMismatch,
@@ -74,10 +74,10 @@ export function useComposerResume(input: ComposerResumeInput) {
     scrollToEnd,
     setThreadError,
   } = input;
-  const startThreadTurn = useOrchestrationCommand(threadEnvironment.startTurn, {
+  const startThreadTurn = useOrchestrationCommand(threadMachine.startTurn, {
     reportFailure: false,
   });
-  const resumeThreadQueue = useOrchestrationCommand(threadEnvironment.resumeThreadQueue, {
+  const resumeThreadQueue = useOrchestrationCommand(threadMachine.resumeThreadQueue, {
     reportFailure: false,
   });
   const [resumingThreadKeys, setResumingThreadKeys] = useState<ReadonlySet<string>>(
@@ -95,7 +95,7 @@ export function useComposerResume(input: ComposerResumeInput) {
       isConnecting ||
       isRevertingCheckpoint ||
       threadDetailLoading ||
-      activeEnvironmentUnavailable ||
+      activeMachineUnavailable ||
       sendInFlightRef.current
     ) {
       return;
@@ -107,7 +107,7 @@ export function useComposerResume(input: ComposerResumeInput) {
     // Commands settle into a result, so this always runs.
     const resume = async () => {
       if (resumableRunId === null) {
-        return resumeThreadQueue({ environmentId, input: { threadId } });
+        return resumeThreadQueue({ machineId, input: { threadId } });
       }
       const createdAt = new Date().toISOString();
       const settingsResult = await persistThreadSettingsForNextTurn({
@@ -122,7 +122,7 @@ export function useComposerResume(input: ComposerResumeInput) {
       if (settingsResult._tag === "Failure") return settingsResult;
       const modelSelection = composerRef.current?.getSendContext().selectedModelSelection;
       const turnResult = await startThreadTurn({
-        environmentId,
+        machineId,
         input: {
           threadId,
           manualContinuationOfRunId: resumableRunId,
@@ -140,7 +140,7 @@ export function useComposerResume(input: ComposerResumeInput) {
       });
       if (turnResult._tag === "Failure" || !hasHeldQueuedRuns) return turnResult;
       clearUsageLimitsFor(routeThreadKey);
-      return resumeThreadQueue({ environmentId, input: { threadId } });
+      return resumeThreadQueue({ machineId, input: { threadId } });
     };
     const result = await resume();
     if (result._tag === "Failure") {

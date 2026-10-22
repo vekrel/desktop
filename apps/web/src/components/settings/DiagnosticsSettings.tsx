@@ -1,9 +1,9 @@
 import { ProcessSignalActions } from "./ProcessSignalActions";
 import { resolveUsageAccess } from "@vekrel/client-runtime/state/usage-access";
-import { environmentSession } from "../../state/session";
+import { machineSession } from "../../state/session";
 import { AuthOrchestrationOperateScope } from "@vekrel/contracts";
-import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
-import { AuthEnvironmentMaintainScope } from "@vekrel/contracts";
+import { readMachineScope, useMachineScope } from "../../state/session";
+import { AuthMachineMaintainScope } from "@vekrel/contracts";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { AlertTriangleIcon, CopyIcon, FolderOpenIcon, InfoIcon } from "lucide-react";
 import { ChevronDown, ChevronRight } from "lucide";
@@ -24,8 +24,8 @@ import { cn } from "../../lib/utils";
 import { ensureLocalApi } from "../../localApi";
 import { useOpenInPreferredEditor } from "../../editorPreferences";
 import { useRelativeTimeState } from "../../hooks/useRelativeTimeState";
-import { useEnvironmentQuery } from "../../state/query";
-import { serverEnvironment } from "../../state/server";
+import { useMachineQuery } from "../../state/query";
+import { serverMachine } from "../../state/server";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { Button } from "../ui/button";
 import { MorphIcon } from "~/components/MorphIcon";
@@ -320,13 +320,13 @@ function visibleProcessTree(
 
 function ProcessDiagnosticsTable({
   processes,
-  canMaintainEnvironment,
+  canMaintainMachine,
   signalingPid,
   onSignal,
   emptyLabel,
 }: {
   processes: ReadonlyArray<ServerProcessDiagnosticsEntry>;
-  canMaintainEnvironment: boolean;
+  canMaintainMachine: boolean;
   signalingPid: number | null;
   onSignal: (pid: number, signal: ServerProcessSignal) => void;
   emptyLabel?: string;
@@ -417,7 +417,7 @@ function ProcessDiagnosticsTable({
                 </td>
                 <td className="p-2 align-middle sm:pr-4">
                   <ProcessSignalActions
-                    disabled={!canMaintainEnvironment || signalingPid === process.pid}
+                    disabled={!canMaintainMachine || signalingPid === process.pid}
                     onSignal={(signal) => onSignal(process.pid, signal)}
                   />
                 </td>
@@ -714,54 +714,54 @@ function DiagnosticsRefreshButton({
 }
 
 export function DiagnosticsSettingsPanel() {
-  const { environment } = useSettingsScope();
-  const environmentId = environment?.environmentId ?? null;
-  const canMaintainEnvironment = useEnvironmentScope(environmentId, AuthEnvironmentMaintainScope);
-  const observability = environment?.serverConfig?.observability;
-  const availableEditors = environment?.serverConfig?.availableEditors;
-  const canOpenHostEditor = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
-  const session = useEnvironmentQuery(
-    environmentId === null ? null : environmentSession.sessionStateAtom(environmentId),
+  const { machine } = useSettingsScope();
+  const machineId = machine?.machineId ?? null;
+  const canMaintainMachine = useMachineScope(machineId, AuthMachineMaintainScope);
+  const observability = machine?.serverConfig?.observability;
+  const availableEditors = machine?.serverConfig?.availableEditors;
+  const canOpenHostEditor = useMachineScope(machineId, AuthOrchestrationOperateScope);
+  const session = useMachineQuery(
+    machineId === null ? null : machineSession.sessionStateAtom(machineId),
   );
   const diagnosticsAccess = resolveUsageAccess({
-    connectionPhase: environment?.connection.phase ?? "available",
+    connectionPhase: machine?.connection.phase ?? "available",
     session: session.data,
     hasSessionError: session.error !== null,
   });
   const canReadDiagnostics = diagnosticsAccess.canReadDiagnostics;
-  const signalServerProcess = useAtomCommand(serverEnvironment.signalProcess, {
+  const signalServerProcess = useAtomCommand(serverMachine.signalProcess, {
     reportFailure: false,
   });
-  const openInEditor = useOpenInPreferredEditor(environmentId, availableEditors ?? []);
+  const openInEditor = useOpenInPreferredEditor(machineId, availableEditors ?? []);
   const [resourceWindowMs, setResourceWindowMs] = useState(15 * 60_000);
   const selectedResourceWindow =
     RESOURCE_HISTORY_WINDOWS.find((option) => option.windowMs === resourceWindowMs) ??
     RESOURCE_HISTORY_WINDOWS[1];
-  const { data, error, isPending, refresh } = useEnvironmentQuery(
-    environmentId === null || !canReadDiagnostics
+  const { data, error, isPending, refresh } = useMachineQuery(
+    machineId === null || !canReadDiagnostics
       ? null
-      : serverEnvironment.traceDiagnostics({ environmentId, input: {} }),
+      : serverMachine.traceDiagnostics({ machineId, input: {} }),
   );
   const {
     data: processData,
     error: processError,
     isPending: isProcessPending,
     refresh: refreshProcesses,
-  } = useEnvironmentQuery(
-    environmentId === null || !canReadDiagnostics
+  } = useMachineQuery(
+    machineId === null || !canReadDiagnostics
       ? null
-      : serverEnvironment.processDiagnostics({ environmentId, input: {} }),
+      : serverMachine.processDiagnostics({ machineId, input: {} }),
   );
   const {
     data: resourceData,
     error: resourceError,
     isPending: isResourcePending,
     refresh: refreshResources,
-  } = useEnvironmentQuery(
-    environmentId === null || !canReadDiagnostics
+  } = useMachineQuery(
+    machineId === null || !canReadDiagnostics
       ? null
-      : serverEnvironment.processResourceHistory({
-          environmentId,
+      : serverMachine.processResourceHistory({
+          machineId,
           input: {
             windowMs: selectedResourceWindow.windowMs,
             bucketMs: selectedResourceWindow.bucketMs,
@@ -772,25 +772,25 @@ export function DiagnosticsSettingsPanel() {
   const [openLogsDirectoryError, setOpenLogsDirectoryError] = useState<string | null>(null);
   const [signalingPid, setSignalingPid] = useState<number | null>(null);
   const signalingPidRef = useRef<number | null>(null);
-  const environmentIdRef = useRef(environmentId);
+  const machineIdRef = useRef(machineId);
   const processDataRef = useRef(processData);
   useEffect(() => {
     processDataRef.current = processData;
   }, [processData]);
   useEffect(() => {
-    environmentIdRef.current = environmentId;
+    machineIdRef.current = machineId;
     return () => {
-      environmentIdRef.current = null;
+      machineIdRef.current = null;
     };
-  }, [environmentId]);
+  }, [machineId]);
 
   const openLogsDirectory = () => {
     const logsDirectoryPath = observability?.logsDirectoryPath ?? null;
     if (!logsDirectoryPath) return;
 
     if (
-      environmentId === null ||
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)
+      machineId === null ||
+      !readMachineScope(machineId, AuthOrchestrationOperateScope)
     ) {
       return;
     }
@@ -812,26 +812,26 @@ export function DiagnosticsSettingsPanel() {
   const isInitialLoading = isPending && data === null;
   const isProcessInitialLoading = isProcessPending && processData === null;
   const isResourceInitialLoading = isResourcePending && resourceData === null;
-  // The export form waits for each environment's first tables so a search target below them
+  // The export form waits for each machine's first tables so a search target below them
   // stays in view. Later loads, such as a new resource window, must not remount it and drop drafts.
-  const [exportFormEnvironmentId, setExportFormEnvironmentId] =
-    useState<typeof environmentId>(null);
+  const [exportFormMachineId, setExportFormMachineId] =
+    useState<typeof machineId>(null);
   if (
-    exportFormEnvironmentId !== environmentId &&
+    exportFormMachineId !== machineId &&
     canReadDiagnostics &&
     !isInitialLoading &&
     !isProcessInitialLoading &&
     !isResourceInitialLoading
   ) {
-    setExportFormEnvironmentId(environmentId);
+    setExportFormMachineId(machineId);
   }
   const signalProcess = async (pid: number, signal: ServerProcessSignal) => {
-    const targetEnvironmentId = environmentIdRef.current;
+    const targetMachineId = machineIdRef.current;
     const process = processDataRef.current?.processes.find((entry) => entry.pid === pid);
     if (
-      targetEnvironmentId === null ||
+      targetMachineId === null ||
       process === undefined ||
-      !readEnvironmentScope(targetEnvironmentId, AuthEnvironmentMaintainScope)
+      !readMachineScope(targetMachineId, AuthMachineMaintainScope)
     )
       return;
     if (signalingPidRef.current !== null) return;
@@ -862,11 +862,11 @@ export function DiagnosticsSettingsPanel() {
         return;
       }
     }
-    const currentEnvironmentId = environmentIdRef.current;
+    const currentMachineId = machineIdRef.current;
     if (
-      currentEnvironmentId === null ||
-      currentEnvironmentId !== targetEnvironmentId ||
-      !readEnvironmentScope(currentEnvironmentId, AuthEnvironmentMaintainScope)
+      currentMachineId === null ||
+      currentMachineId !== targetMachineId ||
+      !readMachineScope(currentMachineId, AuthMachineMaintainScope)
     ) {
       clearSignaling();
       return;
@@ -880,7 +880,7 @@ export function DiagnosticsSettingsPanel() {
     }
 
     const result = await signalServerProcess({
-      environmentId: targetEnvironmentId,
+      machineId: targetMachineId,
       input: { pid, startTimeMs: process.startTimeMs, signal },
     });
     clearSignaling();
@@ -928,8 +928,8 @@ export function DiagnosticsSettingsPanel() {
     return (
       <SettingsPageContainer>
         <p className="text-sm text-muted-foreground">
-          {environmentId === null
-            ? "Connect an environment to see diagnostics."
+          {machineId === null
+            ? "Connect a machine to see diagnostics."
             : diagnosticsAccess.isPending
               ? "Checking diagnostics access…"
               : diagnosticsAccess.error}
@@ -940,7 +940,7 @@ export function DiagnosticsSettingsPanel() {
 
   return (
     <SettingsPageContainer width="expanded" className="gap-10">
-      <ResourceTelemetryDiagnostics environmentId={environmentId} />
+      <ResourceTelemetryDiagnostics machineId={machineId} />
 
       <SettingsSection
         title="Live Processes"
@@ -993,7 +993,7 @@ export function DiagnosticsSettingsPanel() {
         ) : null}
         <ProcessDiagnosticsTable
           processes={processData?.processes ?? []}
-          canMaintainEnvironment={canMaintainEnvironment}
+          canMaintainMachine={canMaintainMachine}
           signalingPid={signalingPid}
           onSignal={signalProcess}
           emptyLabel={
@@ -1343,7 +1343,7 @@ export function DiagnosticsSettingsPanel() {
           <EmptyRows label={isInitialLoading ? "Loading span names..." : "No spans found."} />
         )}
       </SettingsSection>
-      {exportFormEnvironmentId === environmentId && <TelemetryExportSettings />}
+      {exportFormMachineId === machineId && <TelemetryExportSettings />}
     </SettingsPageContainer>
   );
 }

@@ -1,5 +1,5 @@
 import {
-  EnvironmentId,
+  MachineId,
   ProviderDriverKind,
   ProviderInstanceId,
   type ProviderAuthState,
@@ -31,8 +31,8 @@ vi.mock(import("../../state/server"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    serverEnvironment: {
-      ...actual.serverEnvironment,
+    serverMachine: {
+      ...actual.serverMachine,
       providerAuthState: setup.authState as never,
       providerInstallState: setup.installState as never,
       startProviderAuth: setup.startAuth as never,
@@ -61,7 +61,7 @@ vi.mock(import("../../state/query"), async (original) => {
   };
   return {
     ...(await original()),
-    useEnvironmentQuery: ((atom: string) => ({
+    useMachineQuery: ((atom: string) => ({
       data: useSyncExternalStore(subscribe, () =>
         atom === "auth" ? setup.auth : setup.installation,
       ),
@@ -82,7 +82,7 @@ vi.mock(import("../../localApi"), async (original) => ({
 
 import { ProviderSetupSection } from "./ProviderSetupSection";
 
-const environmentId = EnvironmentId.make("remote-google");
+const machineId = MachineId.make("remote-google");
 const instanceId = ProviderInstanceId.make("antigravity_work");
 const provider: ServerProvider = {
   instanceId,
@@ -121,8 +121,8 @@ interface SectionOptions {
 function section(options: SectionOptions = {}) {
   return (
     <ProviderSetupSection
-      environmentId={environmentId}
-      environmentLabel="Remote Google device"
+      machineId={machineId}
+      machineLabel="Remote Google device"
       instanceId={instanceId}
       provider={options.provider ?? provider}
       binaryPath={options.binaryPath}
@@ -183,7 +183,7 @@ function resetSetup() {
 }
 
 describe("Antigravity setup", () => {
-  it("waits for verified auth after submitting a callback to the selected environment", async () => {
+  it("waits for verified auth after submitting a callback to the selected machine", async () => {
     resetSetup();
     const callbackUrl = "http://127.0.0.1:5555/?state=test-only&code=test-only";
     await using screen = await renderSetup();
@@ -191,7 +191,7 @@ describe("Antigravity setup", () => {
     await screen.click("Continue");
 
     expect(setup.completeAuth).toHaveBeenCalledWith({
-      environmentId,
+      machineId,
       input: { instanceId, flowId: "flow-1", callbackUrl },
     });
     expect(screen.occurrences("Signed in.")).toBe(0);
@@ -230,7 +230,7 @@ describe("Antigravity setup", () => {
     await act(async () => screen.callbackInput().form!.requestSubmit());
 
     expect(setup.completeAuth).not.toHaveBeenCalled();
-    expect(setup.authState).toHaveBeenLastCalledWith({ environmentId, input: { instanceId } });
+    expect(setup.authState).toHaveBeenLastCalledWith({ machineId, input: { instanceId } });
   });
 
   it("does not let a shared managed install hide an invalid custom binary path", async () => {

@@ -1,12 +1,12 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import type { EnvironmentId, ScopedThreadRef } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import type { MachineId, ScopedThreadRef } from "@vekrel/contracts";
 
 import { useProjects } from "~/state/entities";
 
 import { useHandleNewThread } from "./useHandleNewThread";
 
 export interface ActiveProjectTarget {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly cwd: string;
   readonly projectName: string;
   readonly threadRef: ScopedThreadRef;
@@ -20,7 +20,7 @@ export function useActiveProjectTarget(): ActiveProjectTarget | null {
   const project = thread
     ? projects.find(
         (candidate) =>
-          candidate.environmentId === thread.environmentId && candidate.id === thread.projectId,
+          candidate.machineId === thread.machineId && candidate.id === thread.projectId,
       )
     : null;
   const cwd = thread?.worktreePath ?? project?.workspaceRoot;
@@ -28,9 +28,9 @@ export function useActiveProjectTarget(): ActiveProjectTarget | null {
   if (!thread || !threadId || !project || !cwd) return null;
 
   return {
-    environmentId: project.environmentId,
+    machineId: project.machineId,
     cwd,
     projectName: project.title,
-    threadRef: scopeThreadRef(thread.environmentId, threadId),
+    threadRef: scopeThreadRef(thread.machineId, threadId),
   };
 }

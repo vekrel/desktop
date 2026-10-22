@@ -1,8 +1,8 @@
-import type { EnvironmentConnectionPhase } from "@vekrel/client-runtime/connection";
+import type { MachineConnectionPhase } from "@vekrel/client-runtime/connection";
 import {
   AuthProvidersManageScope,
   type AuthSessionState,
-  type EnvironmentId,
+  type MachineId,
   type ProjectId,
   type ProjectSettingsOverrides,
   type ProviderInstanceId,
@@ -11,60 +11,60 @@ import {
   type SessionGrantInput,
 } from "@vekrel/contracts";
 
-export interface ProviderEnvironmentOptionLike {
-  readonly environmentId: EnvironmentId;
+export interface ProviderMachineOptionLike {
+  readonly machineId: MachineId;
   readonly label: string;
 }
 
-export function isProviderSettingsEnvironmentAvailable(input: {
-  readonly connectionPhase: EnvironmentConnectionPhase;
+export function isProviderSettingsMachineAvailable(input: {
+  readonly connectionPhase: MachineConnectionPhase;
   readonly hasServerConfig: boolean;
 }): boolean {
   return input.connectionPhase === "connected" && input.hasServerConfig;
 }
 
-export function buildProviderEnvironmentOptions<T extends ProviderEnvironmentOptionLike>(
-  environments: ReadonlyArray<T>,
-  primaryEnvironmentId: EnvironmentId | null,
-  environmentIds?: readonly EnvironmentId[],
+export function buildProviderMachineOptions<T extends ProviderMachineOptionLike>(
+  machines: ReadonlyArray<T>,
+  primaryMachineId: MachineId | null,
+  machineIds?: readonly MachineId[],
 ): ReadonlyArray<T> {
-  const allowed = environmentIds ? new Set(environmentIds) : null;
-  return environments
-    .filter((environment) => !allowed || allowed.has(environment.environmentId))
+  const allowed = machineIds ? new Set(machineIds) : null;
+  return machines
+    .filter((machine) => !allowed || allowed.has(machine.machineId))
     .toSorted((left, right) => {
-      const leftIsPrimary = left.environmentId === primaryEnvironmentId;
-      const rightIsPrimary = right.environmentId === primaryEnvironmentId;
+      const leftIsPrimary = left.machineId === primaryMachineId;
+      const rightIsPrimary = right.machineId === primaryMachineId;
       if (leftIsPrimary !== rightIsPrimary) {
         return leftIsPrimary ? -1 : 1;
       }
       return (
         left.label.localeCompare(right.label) ||
-        String(left.environmentId).localeCompare(String(right.environmentId))
+        String(left.machineId).localeCompare(String(right.machineId))
       );
     });
 }
 
-export function resolveSelectedProviderEnvironmentId(
-  environments: ReadonlyArray<ProviderEnvironmentOptionLike>,
-  selectedEnvironmentId: EnvironmentId | null,
-  primaryEnvironmentId: EnvironmentId | null,
-): EnvironmentId | null {
+export function resolveSelectedProviderMachineId(
+  machines: ReadonlyArray<ProviderMachineOptionLike>,
+  selectedMachineId: MachineId | null,
+  primaryMachineId: MachineId | null,
+): MachineId | null {
   if (
-    selectedEnvironmentId !== null &&
-    environments.some((environment) => environment.environmentId === selectedEnvironmentId)
+    selectedMachineId !== null &&
+    machines.some((machine) => machine.machineId === selectedMachineId)
   ) {
-    return selectedEnvironmentId;
+    return selectedMachineId;
   }
   if (
-    primaryEnvironmentId !== null &&
-    environments.some((environment) => environment.environmentId === primaryEnvironmentId)
+    primaryMachineId !== null &&
+    machines.some((machine) => machine.machineId === primaryMachineId)
   ) {
-    return primaryEnvironmentId;
+    return primaryMachineId;
   }
-  return environments[0]?.environmentId ?? null;
+  return machines[0]?.machineId ?? null;
 }
 
-export type ProviderEnvironmentAccess =
+export type ProviderMachineAccess =
   | { readonly kind: "editable" }
   | { readonly kind: "loading"; readonly reason: "config" | "permissions" }
   | { readonly kind: "read-only" }
@@ -132,11 +132,11 @@ export function buildProviderInstanceOverridePatch(
   return patch;
 }
 
-export function classifyProviderEnvironmentAccess(input: {
-  readonly connectionPhase: EnvironmentConnectionPhase;
+export function classifyProviderMachineAccess(input: {
+  readonly connectionPhase: MachineConnectionPhase;
   readonly hasServerConfig: boolean;
   readonly operateAccess: ProviderOperateAccess;
-}): ProviderEnvironmentAccess {
+}): ProviderMachineAccess {
   if (input.connectionPhase === "error") {
     return { kind: "error" };
   }

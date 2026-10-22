@@ -21,20 +21,20 @@ vi.mock(import("../../state/server"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    serverEnvironment: {
-      ...actual.serverEnvironment,
+    serverMachine: {
+      ...actual.serverMachine,
       updateSettings: "updateSettings",
-    } as unknown as typeof actual.serverEnvironment,
+    } as unknown as typeof actual.serverMachine,
   };
 });
 vi.mock(import("./SettingsScopeContext"), async (original) => ({
   ...(await original()),
   useSettingsScope: (() => ({
-    scope: { kind: "environment" },
-    environment: {
-      environmentId: "env",
+    scope: { kind: "machine" },
+    machine: {
+      machineId: "env",
       label: "MAC1",
-      serverConfig: { environment: { capabilities: {} } },
+      serverConfig: { machine: { capabilities: {} } },
     },
   })) as never,
 }));
@@ -75,7 +75,7 @@ describe("TelemetryExportSettings", () => {
     await userEvent.click(save);
 
     expect(updateSettings).toHaveBeenCalledExactlyOnceWith({
-      environmentId: "env",
+      machineId: "env",
       input: { patch: { observability: { otlpMetricsUrl: "http://new/v1/metrics" } } },
     });
     expect(container.textContent).toContain("Saved. Restart the server to apply.");

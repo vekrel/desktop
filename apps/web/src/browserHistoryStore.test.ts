@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { MachineId, ThreadId } from "@vekrel/contracts";
 
 const { readPreparedConnection } = vi.hoisted(() => ({
   readPreparedConnection: vi.fn<() => { httpBaseUrl: string } | null>(() => null),
@@ -104,7 +104,7 @@ describe("migratePersistedBrowserHistoryState", () => {
 });
 
 const threadRef = {
-  environmentId: EnvironmentId.make("env-1"),
+  machineId: MachineId.make("env-1"),
   threadId: ThreadId.make("thread-1"),
 };
 
@@ -140,14 +140,14 @@ describe("useBrowserHistoryStore", () => {
     });
   });
 
-  it("matches a requested localhost URL to the resolved environment host", () => {
+  it("matches a requested localhost URL to the resolved machine host", () => {
     useBrowserHistoryStore.getState().registerThreadProject(threadRef, "proj-a");
     recordVisitForThread(threadRef, "http://localhost:5173/app", 1);
     setTitleForThreadUrl(threadRef, "http://192.168.64.2:5173/app", "Local App", "192.168.64.2");
     expect(useBrowserHistoryStore.getState().byProjectKey["proj-a"]?.[0]?.title).toBe("Local App");
   });
 
-  it("deduplicates loopback aliases and the resolved environment host", () => {
+  it("deduplicates loopback aliases and the resolved machine host", () => {
     readPreparedConnection.mockReturnValue({ httpBaseUrl: "http://192.168.64.2:3773" });
     useBrowserHistoryStore.getState().registerThreadProject(threadRef, "proj-a");
     recordVisitForThread(threadRef, "http://localhost:5173/app", 1);
@@ -187,7 +187,7 @@ describe("pendingVisitsByThreadKey", () => {
 
   it("slots a replayed visit by timestamp instead of hoisting it above a newer live visit", () => {
     const otherThreadRef = {
-      environmentId: EnvironmentId.make("env-1"),
+      machineId: MachineId.make("env-1"),
       threadId: ThreadId.make("thread-2"),
     };
     useBrowserHistoryStore.getState().registerThreadProject(otherThreadRef, "proj-a");

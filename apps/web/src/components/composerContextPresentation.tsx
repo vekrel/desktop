@@ -5,7 +5,7 @@ import { formatAttachmentSize } from "@vekrel/client-runtime/state/attachments";
 import { videoMimeType } from "@vekrel/shared/video";
 import { MessageCircleIcon, MousePointerClickIcon } from "lucide-react";
 import { createContext, type MouseEvent, type ReactElement, type ReactNode, use } from "react";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 
 import type { ComposerFileAttachment, ComposerImageAttachment } from "~/composerDraftStore";
 import { composerFileNeedsReattach } from "~/composerDraftStore";
@@ -61,7 +61,7 @@ export type ComposerDraftContextRecord =
   | { kind: "thread"; record: ThreadContextRecord };
 
 export interface ComposerContextActions {
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   cwd?: string | undefined;
   expandImage: (imageId: string) => void;
   expandVideo: (fileId: string) => void;
@@ -71,7 +71,7 @@ export interface ComposerContextActions {
 }
 
 export const ComposerContextActionsContext = createContext<ComposerContextActions>({
-  environmentId: null,
+  machineId: null,
   expandImage: () => {},
   expandVideo: () => {},
   openFile: () => {},
@@ -251,7 +251,7 @@ function PullRequestContextChip(props: { record: ReviewCommentContext; kind: Con
   return (
     <PullRequestChip
       metadata={metadata}
-      environmentId={actions.environmentId}
+      machineId={actions.machineId}
       label={reviewCommentContextLabel(props.record)}
       kindLabel={pullRequestContextKindLabel(props.record)}
       kind={props.kind}
@@ -324,11 +324,11 @@ function ComposerPreviewAnnotationDetails({
 }
 
 function ComposerThreadContextChip(props: { record: ThreadContextRecord }) {
-  const { environmentId } = use(ComposerContextActionsContext);
+  const { machineId } = use(ComposerContextActionsContext);
   return (
     <ThreadContextChip
       record={props.record}
-      unreadable={environmentId !== null && props.record.environmentId !== environmentId}
+      unreadable={machineId !== null && props.record.machineId !== machineId}
     />
   );
 }

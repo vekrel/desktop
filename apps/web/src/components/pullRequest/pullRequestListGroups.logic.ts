@@ -14,7 +14,7 @@ import {
   partitionPullRequestsWithPriority,
   pullRequestEntryKey,
   pullRequestEntryViewer,
-  type EnvironmentPullRequestEntry,
+  type MachinePullRequestEntry,
   type PullRequestPartitionsSnapshot,
 } from "./pullRequestList.logic";
 
@@ -37,7 +37,7 @@ export function pullRequestGroups({
   reviewing,
   partitionsWanted,
 }: {
-  known: ReadonlyArray<EnvironmentPullRequestEntry>;
+  known: ReadonlyArray<MachinePullRequestEntry>;
   providers: PullRequestListResult["providers"];
   viewers: PullRequestListResult["viewers"];
   involvement: PullRequestInvolvement;
@@ -47,8 +47,8 @@ export function pullRequestGroups({
   answeredLocally: boolean;
   baselineEmpty: boolean;
   held: PullRequestPartitionsSnapshot | undefined;
-  authored: ReadonlyArray<EnvironmentPullRequestEntry> | undefined;
-  reviewing: ReadonlyArray<EnvironmentPullRequestEntry> | undefined;
+  authored: ReadonlyArray<MachinePullRequestEntry> | undefined;
+  reviewing: ReadonlyArray<MachinePullRequestEntry> | undefined;
   partitionsWanted: boolean;
 }) {
   const searchingHosts = new Set(
@@ -93,7 +93,7 @@ export function pullRequestGroups({
     if (baselineEmpty) {
       return groupPullRequestsByInvolvement(entries, viewers);
     }
-    const narrow = (rows: ReadonlyArray<EnvironmentPullRequestEntry> | undefined) =>
+    const narrow = (rows: ReadonlyArray<MachinePullRequestEntry> | undefined) =>
       rows === undefined || !hasLocalFilters
         ? rows
         : rows.filter((entry) =>
@@ -107,7 +107,7 @@ export function pullRequestGroups({
     return partitionPullRequestsWithPriority(entries, narrowedAuthored, narrowedReviewing);
   })();
 
-  const entriesByStatsKey: ReadonlyMap<string, EnvironmentPullRequestEntry> = new Map(
+  const entriesByStatsKey: ReadonlyMap<string, MachinePullRequestEntry> = new Map(
     groups.flatMap((group) =>
       group.entries.map((entry) => [pullRequestEntryKey(entry), entry] as const),
     ),

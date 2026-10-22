@@ -1,5 +1,5 @@
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
-import { EnvironmentId, ProjectId, ThreadId } from "@vekrel/contracts";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
+import { MachineId, ProjectId, ThreadId } from "@vekrel/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("~/state/entities", () => ({ useQuietThreadShell: () => null }));
@@ -15,9 +15,9 @@ import {
   useBrowserFaviconStore,
 } from "./browserFaviconStore";
 
-const environmentId = EnvironmentId.make("env-1");
-const projectRef = scopeProjectRef(environmentId, ProjectId.make("project-1"));
-const threadRef = { environmentId, threadId: ThreadId.make("thread-1") };
+const machineId = MachineId.make("env-1");
+const projectRef = scopeProjectRef(machineId, ProjectId.make("project-1"));
+const threadRef = { machineId, threadId: ThreadId.make("thread-1") };
 const PNG = "data:image/png;base64,AAAA";
 const favicon = (pageUrl: string, capturedAt: number, dataUrl = PNG) => ({
   pageUrl,
@@ -32,14 +32,14 @@ describe("browser favicon store", () => {
     vi.restoreAllMocks();
   });
 
-  it("does not share localhost icons across environments or physical projects", () => {
-    const otherEnvironment = scopeProjectRef(
-      EnvironmentId.make("env-2"),
+  it("does not share localhost icons across machines or physical projects", () => {
+    const otherMachine = scopeProjectRef(
+      MachineId.make("env-2"),
       ProjectId.make("project-1"),
     );
-    const otherProject = scopeProjectRef(environmentId, ProjectId.make("project-2"));
+    const otherProject = scopeProjectRef(machineId, ProjectId.make("project-2"));
     recordFaviconForProject(projectRef, favicon("http://localhost:3000/", 1), null);
-    recordFaviconForProject(otherEnvironment, favicon("http://localhost:3000/", 2), null);
+    recordFaviconForProject(otherMachine, favicon("http://localhost:3000/", 2), null);
     recordFaviconForProject(otherProject, favicon("http://localhost:3000/", 3), null);
     expect(Object.keys(useBrowserFaviconStore.getState().byKey)).toEqual([
       "env-1:project-1 http://localhost:3000",
@@ -48,7 +48,7 @@ describe("browser favicon store", () => {
     ]);
   });
 
-  it("finds a persisted environment icon after shell hydration without a live connection", () => {
+  it("finds a persisted machine icon after shell hydration without a live connection", () => {
     recordFaviconForProject(projectRef, favicon("http://192.168.64.2:3000/app", 5), "192.168.64.2");
     const byKey = useBrowserFaviconStore.getState().byKey;
     expect(lookupFavicon(byKey, null, "http://localhost:3000/app", null)).toBeNull();
@@ -60,7 +60,7 @@ describe("browser favicon store", () => {
     expect(
       lookupFavicon(
         byKey,
-        scopeProjectRef(environmentId, ProjectId.make("project-2")),
+        scopeProjectRef(machineId, ProjectId.make("project-2")),
         "http://192.168.64.2:3000/app",
         null,
       ),
@@ -86,7 +86,7 @@ describe("browser favicon store", () => {
     expect(useBrowserFaviconStore.getState().pendingByThreadKey).toEqual({});
   });
 
-  it("persists unambiguous loopback captures while the environment is offline", () => {
+  it("persists unambiguous loopback captures while the machine is offline", () => {
     expect(
       recordFaviconForThread(
         threadRef,

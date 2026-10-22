@@ -1,4 +1,4 @@
-import { parseScopedThreadKey } from "@vekrel/client-runtime/environment";
+import { parseScopedThreadKey } from "@vekrel/client-runtime/machine";
 import {
   AuthPreviewOperateScope,
   type DesktopPreviewOpenLinkEvent,
@@ -7,14 +7,14 @@ import {
 import { useAtomValue } from "@effect/atom-react";
 import { type ComponentProps, useEffect, useEffectEvent, useState } from "react";
 
-import { primaryEnvironmentIdAtom } from "~/state/primaryEnvironment";
+import { primaryMachineIdAtom } from "~/state/primaryMachine";
 
 import { isElectron } from "~/env";
 import { useClientSettingsHydrated } from "~/hooks/useSettings";
 import { useDesktopHostedPreviewSessions } from "~/components/preview/usePreviewSession";
 import { useActivePreviewSessions } from "~/previewStateStore";
-import { previewEnvironment } from "~/state/preview";
-import { useEnvironmentScope } from "~/state/session";
+import { previewMachine } from "~/state/preview";
+import { useMachineScope } from "~/state/session";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { readPreviewAnnotationTheme } from "./annotationTheme";
@@ -27,8 +27,8 @@ import { previewRuntimeTabId } from "./previewRuntimeTabId";
 
 export function ElectronBrowserHost() {
   const previewByThreadKey = useActivePreviewSessions();
-  const primaryEnvironmentId = useAtomValue(primaryEnvironmentIdAtom);
-  useDesktopHostedPreviewSessions(primaryEnvironmentId);
+  const primaryMachineId = useAtomValue(primaryMachineIdAtom);
+  useDesktopHostedPreviewSessions(primaryMachineId);
   const activeSessions = Object.entries(previewByThreadKey).flatMap(([threadKey, previewState]) => {
     const threadRef = parseScopedThreadKey(threadKey);
     return threadRef
@@ -36,7 +36,7 @@ export function ElectronBrowserHost() {
           .filter(
             (snapshot) =>
               snapshot.runtime !== "server" ||
-              rendersServerTabNatively(threadRef.environmentId, primaryEnvironmentId, snapshot),
+              rendersServerTabNatively(threadRef.machineId, primaryMachineId, snapshot),
           )
           .map((snapshot) => ({
             threadRef,
@@ -95,7 +95,7 @@ export function ElectronBrowserHost() {
     });
   }, []);
 
-  const openPreview = useAtomCommand(previewEnvironment.open, { reportFailure: true });
+  const openPreview = useAtomCommand(previewMachine.open, { reportFailure: true });
   const onOpenLink = useEffectEvent(({ tabId, url, background }: DesktopPreviewOpenLinkEvent) => {
     const source = sessions.find((session) => session.runtimeTabId === tabId);
     if (!source) return;
@@ -146,8 +146,8 @@ export function ElectronBrowserHost() {
 }
 
 function AuthorizedBrowserWebview(props: ComponentProps<typeof HostedBrowserWebview>) {
-  const canOperatePreview = useEnvironmentScope(
-    props.threadRef.environmentId,
+  const canOperatePreview = useMachineScope(
+    props.threadRef.machineId,
     AuthPreviewOperateScope,
   );
   const profileId = useTabProfileId(props.profileId);

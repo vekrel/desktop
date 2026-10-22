@@ -25,7 +25,7 @@ export function PullRequestsUnavailableState({
       </EmptyMedia>
       <EmptyHeader>
         <EmptyTitle>{title}</EmptyTitle>
-        {/* The caller names the fix — update the environment, install gh, sign in — so this
+        {/* The caller names the fix — update the machine, install gh, sign in — so this
             shows its message rather than trying to infer one from the failure text. */}
         <EmptyDescription>{error}</EmptyDescription>
       </EmptyHeader>

@@ -1,5 +1,5 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import { MachineId, ThreadId } from "@vekrel/contracts";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
@@ -16,13 +16,13 @@ afterEach(() => {
 });
 
 describe("async attachment references", () => {
-  it.each(["thread", "environment"])(
+  it.each(["thread", "machine"])(
     "keeps a deferred image in its original draft after a %s switch",
     async (switchKind) => {
-      const targetA = scopeThreadRef(EnvironmentId.make("env-A"), ThreadId.make("thread-A"));
+      const targetA = scopeThreadRef(MachineId.make("env-A"), ThreadId.make("thread-A"));
       const targetB = scopeThreadRef(
-        EnvironmentId.make(switchKind === "environment" ? "env-B" : "env-A"),
-        ThreadId.make(switchKind === "environment" ? "thread-A" : "thread-B"),
+        MachineId.make(switchKind === "machine" ? "env-B" : "env-A"),
+        ThreadId.make(switchKind === "machine" ? "thread-A" : "thread-B"),
       );
       const store = useComposerDraftStore.getState();
       store.setPrompt(targetA, "Draft A original");

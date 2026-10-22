@@ -1,0 +1,711 @@
+import { SessionPermissions } from "./SessionPermissions";
+import {
+  ChevronRightIcon,
+  ChevronsLeftRightEllipsisIcon,
+  EllipsisIcon,
+  RouteIcon,
+} from "lucide-react";
+import { useAtomValue } from "@effect/atom-react";
+import { useEffect, useEffectEvent, useState } from "react";
+import {
+  AuthRelayWriteScope,
+  type MachineId,
+  connectReachabilityHelpUrl,
+  formatConnectReachable,
+  resolveMachineKind,
+} from "@vekrel/contracts";
+import {
+  connectionRoutes,
+  hasSavedBearerRoute,
+  connectionStatusText,
+  machineMcpUrl,
+} from "@vekrel/client-runtime/connection";
+import * as Option from "effect/Option";
+
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import { cn } from "../../lib/utils";
+import { SettingsRow } from "./settingsLayout";
+import { searchableSetting } from "./settingsSearch";
+import { MachineIconMenu } from "./MachineIconPicker";
+import { MachineRoutesList } from "./MachineRoutesList";
+import {
+  ConnectionDiagnosisPanel,
+  ConnectionDiagnosisSummary,
+  useConnectionDiagnosis,
+} from "./ConnectionDiagnosisDetails";
+import { usePreparedConnection } from "~/state/session";
+import { MachineRow, machineTransportLabel } from "./MachineRow";
+import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
+import { Switch } from "../ui/switch";
+import { stackedThreadToast, toastManager } from "../ui/toast";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { Button } from "../ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty";
+import {
+  resolveServerConfigVersionMismatch,
+  resolveServerSelfUpdateCapability,
+  supportsDesktopAppUpdate,
+  supportsServerUpdateThreadContinuation,
+} from "~/versionSkew";
+import { hasCloudPublicConfig } from "~/cloud/publicConfig";
+import { useCloudLinkController } from "~/cloud/useCloudLinkController";
+import { machineCatalog } from "~/connection/catalog";
+import { readMachineScope } from "~/state/session";
+import {
+  type MachinePresentation,
+  useRelayMachineDiscovery,
+  usePrimaryMachineId,
+} from "~/state/machines";
+import { APP_VERSION } from "~/branding";
+import { useAtomCommand } from "../../state/use-atom-command";
+import { serverMachine } from "~/state/server";
+import {
+  OutdatedServerUpdateAction,
+  ServerUpdateAction,
+  ServerUpdateProgress,
+} from "../ServerUpdateAction";
+import { CloudMachineConnectRows } from "../cloud/CloudMachineConnectList";
+
+type SavedBackendListRowProps = {
+  machine: MachinePresentation;
+  removingMachineId: MachineId | null;
+  onSetEnabled: (machineId: MachineId, enabled: boolean) => void;
+  onRemove: (machine: MachinePresentation) => void;
+  onAddRoute: (machine: MachinePresentation) => void;
+};
+
+function savedBackendStatus(machine: MachinePresentation): {
+  readonly text: string;
+  readonly tone: "muted" | "error";
+} {
+  if (!machine.entry.enabled && machine.connection.phase !== "unsupported")
+    return { text: "Off", tone: "muted" };
+  const { connection } = machine;
+  switch (connection.phase) {
+    case "connected":
+      return { text: "Connected", tone: "muted" };
+    case "connecting":
+      return { text: "Connecting", tone: "muted" };
+    case "reconnecting":
+      return {
+        text: connection.error ? `Reconnecting: ${connection.error}` : "Reconnecting",
+        tone: "error",
+      };
+    case "unsupported":
+      return { text: "Client not supported", tone: "muted" };
+    case "error":
+      return {
+        text: connection.error ? `Connection failed: ${connection.error}` : "Connection failed",
+        tone: "error",
+      };
+    case "offline":
+      return { text: "Offline", tone: "muted" };
+    case "available":
+      return { text: "Not connected", tone: "muted" };
+  }
+}
+
+export function SavedBackendListRow({
+  machine,
+  removingMachineId,
+  onSetEnabled,
+  onRemove,
+  onAddRoute,
+}: SavedBackendListRowProps) {
+  const [routesOpen, setRoutesOpen] = useState(false);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [diagnosisOpen, setDiagnosisOpen] = useState(false);
+  const machineId = machine.machineId;
+  const unsupported = machine.connection.phase === "unsupported";
+  const blocked = unsupported && !hasSavedBearerRoute(machine.entry);
+  const enabled = machine.entry.enabled && !unsupported;
+  const isConnected = machine.connection.phase === "connected";
+  const isRemoving = removingMachineId === machineId;
+  const errorTraceId = machine.connection.traceId;
+  const { copyToClipboard: copyTraceIdToClipboard } = useCopyToClipboard<{ traceId: string }>({
+    target: "trace ID",
+    onCopy: ({ traceId }) => {
+      toastManager.add({
+        type: "success",
+        title: "Trace ID copied",
+        description: traceId,
+      });
+    },
+    onError: (error) => {
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: "Could not copy trace ID",
+          description: error.message,
+        }),
+      );
+    },
+  });
+  const copyTraceId = (traceId: string) => {
+    copyTraceIdToClipboard(traceId, { traceId });
+  };
+  const { copyToClipboard: copyMcpUrl } = useCopyToClipboard<{ url: string }>({
+    target: "MCP URL",
+    onCopy: ({ url }) => {
+      toastManager.add({
+        type: "success",
+        title: "MCP URL copied",
+        description: `Add it to an agent, e.g. claude mcp add --transport http t3 ${url}`,
+      });
+    },
+    onError: (error) => {
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: "Could not copy MCP URL",
+          description: error.message,
+        }),
+      );
+    },
+  });
+  const versionMismatch = resolveServerConfigVersionMismatch(machine.serverConfig);
+  const serverUpdateState = useAtomValue(serverMachine.updateStateAtom(machineId));
+  const resumingServerUpdate =
+    serverUpdateState.status === "running" && serverUpdateState.stage === "resuming";
+  const status = savedBackendStatus(machine);
+  const serverVersion = machine.serverConfig?.machine.serverVersion ?? null;
+  // Discovery empties its map on every refresh, so hold the last descriptor
+  // seen or the glyph would blink back to the generic one each time.
+  const relayDiscovery = useRelayMachineDiscovery();
+  const discoveredDescriptor = Option.getOrNull(
+    relayDiscovery.machines.get(machineId)?.status ?? Option.none(),
+  )?.descriptor;
+  const [lastDescriptor, setLastDescriptor] = useState(discoveredDescriptor);
+  if (discoveredDescriptor !== undefined && discoveredDescriptor !== lastDescriptor) {
+    setLastDescriptor(discoveredDescriptor);
+  }
+  const discoveredRelayHttpBaseUrl =
+    relayDiscovery.machines.get(machineId)?.machine.endpoint.httpBaseUrl;
+  const [lastRelayHttpBaseUrl, setLastRelayHttpBaseUrl] = useState(discoveredRelayHttpBaseUrl);
+  if (
+    discoveredRelayHttpBaseUrl !== undefined &&
+    discoveredRelayHttpBaseUrl !== lastRelayHttpBaseUrl
+  ) {
+    setLastRelayHttpBaseUrl(discoveredRelayHttpBaseUrl);
+  }
+  const retryNow = useAtomCommand(machineCatalog.retryNow);
+  const {
+    diagnosis: currentDiagnosis,
+    state: connectionState,
+    relayOnly,
+  } = useConnectionDiagnosis(machine);
+  const diagnosis = resumingServerUpdate ? null : currentDiagnosis;
+  const prepared = usePreparedConnection(machineId);
+  const connectedTarget = isConnected && prepared._tag === "Some" ? prepared.value.target : null;
+  const mcpUrl = machineMcpUrl({
+    entry: machine.entry,
+    relayHttpBaseUrl: discoveredRelayHttpBaseUrl ?? lastRelayHttpBaseUrl,
+    connectedTarget,
+  });
+  const machineKind = resolveMachineKind(
+    machine.serverConfig ??
+      (lastDescriptor === undefined ? null : { machine: lastDescriptor }),
+  );
+  const routeCount = connectionRoutes(machine.entry).length;
+  const subtitleText = [
+    machineTransportLabel(machine, connectedTarget),
+    // The headline below names the failure in full.
+    diagnosis ? null : resumingServerUpdate ? "Restarting" : status.text,
+    enabled && versionMismatch ? serverVersion : null,
+  ]
+    .filter((value): value is string => value !== null)
+    .join(" · ");
+
+  const showUpdateAction =
+    enabled &&
+    isConnected &&
+    versionMismatch !== null &&
+    (serverUpdateState.status === "idle" || serverUpdateState.status === "failed");
+
+  const statusTooltip = `${
+    unsupported
+      ? (machine.connection.error ?? connectionStatusText(machine.connection))
+      : enabled
+        ? connectionStatusText(machine.connection)
+        : "Switched off"
+  }${
+    versionMismatch
+      ? `\nUpdate available: ${versionMismatch.serverVersion} → ${versionMismatch.clientVersion}`
+      : ""
+  }`;
+
+  return (
+    <MachineRow
+      kind={machineKind}
+      label={machine.label}
+      dimmed={!enabled}
+      subtitle={
+        <span className="flex min-w-0 items-center gap-1">
+          <Tooltip>
+            {/* The status can change while the tooltip is open, and base-ui only
+                re-measures the popup when the trigger's payload changes. */}
+            <TooltipTrigger
+              payload={statusTooltip}
+              render={
+                <span
+                  className={cn(
+                    "min-w-0 truncate",
+                    enabled &&
+                      status.tone === "error" &&
+                      !resumingServerUpdate &&
+                      !diagnosis &&
+                      "text-destructive",
+                  )}
+                />
+              }
+            >
+              {subtitleText}
+            </TooltipTrigger>
+            <TooltipPopup side="top" className="whitespace-pre-wrap">
+              {statusTooltip}
+            </TooltipPopup>
+          </Tooltip>
+          <span aria-hidden className="shrink-0">
+            ·
+          </span>
+          <button
+            type="button"
+            aria-expanded={routesOpen}
+            onClick={() => setRoutesOpen((open) => !open)}
+            className="inline-flex shrink-0 items-center gap-0.5 rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+          >
+            {routeCount === 1 ? "Routes" : `${routeCount} routes`}
+            <ChevronRightIcon
+              aria-hidden
+              className={cn(
+                "size-3 shrink-0 transition-transform duration-150 motion-reduce:transition-none",
+                routesOpen && "rotate-90",
+              )}
+            />
+          </button>
+          <span aria-hidden className="shrink-0">
+            ·
+          </span>
+          <button
+            type="button"
+            aria-expanded={permissionsOpen}
+            aria-controls={`remote-permissions-${machineId}`}
+            onClick={() => setPermissionsOpen((open) => !open)}
+            className="inline-flex shrink-0 items-center gap-0.5 rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+          >
+            Permissions
+            <ChevronRightIcon
+              aria-hidden
+              className={cn(
+                "size-3 shrink-0 transition-transform duration-150 motion-reduce:transition-none",
+                permissionsOpen && "rotate-90",
+              )}
+            />
+          </button>
+        </span>
+      }
+      below={
+        <>
+          {diagnosis ? (
+            <ConnectionDiagnosisSummary
+              diagnosis={diagnosis}
+              retryAt={connectionState.phase === "backoff" ? connectionState.retryAt : null}
+              attempt={connectionState.attempt}
+              expanded={diagnosisOpen}
+              onToggle={() => setDiagnosisOpen((open) => !open)}
+            />
+          ) : null}
+          {serverUpdateState.status !== "idle" ? (
+            <div className="mt-1 max-w-md">
+              <ServerUpdateProgress state={serverUpdateState} />
+            </div>
+          ) : null}
+        </>
+      }
+      detail={
+        <>
+          {diagnosis && diagnosisOpen ? (
+            <ConnectionDiagnosisPanel
+              hostLabel={machine.label}
+              diagnosis={diagnosis}
+              onRetry={() => void retryNow(machineId)}
+              onAddRoute={relayOnly ? () => onAddRoute(machine) : null}
+            />
+          ) : null}
+          {routesOpen && (
+            <MachineRoutesList
+              machine={machine}
+              onAddRoute={() => onAddRoute(machine)}
+            />
+          )}
+          {permissionsOpen && (
+            <div
+              id={`remote-permissions-${machineId}`}
+              className="mt-2 border-t border-border/50"
+            >
+              <SessionPermissions
+                machineId={machineId}
+                connected={isConnected}
+                routeContext
+              />
+            </div>
+          )}
+        </>
+      }
+    >
+      {unsupported &&
+      machine.entry.serverUpdateRequired === true &&
+      serverUpdateState.status !== "running" ? (
+        <OutdatedServerUpdateAction
+          machineId={machineId}
+          serverLabel={`${machine.label} server`}
+          fromVersion={lastDescriptor?.serverVersion}
+          targetVersion={APP_VERSION}
+          label={serverUpdateState.status === "failed" ? "Retry update" : "Update"}
+        />
+      ) : null}
+      {showUpdateAction ? (
+        <ServerUpdateAction
+          machineId={machineId}
+          serverLabel={`${machine.label} server`}
+          selfUpdate={resolveServerSelfUpdateCapability(machine.serverConfig)}
+          installation={machine.serverConfig?.machine.capabilities.serverInstallation}
+          desktopAppUpdate={supportsDesktopAppUpdate(machine.serverConfig)}
+          threadContinuation={supportsServerUpdateThreadContinuation(machine.serverConfig)}
+          targetVersion={versionMismatch.clientVersion}
+          label={serverUpdateState.status === "failed" ? "Retry update" : "Update"}
+          appearance="icon"
+        />
+      ) : null}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Switch
+              size="sm"
+              checked={enabled}
+              disabled={isRemoving || blocked}
+              aria-label={`${enabled ? "Switch off" : "Switch on"} ${machine.label}`}
+              onCheckedChange={(checked) => onSetEnabled(machineId, checked)}
+            />
+          }
+        />
+        <TooltipPopup side="top">
+          {blocked ? "Client not supported" : enabled ? "Switch off" : "Switch on"}
+        </TooltipPopup>
+      </Tooltip>
+      <Menu>
+        <MenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost-muted"
+              size="icon-xs"
+              disabled={isRemoving}
+              aria-label={`More actions for ${machine.label}`}
+            />
+          }
+        >
+          <EllipsisIcon className="size-3.5" />
+        </MenuTrigger>
+        <MenuPopup align="end">
+          <MachineIconMenu
+            machineId={machineId}
+            serverConfig={machine.serverConfig}
+          />
+          <MenuItem onClick={() => setRoutesOpen((open) => !open)}>
+            <RouteIcon />
+            {routesOpen ? "Hide routes" : "Routes"}
+          </MenuItem>
+          {mcpUrl ? (
+            <MenuItem onClick={() => copyMcpUrl(mcpUrl, { url: mcpUrl })}>Copy MCP URL</MenuItem>
+          ) : null}
+          {errorTraceId ? (
+            <MenuItem onClick={() => copyTraceId(errorTraceId)}>Copy trace ID</MenuItem>
+          ) : null}
+          <MenuSeparator />
+          <MenuItem variant="destructive" onClick={() => onRemove(machine)}>
+            {isRemoving ? "Removing…" : "Remove from this device…"}
+          </MenuItem>
+        </MenuPopup>
+      </Menu>
+    </MachineRow>
+  );
+}
+
+function CloudLinkSwitch({
+  checked,
+  disabled,
+  disabledReason,
+  onCheckedChange,
+  ariaLabel = "Enable T3 Connect",
+}: {
+  readonly checked: boolean;
+  readonly disabled: boolean;
+  readonly disabledReason: string | null;
+  readonly onCheckedChange?: (enabled: boolean) => void;
+  readonly ariaLabel?: string;
+}) {
+  const control = (
+    <Switch
+      aria-label={ariaLabel}
+      checked={checked}
+      disabled={disabled}
+      {...(onCheckedChange ? { onCheckedChange } : {})}
+    />
+  );
+  return disabledReason ? (
+    <Tooltip>
+      <TooltipTrigger render={<span className="inline-flex">{control}</span>} />
+      <TooltipPopup side="top">{disabledReason}</TooltipPopup>
+    </Tooltip>
+  ) : (
+    control
+  );
+}
+
+function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: boolean }) {
+  const primaryMachineId = usePrimaryMachineId();
+  const {
+    isSignedIn,
+    linkState: primaryCloudLinkState,
+    linkRevoked,
+    managedTunnelActive,
+    managedTunnelOutOfSync,
+    publishAgentActivity,
+    holdWebhooksWhileOffline,
+    operationError,
+    reconcileCloudState,
+  } = useCloudLinkController();
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpdatingPreference, setIsUpdatingPreference] = useState(false);
+
+  const disabledReason = !isSignedIn
+    ? "Sign in to T3 Connect to manage this machine."
+    : !canManageRelay
+      ? "Your session does not have permission to manage T3 Connect access."
+      : null;
+  const isBusy = isUpdating || isUpdatingPreference;
+  const refreshLinkState = useEffectEvent(primaryCloudLinkState.refresh);
+  // The server rechecks reachability when the tunnel's 30 s readiness poll changes.
+  // Poll while mounted, so a failed read does not stop later ones.
+  useEffect(() => {
+    const interval = window.setInterval(() => refreshLinkState(), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
+  const reachability = managedTunnelActive ? primaryCloudLinkState.data?.reachability : undefined;
+  const reachabilityStatus =
+    reachability?.status === "reachable" ? (
+      formatConnectReachable(reachability)
+    ) : reachability?.status === "unreachable" ? (
+      <span className="block text-destructive">
+        {[reachability.reason, reachability.hint, `Fix: ${reachability.fix}`]
+          .filter(Boolean)
+          .join(" ")}{" "}
+        <a
+          href={connectReachabilityHelpUrl(reachability.cause)}
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-2"
+        >
+          More info
+        </a>
+      </span>
+    ) : null;
+
+  const updateManagedTunnel = async (enabled: boolean) => {
+    if (
+      primaryMachineId === null ||
+      !readMachineScope(primaryMachineId, AuthRelayWriteScope)
+    )
+      return;
+    setIsUpdating(true);
+    const ok = await reconcileCloudState({ managedTunnel: enabled, publish: publishAgentActivity });
+    if (ok) {
+      toastManager.add({
+        type: "success",
+        title: enabled
+          ? "T3 Connect linked"
+          : publishAgentActivity
+            ? "T3 Connect tunnel disabled"
+            : "T3 Connect unlinked",
+        description: enabled
+          ? "This machine is available through T3 Connect."
+          : publishAgentActivity
+            ? "The managed tunnel was removed. Agent activity publishing stays on."
+            : "This machine is no longer available through T3 Connect.",
+      });
+    }
+    setIsUpdating(false);
+  };
+
+  const updatePublishAgentActivity = async (enabled: boolean) => {
+    if (
+      primaryMachineId === null ||
+      !readMachineScope(primaryMachineId, AuthRelayWriteScope)
+    )
+      return;
+    setIsUpdatingPreference(true);
+    const ok = await reconcileCloudState({ managedTunnel: managedTunnelActive, publish: enabled });
+    if (ok) {
+      toastManager.add({
+        type: "success",
+        title: enabled ? "Agent activity enabled" : "Agent activity disabled",
+        description: enabled
+          ? "This machine publishes agent activity to your mobile clients."
+          : "This machine will stop publishing agent activity.",
+      });
+    }
+    setIsUpdatingPreference(false);
+  };
+
+  const updateHoldWebhooks = async (enabled: boolean) => {
+    setIsUpdatingPreference(true);
+    const ok = await reconcileCloudState({
+      managedTunnel: managedTunnelActive,
+      publish: publishAgentActivity,
+      holdWebhooksWhileOffline: enabled,
+    });
+    if (ok) {
+      toastManager.add({
+        type: "success",
+        title: enabled ? "Webhooks held while offline" : "Webhooks no longer held",
+        description: enabled
+          ? "T3 Connect keeps webhook requests for up to 24 hours while this machine is offline."
+          : "Requests to an offline machine now fail. Anything already held is still delivered.",
+      });
+    }
+    setIsUpdatingPreference(false);
+  };
+
+  return (
+    <>
+      {window.desktopBridge ? (
+        <SettingsRow
+          title={searchableSetting("t3-connect").title}
+          description={
+            linkRevoked
+              ? "This machine was removed from T3 Connect. Turn it on to link it again."
+              : managedTunnelActive
+                ? reachability?.status === "unreachable"
+                  ? "T3 Connect is on, but other devices cannot reach this machine."
+                  : reachability?.status === "reachable"
+                    ? "This machine is available to your other devices through T3 Connect."
+                    : "T3 Connect is on. Reachability has not been checked yet."
+                : managedTunnelOutOfSync
+                  ? "T3 Connect is out of sync. This machine is linked only to publish agent activity, so other devices cannot connect. Turn T3 Connect on to repair it."
+                  : "Make this machine available to your other devices through T3 Connect."
+          }
+          status={operationError ?? primaryCloudLinkState.error ?? reachabilityStatus}
+          control={
+            <CloudLinkSwitch
+              checked={managedTunnelActive}
+              disabled={
+                !canManageRelay ||
+                !isSignedIn ||
+                primaryCloudLinkState.data === null ||
+                primaryCloudLinkState.isPending ||
+                isBusy
+              }
+              disabledReason={disabledReason}
+              onCheckedChange={(enabled) => void updateManagedTunnel(enabled)}
+            />
+          }
+        />
+      ) : linkRevoked ? (
+        <SettingsRow
+          title={searchableSetting("t3-connect").title}
+          description="This machine was removed from T3 Connect. Run `t3 connect link` on the host to link it again."
+        />
+      ) : null}
+      <SettingsRow
+        title={searchableSetting("publish-agent-activity").title}
+        description="Send activity to mobile notifications and Live Activities without T3 Connect."
+        control={
+          <CloudLinkSwitch
+            ariaLabel="Publish agent activity to mobile clients"
+            checked={publishAgentActivity}
+            disabled={
+              !canManageRelay ||
+              !isSignedIn ||
+              primaryCloudLinkState.data === null ||
+              primaryCloudLinkState.isPending ||
+              isBusy
+            }
+            disabledReason={disabledReason}
+            onCheckedChange={(enabled) => void updatePublishAgentActivity(enabled)}
+          />
+        }
+      />
+      {managedTunnelActive ? (
+        <SettingsRow
+          title={searchableSetting("hold-webhooks-while-offline").title}
+          description="Keep webhook requests for up to 24 hours while this machine is offline, then deliver them. Off: T3 Connect only forwards requests and stores nothing."
+          control={
+            <CloudLinkSwitch
+              ariaLabel="Hold webhook requests while this machine is offline"
+              checked={holdWebhooksWhileOffline}
+              disabled={!canManageRelay || !isSignedIn || primaryCloudLinkState.isPending || isBusy}
+              disabledReason={disabledReason}
+              onCheckedChange={(enabled) => void updateHoldWebhooks(enabled)}
+            />
+          }
+        />
+      ) : null}
+    </>
+  );
+}
+
+export function CloudLinkRow({
+  canReadRelay,
+  canManageRelay,
+}: {
+  readonly canReadRelay: boolean;
+  readonly canManageRelay: boolean;
+}) {
+  if (!hasCloudPublicConfig()) return null;
+  if (!canReadRelay) {
+    return (
+      <SettingsRow
+        title="T3 Connect"
+        description="To edit these settings, pair this connection with both View relay and Manage relay permissions."
+      />
+    );
+  }
+  return <ConfiguredCloudLinkRow canManageRelay={canManageRelay} />;
+}
+
+function EmptyRemoteMachines({ cloudEnabled = true }: { readonly cloudEnabled?: boolean }) {
+  return (
+    <Empty className="min-h-52">
+      <EmptyMedia variant="icon">
+        <ChevronsLeftRightEllipsisIcon />
+      </EmptyMedia>
+      <EmptyHeader>
+        <EmptyTitle>No saved remote machines</EmptyTitle>
+        <EmptyDescription>
+          {cloudEnabled
+            ? "Click “Add machine” to pair another machine, or connect one from T3 Connect."
+            : "Click “Add machine” to pair another machine."}
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+}
+
+export function CloudRemoteMachineRows({
+  primaryMachineId,
+  savedMachines,
+}: {
+  readonly primaryMachineId: MachineId | null;
+  readonly savedMachines: ReadonlyArray<MachinePresentation>;
+}) {
+  return hasCloudPublicConfig() ? (
+    <CloudMachineConnectRows
+      primaryMachineId={primaryMachineId}
+      savedMachines={savedMachines}
+      empty={<EmptyRemoteMachines />}
+    />
+  ) : savedMachines.length === 0 ? (
+    <EmptyRemoteMachines cloudEnabled={false} />
+  ) : null;
+}

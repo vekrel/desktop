@@ -1,7 +1,7 @@
 import { orderItemsByPreferredIds, sortSidebarV2ProjectGroups } from "../components/Sidebar.logic";
 import { getProjectOrderKey, selectProjectGroupingSettings } from "../logicalProject";
 import { buildSidebarProjectSnapshots } from "../sidebarProjectGrouping";
-import { useEnvironmentIdentities, usePrimaryEnvironmentId } from "../state/environments";
+import { useMachineIdentities, usePrimaryMachineId } from "../state/machines";
 import { useProjects, useQuietThreadShells } from "../state/entities";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
 import { useClientSettings } from "./useSettings";
@@ -14,8 +14,8 @@ export function useSidebarProjectGroups() {
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const sortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
   const groupingSettings = useClientSettings(selectProjectGroupingSettings);
-  const environments = useEnvironmentIdentities();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const machines = useMachineIdentities();
+  const primaryMachineId = usePrimaryMachineId();
   const orderedProjects = orderItemsByPreferredIds({
     items: projects,
     preferredIds: projectOrder,
@@ -26,14 +26,14 @@ export function useSidebarProjectGroups() {
     ],
   });
   const labels = new Map(
-    environments.map((environment) => [environment.environmentId, environment.label] as const),
+    machines.map((machine) => [machine.machineId, machine.label] as const),
   );
   const unsortedGroups = buildSidebarProjectSnapshots({
     projects: sortOrder === "manual" ? orderedProjects : projects,
     groupScratchProjects: true,
     settings: groupingSettings,
-    primaryEnvironmentId,
-    resolveEnvironmentLabel: (environmentId) => labels.get(environmentId) ?? null,
+    primaryMachineId,
+    resolveMachineLabel: (machineId) => labels.get(machineId) ?? null,
   });
   return sortSidebarV2ProjectGroups(unsortedGroups, threads, sortOrder);
 }

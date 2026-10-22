@@ -1,61 +1,61 @@
 import { useAtomValue } from "@effect/atom-react";
-import { enabledEnvironmentIds } from "@vekrel/client-runtime/state/connections";
+import { enabledMachineIds } from "@vekrel/client-runtime/state/connections";
 import { arrayElementsEqual } from "@vekrel/client-runtime/state/entities";
 import {
-  createEnvironmentThreadDetailAtoms,
-  createEnvironmentThreadShellAtoms,
-  createEnvironmentThreadStateAtoms,
-  EMPTY_ENVIRONMENT_THREAD_STATE,
-  type EnvironmentThreadState,
-  createThreadEnvironmentAtoms,
+  createMachineThreadDetailAtoms,
+  createMachineThreadShellAtoms,
+  createMachineThreadStateAtoms,
+  EMPTY_MACHINE_THREAD_STATE,
+  type MachineThreadState,
+  createThreadMachineAtoms,
 } from "@vekrel/client-runtime/state/threads";
-import type { EnvironmentId, OrchestrationV2ThreadShell, ThreadId } from "@vekrel/contracts";
+import type { MachineId, OrchestrationV2ThreadShell, ThreadId } from "@vekrel/contracts";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 
-import { environmentCatalog } from "../connection/catalog";
+import { machineCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
-import { environmentSnapshotAtom } from "./shell";
+import { machineSnapshotAtom } from "./shell";
 
-export const threadEnvironment = createThreadEnvironmentAtoms(
+export const threadMachine = createThreadMachineAtoms(
   connectionAtomRuntime,
-  environmentSnapshotAtom,
+  machineSnapshotAtom,
 );
-const environmentThreads = createEnvironmentThreadStateAtoms(connectionAtomRuntime);
-export const environmentThreadDetails = createEnvironmentThreadDetailAtoms(
-  environmentThreads.stateAtom,
+const machineThreads = createMachineThreadStateAtoms(connectionAtomRuntime);
+export const machineThreadDetails = createMachineThreadDetailAtoms(
+  machineThreads.stateAtom,
 );
-export const environmentThreadShells = createEnvironmentThreadShellAtoms({
-  catalogValueAtom: environmentCatalog.catalogValueAtom,
-  snapshotAtom: threadEnvironment.snapshotAtom,
+export const machineThreadShells = createMachineThreadShellAtoms({
+  catalogValueAtom: machineCatalog.catalogValueAtom,
+  snapshotAtom: threadMachine.snapshotAtom,
 });
 
-const EMPTY_THREAD_STATE_ATOM = Atom.make(AsyncResult.success(EMPTY_ENVIRONMENT_THREAD_STATE)).pipe(
-  Atom.withLabel("web-environment-thread:empty"),
+const EMPTY_THREAD_STATE_ATOM = Atom.make(AsyncResult.success(EMPTY_MACHINE_THREAD_STATE)).pipe(
+  Atom.withLabel("web-machine-thread:empty"),
 );
 
-export function useEnvironmentThread(
-  environmentId: EnvironmentId | null,
+export function useMachineThread(
+  machineId: MachineId | null,
   threadId: ThreadId | null,
-): EnvironmentThreadState {
+): MachineThreadState {
   const result = useAtomValue(
-    environmentId !== null && threadId !== null
-      ? environmentThreads.stateAtom(environmentId, threadId)
+    machineId !== null && threadId !== null
+      ? machineThreads.stateAtom(machineId, threadId)
       : EMPTY_THREAD_STATE_ATOM,
   );
   const state = Option.getOrElse(
     AsyncResult.value(result),
-    () => EMPTY_ENVIRONMENT_THREAD_STATE,
-  ) as EnvironmentThreadState;
+    () => EMPTY_MACHINE_THREAD_STATE,
+  ) as MachineThreadState;
   return state;
 }
 
 const isRunning = (status: string) =>
   status === "preparing" || status === "queued" || status === "starting" || status === "running";
 
-type KeptThreads = ReadonlyMap<EnvironmentId, ReadonlySet<ThreadId>>;
+type KeptThreads = ReadonlyMap<MachineId, ReadonlySet<ThreadId>>;
 
-function isDetailDone<E>(result: AsyncResult.AsyncResult<EnvironmentThreadState, E>): boolean {
+function isDetailDone<E>(result: AsyncResult.AsyncResult<MachineThreadState, E>): boolean {
   if (!AsyncResult.isSuccess(result)) return true;
   const { status, data, error } = result.value;
   if (status === "deleted" || Option.isSome(error)) return true;
@@ -71,35 +71,35 @@ function isDetailDone<E>(result: AsyncResult.AsyncResult<EnvironmentThreadState,
  * its own detail is live and shows the stop too.
  */
 export function createRunningThreadKeepAliveAtom<E>(input: {
-  readonly environmentIdsAtom: Atom.Atom<ReadonlyArray<EnvironmentId>>;
+  readonly machineIdsAtom: Atom.Atom<ReadonlyArray<MachineId>>;
   readonly threadsAtom: (
-    environmentId: EnvironmentId,
+    machineId: MachineId,
   ) => Atom.Atom<ReadonlyArray<Pick<OrchestrationV2ThreadShell, "id" | "status">>>;
   readonly stateAtom: (
-    environmentId: EnvironmentId,
+    machineId: MachineId,
     threadId: ThreadId,
-  ) => Atom.Atom<AsyncResult.AsyncResult<EnvironmentThreadState, E>>;
+  ) => Atom.Atom<AsyncResult.AsyncResult<MachineThreadState, E>>;
 }) {
-  const runningThreadIdsAtom = Atom.family((environmentId: EnvironmentId) => {
+  const runningThreadIdsAtom = Atom.family((machineId: MachineId) => {
     let previous: ReadonlyArray<ThreadId> = [];
     return Atom.make((get) => {
-      const running = get(input.threadsAtom(environmentId)).flatMap((thread) =>
+      const running = get(input.threadsAtom(machineId)).flatMap((thread) =>
         isRunning(thread.status) ? [thread.id] : [],
       );
       if (arrayElementsEqual(previous, running)) return previous;
       previous = running;
       return running;
-    }).pipe(Atom.withLabel(`web-running-thread-ids:${environmentId}`));
+    }).pipe(Atom.withLabel(`web-running-thread-ids:${machineId}`));
   });
 
   return Atom.make((get): KeptThreads => {
     const previous = Option.getOrUndefined(get.self<KeptThreads>());
-    const kept = new Map<EnvironmentId, ReadonlySet<ThreadId>>();
-    for (const environmentId of get(input.environmentIdsAtom)) {
-      const threadIds = new Set(get(runningThreadIdsAtom(environmentId)));
-      for (const threadId of previous?.get(environmentId) ?? []) {
+    const kept = new Map<MachineId, ReadonlySet<ThreadId>>();
+    for (const machineId of get(input.machineIdsAtom)) {
+      const threadIds = new Set(get(runningThreadIdsAtom(machineId)));
+      for (const threadId of previous?.get(machineId) ?? []) {
         if (threadIds.has(threadId)) continue;
-        const stateAtom = input.stateAtom(environmentId, threadId);
+        const stateAtom = input.stateAtom(machineId, threadId);
         // `once`, not `get`: a dependency on a stopped thread would hold its
         // stream open until some other change rebuilds this atom.
         if (isDetailDone(get.once(stateAtom))) continue;
@@ -108,17 +108,17 @@ export function createRunningThreadKeepAliveAtom<E>(input: {
           if (isDetailDone(state)) get.refreshSelf();
         });
       }
-      for (const threadId of threadIds) get.mount(input.stateAtom(environmentId, threadId));
-      kept.set(environmentId, threadIds);
+      for (const threadId of threadIds) get.mount(input.stateAtom(machineId, threadId));
+      kept.set(machineId, threadIds);
     }
     return kept;
   }).pipe(Atom.withLabel("web-running-thread-keep-alive"));
 }
 
 export const runningThreadKeepAliveAtom = createRunningThreadKeepAliveAtom({
-  environmentIdsAtom: Atom.map(environmentCatalog.catalogValueAtom, (catalog) => [
-    ...enabledEnvironmentIds(catalog),
+  machineIdsAtom: Atom.map(machineCatalog.catalogValueAtom, (catalog) => [
+    ...enabledMachineIds(catalog),
   ]),
-  threadsAtom: environmentThreadShells.environmentThreadsAtom,
-  stateAtom: environmentThreads.stateAtom,
+  threadsAtom: machineThreadShells.machineThreadsAtom,
+  stateAtom: machineThreads.stateAtom,
 });

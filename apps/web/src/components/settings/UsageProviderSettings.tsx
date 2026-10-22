@@ -1,10 +1,10 @@
-import type { EnvironmentId, UnifiedSettings } from "@vekrel/contracts";
+import type { MachineId, UnifiedSettings } from "@vekrel/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 
-import { useUpdateEnvironmentSettings } from "../../hooks/useSettings";
-import { serverEnvironment } from "../../state/server";
+import { useUpdateMachineSettings } from "../../hooks/useSettings";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import {
   AlertDialog,
@@ -22,26 +22,26 @@ import { searchableSetting } from "./settingsSearch";
 import { SettingsRow, SettingsSection } from "./settingsLayout";
 
 export function UsageProviderSettings({
-  environmentId,
-  environmentLabel,
+  machineId,
+  machineLabel,
   sources,
   cursorKeychainUsageEnabled,
   readOnly,
 }: {
-  readonly environmentId: EnvironmentId;
-  readonly environmentLabel: string;
+  readonly machineId: MachineId;
+  readonly machineLabel: string;
   readonly sources: UnifiedSettings["usageLimitSources"];
   readonly cursorKeychainUsageEnabled: boolean;
   readonly readOnly: boolean;
 }) {
-  const updateSettings = useUpdateEnvironmentSettings(environmentId);
-  const updateCursorSettings = useAtomCommand(serverEnvironment.updateSettings, {
+  const updateSettings = useUpdateMachineSettings(machineId);
+  const updateCursorSettings = useAtomCommand(serverMachine.updateSettings, {
     label: "update Cursor account usage",
   });
-  const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
+  const refreshProviders = useAtomCommand(serverMachine.refreshProviders, {
     reportFailure: false,
   });
-  const platform = useAtomValue(serverEnvironment.configValueAtom(environmentId))?.environment
+  const platform = useAtomValue(serverMachine.configValueAtom(machineId))?.machine
     .platform;
   const [adding, setAdding] = useState(false);
   const [updatingCursor, setUpdatingCursor] = useState(false);
@@ -50,11 +50,11 @@ export function UsageProviderSettings({
   const setCursorUsageEnabled = async (enabled: boolean) => {
     setUpdatingCursor(true);
     const result = await updateCursorSettings({
-      environmentId,
+      machineId,
       input: { patch: { cursorKeychainUsageEnabled: enabled } },
     });
     if (result._tag === "Success") {
-      await refreshProviders({ environmentId, input: {} });
+      await refreshProviders({ machineId, input: {} });
     }
     setUpdatingCursor(false);
   };
@@ -119,8 +119,8 @@ export function UsageProviderSettings({
         <AddUsageLimitSourceDialog
           open
           onOpenChange={setAdding}
-          environmentId={environmentId}
-          environmentLabel={environmentLabel}
+          machineId={machineId}
+          machineLabel={machineLabel}
         />
       ) : null}
     </>

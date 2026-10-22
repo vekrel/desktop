@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { EnvironmentId, ProjectId, ProviderInstanceId, ThreadId } from "@vekrel/contracts";
+import { MachineId, ProjectId, ProviderInstanceId, ThreadId } from "@vekrel/contracts";
 import type { Thread } from "../types";
 import { makeThreadFixture } from "../test-fixtures";
 import {
@@ -14,13 +14,13 @@ import {
 } from "./CommandPalette.logic";
 
 describe("linked pull request thread navigation", () => {
-  it("keeps archived relations searchable and routes them through the PR environment", async () => {
-    const environmentId = EnvironmentId.make("remote");
+  it("keeps archived relations searchable and routes them through the PR machine", async () => {
+    const machineId = MachineId.make("remote");
     const id = ThreadId.make("archived-thread");
     const runThread = vi.fn(async () => {});
     const query = "https://github.com/acme/web/pull/42";
     const linkedThreads = {
-      environmentId,
+      machineId,
       threads: [
         {
           id,
@@ -51,7 +51,7 @@ describe("linked pull request thread navigation", () => {
     expect(groups.flatMap((group) => group.items)).toEqual(items);
     expect(items[0]?.description).toBe("Archived thread");
     await items[0]?.run();
-    expect(runThread).toHaveBeenCalledWith({ environmentId, id });
+    expect(runThread).toHaveBeenCalledWith({ machineId, id });
   });
 });
 
@@ -83,13 +83,13 @@ describe("reduceCommandPaletteUiState", () => {
   });
 });
 
-const LOCAL_ENVIRONMENT_ID = EnvironmentId.make("environment-local");
+const LOCAL_MACHINE_ID = MachineId.make("machine-local");
 const PROJECT_ID = ProjectId.make("project-1");
 
 function makeThread(overrides: Partial<Thread> = {}): Thread {
   return makeThreadFixture({
     id: ThreadId.make("thread-1"),
-    environmentId: LOCAL_ENVIRONMENT_ID,
+    machineId: LOCAL_MACHINE_ID,
     projectId: PROJECT_ID,
     title: "Thread",
     modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5" },
@@ -408,7 +408,7 @@ describe("returning from file and content search", () => {
       kind: "search" as const,
       query,
       linkedThreads: {
-        environmentId: EnvironmentId.make("remote"),
+        machineId: MachineId.make("remote"),
         threads: [
           {
             id: ThreadId.make("linked-thread"),

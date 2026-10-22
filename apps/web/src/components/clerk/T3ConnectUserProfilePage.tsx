@@ -3,14 +3,14 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentId } from "@vekrel/contracts";
-import type { RelayClientEnvironmentRecord } from "@vekrel/contracts/relay";
+import type { MachineId } from "@vekrel/contracts";
+import type { RelayClientMachineRecord } from "@vekrel/contracts/relay";
 import { ServerIcon } from "lucide-react";
 import { useRef, useState } from "react";
 
 import {
-  deregisterManagedRelayEnvironmentCommand,
-  useManagedRelayEnvironments,
+  deregisterManagedRelayMachineCommand,
+  useManagedRelayMachines,
 } from "../../cloud/managedRelayState";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
@@ -32,30 +32,30 @@ function linkedAtLabel(value: string): string {
     : `Linked ${linkedAtFormatter.format(linkedAt)}`;
 }
 
-function endpointLabel(environment: RelayClientEnvironmentRecord): string {
-  return environment.endpoint.providerKind === "cloudflare_tunnel"
+function endpointLabel(machine: RelayClientMachineRecord): string {
+  return machine.endpoint.providerKind === "cloudflare_tunnel"
     ? "Managed tunnel"
     : "Activity publishing only";
 }
 
-function T3ConnectEnvironmentRow(props: {
-  readonly environment: RelayClientEnvironmentRecord;
+function T3ConnectMachineRow(props: {
+  readonly machine: RelayClientMachineRecord;
   readonly confirmationOpen: boolean;
   readonly mutationPending: boolean;
   readonly onConfirmationChange: (open: boolean) => void;
-  readonly onDeregister: (environment: RelayClientEnvironmentRecord) => void;
+  readonly onDeregister: (machine: RelayClientMachineRecord) => void;
 }) {
-  const { environment } = props;
+  const { machine } = props;
   return (
     <ClerkUserProfileRow icon={<ServerIcon className="size-4" />}>
       <Collapsible open={props.confirmationOpen} onOpenChange={props.onConfirmationChange}>
         <div className="flex items-start gap-4">
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-sm leading-4.5 font-medium text-foreground">
-              {environment.label}
+              {machine.label}
             </h3>
             <p className="mt-1 text-xs leading-4.5 text-muted-foreground">
-              {linkedAtLabel(environment.linkedAt)} · {endpointLabel(environment)}
+              {linkedAtLabel(machine.linkedAt)} · {endpointLabel(machine)}
             </p>
           </div>
           <CollapsibleTrigger
@@ -72,13 +72,13 @@ function T3ConnectEnvironmentRow(props: {
             <div
               className="rounded-lg border border-input bg-muted/32 px-5 py-4 shadow-xs/5"
               role="group"
-              aria-label={`Confirm deregistration of ${environment.label}`}
+              aria-label={`Confirm deregistration of ${machine.label}`}
             >
               <h4 className="text-sm leading-4.5 font-semibold text-foreground">
                 Deregister server
               </h4>
               <p className="mt-1 text-xs leading-4.5 text-muted-foreground">
-                “{environment.label}” will be removed from this account.
+                “{machine.label}” will be removed from this account.
               </p>
               <p className="mt-4 max-w-xl text-xs leading-4.5 text-muted-foreground">
                 T3 Connect access will be revoked, any managed tunnel will be removed, and a host
@@ -97,7 +97,7 @@ function T3ConnectEnvironmentRow(props: {
                   size="sm"
                   variant="destructive"
                   disabled={props.mutationPending}
-                  onClick={() => props.onDeregister(environment)}
+                  onClick={() => props.onDeregister(machine)}
                 >
                   {props.mutationPending ? "Deregistering…" : "Deregister"}
                 </Button>
@@ -111,42 +111,42 @@ function T3ConnectEnvironmentRow(props: {
 }
 
 export function T3ConnectUserProfilePage() {
-  const environmentsState = useManagedRelayEnvironments();
-  const deregisterEnvironment = useAtomCommand(deregisterManagedRelayEnvironmentCommand, {
+  const machinesState = useManagedRelayMachines();
+  const deregisterMachine = useAtomCommand(deregisterManagedRelayMachineCommand, {
     reportFailure: false,
   });
-  const [deregisteringEnvironmentId, setDeregisteringEnvironmentId] =
-    useState<EnvironmentId | null>(null);
-  const [confirmingEnvironmentId, setConfirmingEnvironmentId] = useState<EnvironmentId | null>(
+  const [deregisteringMachineId, setDeregisteringMachineId] =
+    useState<MachineId | null>(null);
+  const [confirmingMachineId, setConfirmingMachineId] = useState<MachineId | null>(
     null,
   );
   const mutationPendingRef = useRef(false);
-  const [removedEnvironments, setRemovedEnvironments] = useState<{
+  const [removedMachines, setRemovedMachines] = useState<{
     readonly accountId: string | null;
-    readonly linkedAtById: ReadonlyMap<EnvironmentId, string>;
+    readonly linkedAtById: ReadonlyMap<MachineId, string>;
   }>({ accountId: null, linkedAtById: new Map() });
 
-  const handleDeregister = async (environment: RelayClientEnvironmentRecord) => {
-    const accountId = environmentsState.accountId;
+  const handleDeregister = async (machine: RelayClientMachineRecord) => {
+    const accountId = machinesState.accountId;
     if (!accountId || mutationPendingRef.current) return;
 
     mutationPendingRef.current = true;
-    setDeregisteringEnvironmentId(environment.environmentId);
-    const result = await deregisterEnvironment({
+    setDeregisteringMachineId(machine.machineId);
+    const result = await deregisterMachine({
       accountId,
-      environmentId: environment.environmentId,
+      machineId: machine.machineId,
     });
     mutationPendingRef.current = false;
-    setDeregisteringEnvironmentId(null);
+    setDeregisteringMachineId(null);
 
     if (result._tag === "Success") {
-      setConfirmingEnvironmentId(null);
-      setRemovedEnvironments((current) => {
+      setConfirmingMachineId(null);
+      setRemovedMachines((current) => {
         const linkedAtById = new Map(current.accountId === accountId ? current.linkedAtById : []);
-        linkedAtById.set(environment.environmentId, environment.linkedAt);
+        linkedAtById.set(machine.machineId, machine.linkedAt);
         return { accountId, linkedAtById };
       });
-      environmentsState.refresh();
+      machinesState.refresh();
       toastManager.add({
         type: "success",
         title: "Server deregistered",
@@ -159,8 +159,8 @@ export function T3ConnectUserProfilePage() {
     const cause = squashAtomCommandFailure(result);
     const message = cause instanceof Error ? cause.message : "Could not deregister the server.";
     const traceId = findErrorTraceId(cause);
-    console.error("[t3-connect] Could not deregister environment", {
-      environmentId: environment.environmentId,
+    console.error("[t3-connect] Could not deregister machine", {
+      machineId: machine.machineId,
       message,
       traceId,
       cause,
@@ -180,68 +180,68 @@ export function T3ConnectUserProfilePage() {
     });
   };
 
-  const removedEnvironmentLinkedAt =
-    removedEnvironments.accountId === environmentsState.accountId
-      ? removedEnvironments.linkedAtById
-      : new Map<EnvironmentId, string>();
-  const environments = (environmentsState.data ?? []).filter(
-    (environment) =>
-      removedEnvironmentLinkedAt.get(environment.environmentId) !== environment.linkedAt,
+  const removedMachineLinkedAt =
+    removedMachines.accountId === machinesState.accountId
+      ? removedMachines.linkedAtById
+      : new Map<MachineId, string>();
+  const machines = (machinesState.data ?? []).filter(
+    (machine) =>
+      removedMachineLinkedAt.get(machine.machineId) !== machine.linkedAt,
   );
   const isInitialLoad =
-    !environmentsState.accountId || (environmentsState.data === null && !environmentsState.error);
+    !machinesState.accountId || (machinesState.data === null && !machinesState.error);
 
   return (
     <ClerkUserProfilePage
       title="T3 Connect"
-      description="Environments registered to your account. Connections on this device are managed in Settings."
+      description="Machines registered to your account. Connections on this device are managed in Settings."
       action={
         <ClerkUserProfileRefreshButton
-          disabled={deregisteringEnvironmentId !== null}
-          isPending={environmentsState.isPending}
-          onClick={environmentsState.refresh}
+          disabled={deregisteringMachineId !== null}
+          isPending={machinesState.isPending}
+          onClick={machinesState.refresh}
         />
       }
     >
       <div>
-        {environmentsState.error ? (
+        {machinesState.error ? (
           <div className="mb-4 border-t border-destructive/35 py-3 text-xs" role="alert">
             <p className="font-medium text-destructive-foreground">
-              Could not load T3 Connect environments
+              Could not load T3 Connect machines
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">{environmentsState.error}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{machinesState.error}</p>
           </div>
         ) : null}
 
         {isInitialLoad ? (
           <p className="border-t py-4 text-xs text-muted-foreground" role="status">
-            Loading environments…
+            Loading machines…
           </p>
-        ) : environments.length > 0 ? (
+        ) : machines.length > 0 ? (
           <ul className="border-t">
-            {environments.map((environment) => (
-              <T3ConnectEnvironmentRow
-                key={environment.environmentId}
-                environment={environment}
-                confirmationOpen={confirmingEnvironmentId === environment.environmentId}
-                mutationPending={deregisteringEnvironmentId !== null}
+            {machines.map((machine) => (
+              <T3ConnectMachineRow
+                key={machine.machineId}
+                machine={machine}
+                confirmationOpen={confirmingMachineId === machine.machineId}
+                mutationPending={deregisteringMachineId !== null}
                 onConfirmationChange={(open) =>
-                  setConfirmingEnvironmentId(open ? environment.environmentId : null)
+                  setConfirmingMachineId(open ? machine.machineId : null)
                 }
                 onDeregister={(selected) => void handleDeregister(selected)}
               />
             ))}
           </ul>
-        ) : environmentsState.error ? null : (
+        ) : machinesState.error ? null : (
           <div className="border-t">
             <Empty size="compact">
               <EmptyMedia variant="icon">
                 <ServerIcon />
               </EmptyMedia>
               <EmptyHeader>
-                <EmptyTitle>No T3 Connect environments</EmptyTitle>
+                <EmptyTitle>No T3 Connect machines</EmptyTitle>
                 <EmptyDescription>
-                  Link an environment from its local Settings to make it available through T3
+                  Link a machine from its local Settings to make it available through T3
                   Connect.
                 </EmptyDescription>
               </EmptyHeader>

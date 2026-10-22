@@ -8,8 +8,8 @@ import {
   type AddProjectRemoteSourceReadiness,
 } from "@vekrel/client-runtime/operations/projects";
 import {
-  type EnvironmentId,
-  type EnvironmentMachineKind,
+  type MachineId,
+  type MachineKind,
   type FilesystemBrowseEntry,
   type KeybindingCommand,
   type SourceControlDiscoveryResult,
@@ -34,17 +34,17 @@ export function buildLinkedThreadActionItems(
   input: CommandPaletteLinkedThreads & {
     query: string;
     icon: ReactNode;
-    runThread: (thread: Pick<SidebarThreadSummary, "environmentId" | "id">) => Promise<void>;
+    runThread: (thread: Pick<SidebarThreadSummary, "machineId" | "id">) => Promise<void>;
   },
 ): CommandPaletteActionItem[] {
   return input.threads.map((thread) => ({
     kind: "action",
-    value: `thread:${input.environmentId}:${thread.id}`,
+    value: `thread:${input.machineId}:${thread.id}`,
     title: thread.title || "Untitled thread",
     description: thread.archivedAt === null ? "Linked thread" : "Archived thread",
     searchTerms: [input.query, thread.title],
     icon: input.icon,
-    run: () => input.runThread({ environmentId: input.environmentId, id: thread.id }),
+    run: () => input.runThread({ machineId: input.machineId, id: thread.id }),
   }));
 }
 
@@ -303,19 +303,19 @@ export type CommandPaletteMode = "root" | "root-browse" | "submenu" | "submenu-b
 export type CommandPaletteProject = Project & { readonly displayName: string };
 
 export function buildCommandPaletteProjectMetadata(input: {
-  readonly projects: ReadonlyArray<Pick<Project, "environmentId" | "title" | "workspaceRoot">>;
-  readonly locationByEnvironmentId: ReadonlyMap<EnvironmentId, { readonly label: string }>;
+  readonly projects: ReadonlyArray<Pick<Project, "machineId" | "title" | "workspaceRoot">>;
+  readonly locationByMachineId: ReadonlyMap<MachineId, { readonly label: string }>;
 }) {
   const searchTerms: string[] = [];
-  const environmentLabels = new Set<string>();
+  const machineLabels = new Set<string>();
 
   for (const project of input.projects) {
-    const label = input.locationByEnvironmentId.get(project.environmentId)?.label ?? "Remote";
+    const label = input.locationByMachineId.get(project.machineId)?.label ?? "Remote";
     searchTerms.push(project.title, project.workspaceRoot, label);
-    environmentLabels.add(label);
+    machineLabels.add(label);
   }
 
-  return { searchTerms, environmentLabels: [...environmentLabels] };
+  return { searchTerms, machineLabels: [...machineLabels] };
 }
 
 export function buildProjectActionItems(input: {
@@ -329,7 +329,7 @@ export function buildProjectActionItems(input: {
 }): CommandPaletteActionItem[] {
   return input.projects.map((project) => ({
     kind: "action",
-    value: `${input.valuePrefix}:${project.environmentId}:${project.id}`,
+    value: `${input.valuePrefix}:${project.machineId}:${project.id}`,
     searchTerms: [
       project.displayName,
       project.title,
@@ -351,7 +351,7 @@ export type BuildThreadActionItemsThread = Pick<
   | "archivedAt"
   | "branch"
   | "createdAt"
-  | "environmentId"
+  | "machineId"
   | "id"
   | "modelSelection"
   | "projectId"
@@ -374,7 +374,7 @@ export function buildThreadActionItems<TThread extends BuildThreadActionItemsThr
   renderTrailingContent?: (thread: TThread) => ReactNode;
   renderDescription?: (thread: TThread, meta: { projectTitle: string | undefined }) => ReactNode;
   getContentMatch?: (thread: TThread) => CommandPaletteThreadContentMatch | undefined;
-  runThread: (thread: Pick<SidebarThreadSummary, "environmentId" | "id">) => Promise<void>;
+  runThread: (thread: Pick<SidebarThreadSummary, "machineId" | "id">) => Promise<void>;
   limit?: number;
 }): CommandPaletteActionItem[] {
   const sortedThreads = sortThreads(
@@ -668,7 +668,7 @@ export function getCommandPaletteInputPlaceholder(mode: CommandPaletteMode): str
   }
 }
 
-export function getEnvironmentBrowsePlatform(os: string | null | undefined): string {
+export function getMachineBrowsePlatform(os: string | null | undefined): string {
   if (os === "windows") {
     return "Win32";
   }
@@ -681,10 +681,10 @@ export function getEnvironmentBrowsePlatform(os: string | null | undefined): str
   return typeof navigator === "undefined" ? "" : navigator.platform;
 }
 
-export interface AddProjectEnvironmentOption {
-  readonly environmentId: EnvironmentId;
+export interface AddProjectMachineOption {
+  readonly machineId: MachineId;
   readonly label: string;
-  readonly machine: EnvironmentMachineKind;
+  readonly machine: MachineKind;
   readonly isPrimary: boolean;
   readonly isConnected: boolean;
   readonly status: string;
@@ -693,12 +693,12 @@ export interface AddProjectEnvironmentOption {
 export type AddProjectCloneFlow =
   | {
       readonly step: "repository";
-      readonly environmentId: EnvironmentId;
+      readonly machineId: MachineId;
       readonly source: AddProjectRemoteSource;
     }
   | {
       readonly step: "confirm";
-      readonly environmentId: EnvironmentId;
+      readonly machineId: MachineId;
       readonly source: AddProjectRemoteSource;
       readonly repositoryInput: string;
       readonly repository: SourceControlRepositoryInfo | null;

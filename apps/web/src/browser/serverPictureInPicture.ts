@@ -3,8 +3,8 @@ import {
   createPreviewStreamClient,
   type PreviewStreamClient,
 } from "@vekrel/client-runtime/preview/server-browser-stream";
-import type { EnvironmentId, ThreadId } from "@vekrel/contracts";
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import type { MachineId, ThreadId } from "@vekrel/contracts";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import { previewPdfAssetUrl } from "@vekrel/shared/preview";
 import { useSyncExternalStore } from "react";
 
@@ -65,7 +65,7 @@ export function closeServerPictureInPicture(): void {
 
 /** Open during user activation, seeding the video with the currently visible frame. */
 export async function openServerPictureInPicture(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId: ThreadId;
   readonly tabId: string;
   readonly seed: HTMLCanvasElement | null;
@@ -99,7 +99,7 @@ export async function openServerPictureInPicture(input: {
     if (active === current) closeServerPictureInPicture();
   };
   const connect = async (refresh: boolean) => {
-    const access = await readPreviewStreamAccess(input.environmentId, refresh);
+    const access = await readPreviewStreamAccess(input.machineId, refresh);
     if (stopped) return;
     if (!access) {
       closeServerPictureInPicture();

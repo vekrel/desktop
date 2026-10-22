@@ -1,5 +1,5 @@
 import { useStableCallback } from "../../hooks/useStableCallback";
-import { type EnvironmentId, type MessageId } from "@vekrel/contracts";
+import { type MachineId, type MessageId } from "@vekrel/contracts";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { selectHandoffImageResources } from "../../session-logic";
 import { type ChatMessage } from "../../types";
@@ -7,7 +7,7 @@ import type { useQuietThreadVisibleTurnItems } from "../../state/entities";
 import { revokeBlobPreviewUrl, revokeUserMessagePreviewUrls } from "../ChatView.logic";
 import { useAssetUrls } from "../../assets/assetUrls";
 interface AttachmentPreviewHandoffInput {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly serverVisibleTurnItems: ReturnType<typeof useQuietThreadVisibleTurnItems>;
   readonly optimisticUserMessages: ReadonlyArray<ChatMessage>;
 }
@@ -18,7 +18,7 @@ interface AttachmentPreviewHandoffInput {
  * the handoff for a message whose optimistic row was replaced by the server's.
  */
 export function useAttachmentPreviewHandoff(input: AttachmentPreviewHandoffInput) {
-  const { environmentId, serverVisibleTurnItems, optimisticUserMessages } = input;
+  const { machineId, serverVisibleTurnItems, optimisticUserMessages } = input;
 
   const optimisticUserMessagesRef = useRef(optimisticUserMessages);
   useLayoutEffect(() => {
@@ -102,7 +102,7 @@ export function useAttachmentPreviewHandoff(input: AttachmentPreviewHandoffInput
         ),
     attachmentPreviewHandoffByMessageId,
   );
-  const serverAttachmentUrls = useAssetUrls(environmentId, serverAttachmentResources);
+  const serverAttachmentUrls = useAssetUrls(machineId, serverAttachmentResources);
   const serverAttachmentUrlById = new Map(
     serverAttachmentResources.flatMap((resource, index) => {
       const url = serverAttachmentUrls[index];

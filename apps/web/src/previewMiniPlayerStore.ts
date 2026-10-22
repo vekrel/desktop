@@ -1,4 +1,4 @@
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import type { DevicePlatform, ScopedThreadRef } from "@vekrel/contracts";
 import { create } from "zustand";
 

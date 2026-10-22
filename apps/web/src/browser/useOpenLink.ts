@@ -5,8 +5,8 @@ import {
 } from "@vekrel/client-runtime/state/runtime";
 import { recordVisitForThread } from "~/browserHistoryStore";
 import { readLocalApi } from "~/localApi";
-import { previewEnvironment } from "~/state/preview";
-import { readEnvironmentScope } from "~/state/session";
+import { previewMachine } from "~/state/preview";
+import { readMachineScope } from "~/state/session";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import {
@@ -33,7 +33,7 @@ export function useOpenLink(threadRef: ScopedThreadRef | null | undefined): (
     readonly threadRef?: ScopedThreadRef | undefined;
   },
 ) => Promise<void> {
-  const openPreview = useAtomCommand(previewEnvironment.open, { reportFailure: false });
+  const openPreview = useAtomCommand(previewMachine.open, { reportFailure: false });
   return async (url, options = {}) => {
     const targetThreadRef = options.threadRef ?? threadRef;
     const target = resolveLinkTarget({
@@ -42,7 +42,7 @@ export function useOpenLink(threadRef: ScopedThreadRef | null | undefined): (
       preference: await resolveBrowserLinkTargetPreference(),
       canOpenInApp:
         targetThreadRef != null &&
-        readEnvironmentScope(targetThreadRef.environmentId, AuthPreviewOperateScope) &&
+        readMachineScope(targetThreadRef.machineId, AuthPreviewOperateScope) &&
         canOpenLinksInApp(targetThreadRef),
     });
     if (target === "app" && targetThreadRef) {

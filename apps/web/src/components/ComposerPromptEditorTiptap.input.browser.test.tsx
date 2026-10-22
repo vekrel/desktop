@@ -80,9 +80,9 @@ async function mountEditor(...props: Parameters<typeof composer>) {
   await using stack = new AsyncDisposableStack();
   const screen = stack.use(await render(composer(...props)));
   const editor = editorIn(screen.container);
-  const environment = stack.move();
+  const machine = stack.move();
   return Object.assign(screen, {
-    [Symbol.asyncDispose]: () => environment.disposeAsync(),
+    [Symbol.asyncDispose]: () => machine.disposeAsync(),
     editor,
     /** Rerenders the same composer with new props, as a parent would. */
     update: async (...next: Parameters<typeof composer>) => {
@@ -289,9 +289,9 @@ describe("composer context undo lifetime", () => {
     await using stack = new AsyncDisposableStack();
     const screen = stack.use(await render(createElement(Composer, { targetKey: "a" })));
     const editor = () => editorIn(screen.container);
-    const environment = stack.move();
+    const machine = stack.move();
     return Object.assign(screen, {
-      [Symbol.asyncDispose]: () => environment.disposeAsync(),
+      [Symbol.asyncDispose]: () => machine.disposeAsync(),
       initialValue,
       show: (targetKey: string) => screen.rerender(createElement(Composer, { targetKey })),
       editor,

@@ -1,5 +1,5 @@
 import type {
-  EnvironmentId,
+  MachineId,
   ProviderInstanceId,
   ServerProvider,
   UsageLimitSourceSnapshots,
@@ -22,7 +22,7 @@ import { usageLimitsBannerItem } from "./ComposerUsageLimits";
  * panel then stays hidden rather than being dropped.
  */
 export function useUsageLimitsPanel(input: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadKey: string;
   readonly panelKey: string | null;
   readonly providerInstanceId: ProviderInstanceId | null;
@@ -31,7 +31,7 @@ export function useUsageLimitsPanel(input: {
   readonly sources: UsageLimitSourceSnapshots;
 }) {
   const {
-    environmentId,
+    machineId,
     threadKey,
     panelKey,
     providerInstanceId,
@@ -55,7 +55,7 @@ export function useUsageLimitsPanel(input: {
   const banner =
     report !== null && panel !== null
       ? // A fresh id per opening: the stack keeps the last dismissed id as "exiting".
-        usageLimitsBannerItem(`usage-limits:${panel.key}:${panel.now}`, report, environmentId, () =>
+        usageLimitsBannerItem(`usage-limits:${panel.key}:${panel.now}`, report, machineId, () =>
           setPanel(null),
         )
       : null;

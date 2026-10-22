@@ -7,49 +7,49 @@ import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
 import { findProjectByPath, inferProjectTitleFromPath } from "../../lib/projectPaths";
 import { newProjectId } from "../../lib/utils";
 import { readProjects, waitForProject } from "../../state/entities";
-import { usePrimaryEnvironment } from "../../state/environments";
-import { projectEnvironment } from "../../state/projects";
-import { useEnvironmentShellHasSnapshot } from "../../state/shell";
+import { usePrimaryMachine } from "../../state/machines";
+import { projectMachine } from "../../state/projects";
+import { useMachineShellHasSnapshot } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 
 export function DesktopAppActivationCoordinator() {
-  const primaryEnvironment = usePrimaryEnvironment();
-  const createProject = useAtomCommand(projectEnvironment.create, { reportFailure: false });
+  const primaryMachine = usePrimaryMachine();
+  const createProject = useAtomCommand(projectMachine.create, { reportFailure: false });
   const openThread = useNewThreadHandler();
   const queueRef = useRef(Promise.resolve());
   const activation = window.desktopBridge?.appActivation;
-  const shellHasSnapshot = useEnvironmentShellHasSnapshot(
-    primaryEnvironment?.environmentId ?? null,
+  const shellHasSnapshot = useMachineShellHasSnapshot(
+    primaryMachine?.machineId ?? null,
   );
   const ready =
     activation !== undefined &&
-    primaryEnvironment?.connection.phase === "connected" &&
-    primaryEnvironment.serverConfig !== null &&
+    primaryMachine?.connection.phase === "connected" &&
+    primaryMachine.serverConfig !== null &&
     shellHasSnapshot;
 
   const processRequest = useEffectEvent(async (request: DesktopAppActivationRequest) =>
     handleDesktopAppActivationRequest(request, {
       getTarget: () => {
         if (
-          primaryEnvironment?.connection.phase !== "connected" ||
-          primaryEnvironment.serverConfig === null
+          primaryMachine?.connection.phase !== "connected" ||
+          primaryMachine.serverConfig === null
         ) {
           return null;
         }
         return {
-          environmentId: primaryEnvironment.environmentId,
-          platform: primaryEnvironment.serverConfig.environment.platform.os,
+          machineId: primaryMachine.machineId,
+          platform: primaryMachine.serverConfig.machine.platform.os,
         };
       },
-      findProject: (environmentId, workspaceRoot) =>
+      findProject: (machineId, workspaceRoot) =>
         findProjectByPath(
-          readProjects().filter((project) => project.environmentId === environmentId),
+          readProjects().filter((project) => project.machineId === machineId),
           workspaceRoot,
         ) ?? null,
-      createProject: async (environmentId, workspaceRoot) => {
+      createProject: async (machineId, workspaceRoot) => {
         const projectId = newProjectId();
         const result = await createProject({
-          environmentId,
+          machineId,
           input: {
             projectId,
             title: inferProjectTitleFromPath(workspaceRoot),

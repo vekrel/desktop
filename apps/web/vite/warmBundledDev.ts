@@ -7,7 +7,7 @@ const STARTUP_LAZY_ENTRIES = [
   "src/components/clerk/BrowserManagedAuthShell.tsx",
   "src/routes/_chat.tsx",
   "src/routes/_chat.index.tsx",
-  "src/routes/_chat.$environmentId.$threadId.tsx",
+  "src/routes/_chat.$machineId.$threadId.tsx",
   "src/lib/lucideIconByName.ts",
 ];
 

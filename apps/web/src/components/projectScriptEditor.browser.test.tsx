@@ -1,13 +1,13 @@
 import { act, render, type Screen } from "../../test/render";
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock(import("~/state/session"), async (original) => ({
   ...(await original()),
-  readEnvironmentScope: () => true,
-  useEnvironmentScope: () => true,
+  readMachineScope: () => true,
+  useMachineScope: () => true,
 }));
 
 import {
@@ -33,7 +33,7 @@ const open = (screen: Screen, nextRequest: ProjectScriptEditorRequest) =>
   screen.rerender(
     <StrictMode>
       <ProjectScriptEditorDialog
-        environmentId={EnvironmentId.make("test")}
+        machineId={MachineId.make("test")}
         request={nextRequest}
         scripts={[]}
         onSubmit={onSubmit}

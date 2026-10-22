@@ -7,7 +7,7 @@ import {
 import { DownloadIcon } from "lucide-react";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { useRemoveClonedProject } from "../../hooks/useRemoveClonedProject";
-import { sourceControlEnvironment } from "../../state/sourceControl";
+import { sourceControlMachine } from "../../state/sourceControl";
 import { useProjectClone } from "../../state/projectClones";
 import {
   projectCloneDisplayName,
@@ -24,10 +24,10 @@ import { Button } from "../ui/button";
  */
 export function useProjectCloneBanner(activeProjectRef: ScopedProjectRef | null) {
   const activeProjectClone = useProjectClone(activeProjectRef);
-  const cancelProjectClone = useAtomCommand(sourceControlEnvironment.cancelProjectClone, {
+  const cancelProjectClone = useAtomCommand(sourceControlMachine.cancelProjectClone, {
     reportFailure: false,
   });
-  const retryProjectClone = useAtomCommand(sourceControlEnvironment.retryProjectClone, {
+  const retryProjectClone = useAtomCommand(sourceControlMachine.retryProjectClone, {
     reportFailure: false,
   });
   const removeClonedProject = useRemoveClonedProject();
@@ -72,7 +72,7 @@ export function useProjectCloneBanner(activeProjectRef: ScopedProjectRef | null)
       return null;
     }
     const name = projectCloneDisplayName(activeProjectClone);
-    const { environmentId, projectId } = activeProjectRef;
+    const { machineId, projectId } = activeProjectRef;
     if (activeProjectClone.phase === "running") {
       return {
         id: `project-clone:${projectId}`,
@@ -87,7 +87,7 @@ export function useProjectCloneBanner(activeProjectRef: ScopedProjectRef | null)
             variant="ghost"
             onClick={() =>
               void runProjectCloneActionStable("Failed to cancel clone", () =>
-                cancelProjectClone({ environmentId, input: { projectId } }),
+                cancelProjectClone({ machineId, input: { projectId } }),
               )
             }
           >
@@ -108,7 +108,7 @@ export function useProjectCloneBanner(activeProjectRef: ScopedProjectRef | null)
           <Button
             size="xs"
             variant="ghost"
-            onClick={() => void removeClonedProject({ environmentId, projectId })}
+            onClick={() => void removeClonedProject({ machineId, projectId })}
           >
             Remove project
           </Button>
@@ -117,7 +117,7 @@ export function useProjectCloneBanner(activeProjectRef: ScopedProjectRef | null)
             variant="ghost"
             onClick={() =>
               void runProjectCloneActionStable("Failed to retry clone", () =>
-                retryProjectClone({ environmentId, input: { projectId } }),
+                retryProjectClone({ machineId, input: { projectId } }),
               )
             }
           >

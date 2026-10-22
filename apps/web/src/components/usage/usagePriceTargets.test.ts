@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
@@ -9,7 +9,7 @@ import {
 
 const price = { inputCostPerMillionTokens: 2, outputCostPerMillionTokens: 8 };
 const target = (id: string, overrides: Partial<UsagePriceTarget> = {}): UsagePriceTarget => ({
-  environmentId: EnvironmentId.make(id),
+  machineId: MachineId.make(id),
   label: id,
   prices: { example: price },
   aliases: {},
@@ -18,14 +18,14 @@ const target = (id: string, overrides: Partial<UsagePriceTarget> = {}): UsagePri
 });
 
 describe("model price writes", () => {
-  it("sends all table changes in one patch per environment and skips unchanged destinations", async () => {
+  it("sends all table changes in one patch per machine and skips unchanged destinations", async () => {
     const write = vi.fn(async () => ({ _tag: "Success" as const }));
     const onResult = vi.fn();
     await writeUsagePrices({
       targets: [target("edited"), target("unchanged")],
       changes: new Map([
         [
-          EnvironmentId.make("edited"),
+          MachineId.make("edited"),
           [
             { model: "new-model", price },
             { model: "example", price: null },
@@ -36,7 +36,7 @@ describe("model price writes", () => {
       onResult,
     });
     expect(write).toHaveBeenCalledExactlyOnceWith({
-      environmentId: "edited",
+      machineId: "edited",
       input: { patch: { usagePriceOverrides: { "new-model": price, example: null } } },
     });
     expect(onResult).toHaveBeenCalledWith("unchanged", { status: "saved" });
@@ -52,14 +52,14 @@ describe("model price writes", () => {
       resolveFastSaved = resolve;
     });
     const targets = [target("fast"), target("slow"), target("offline", { unavailable: "Offline" })];
-    const results = new Map<EnvironmentId, UsagePriceWriteResult>();
-    const write = vi.fn(async ({ environmentId }: { environmentId: EnvironmentId }) =>
-      environmentId === "slow" ? slow : { _tag: "Success" as const },
+    const results = new Map<MachineId, UsagePriceWriteResult>();
+    const write = vi.fn(async ({ machineId }: { machineId: MachineId }) =>
+      machineId === "slow" ? slow : { _tag: "Success" as const },
     );
     const change = { model: "example", price };
     const running = writeUsagePrices({
       targets,
-      changes: new Map(targets.map((target) => [target.environmentId, [change]])),
+      changes: new Map(targets.map((target) => [target.machineId, [change]])),
       write,
       onResult: (id, result) => {
         results.set(id, result);
@@ -67,32 +67,32 @@ describe("model price writes", () => {
       },
     });
     await fastSaved;
-    expect(results.get(EnvironmentId.make("fast"))).toEqual({ status: "saved" });
-    expect(results.get(EnvironmentId.make("offline"))).toEqual({
+    expect(results.get(MachineId.make("fast"))).toEqual({ status: "saved" });
+    expect(results.get(MachineId.make("offline"))).toEqual({
       status: "failed",
       error: "Offline",
     });
-    expect(results.has(EnvironmentId.make("slow"))).toBe(false);
+    expect(results.has(MachineId.make("slow"))).toBe(false);
     resolveSlow({ _tag: "Failure" });
     await running;
     expect(write).toHaveBeenCalledTimes(2);
     expect(write).toHaveBeenCalledWith({
-      environmentId: "fast",
+      machineId: "fast",
       input: { patch: { usagePriceOverrides: { example: price } } },
     });
     const retry = vi.fn(async () => ({ _tag: "Success" as const }));
     await writeUsagePrices({
       targets: targets
-        .filter((entry) => results.get(entry.environmentId)?.status === "failed")
+        .filter((entry) => results.get(entry.machineId)?.status === "failed")
         .map((entry) => ({ ...entry, unavailable: null })),
-      changes: new Map(targets.map((target) => [target.environmentId, [change]])),
+      changes: new Map(targets.map((target) => [target.machineId, [change]])),
       write: retry,
       onResult: (id, result) => {
         results.set(id, result);
       },
     });
     expect(retry.mock.calls).toHaveLength(2);
-    expect(retry).not.toHaveBeenCalledWith(expect.objectContaining({ environmentId: "fast" }));
+    expect(retry).not.toHaveBeenCalledWith(expect.objectContaining({ machineId: "fast" }));
     expect([...results.values()].every((result) => result.status === "saved")).toBe(true);
   });
 
@@ -106,14 +106,14 @@ describe("model price writes", () => {
     await writeUsagePrices({
       targets: [target("current"), target("old", { aliases: null })],
       changes: new Map([
-        [EnvironmentId.make("current"), changes],
-        [EnvironmentId.make("old"), changes],
+        [MachineId.make("current"), changes],
+        [MachineId.make("old"), changes],
       ]),
       write,
       onResult,
     });
     expect(write).toHaveBeenCalledExactlyOnceWith({
-      environmentId: "current",
+      machineId: "current",
       input: {
         patch: {
           usagePriceOverrides: { example: null },

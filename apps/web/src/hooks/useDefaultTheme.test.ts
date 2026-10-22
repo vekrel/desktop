@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { defaultThemeGeneration, defaultThemeToApply } from "./useDefaultTheme";
 
 const BASE = {
-  environmentId: "env-1",
+  machineId: "env-1",
   defaultTheme: "nightfall",
   defaultThemeSetAt: "2026-08-28T00:00:00.000Z",
   appliedGeneration: null,
@@ -16,7 +16,7 @@ describe("default theme adoption", () => {
     expect(defaultThemeToApply({ ...BASE, appliedGeneration: generation })).toBe(null);
   });
 
-  it("applies the same theme again when the environment re-sets it", () => {
+  it("applies the same theme again when the machine re-sets it", () => {
     const applied = defaultThemeGeneration(BASE.defaultTheme, "2026-08-28T00:00:00.000Z");
     const next = defaultThemeToApply({
       ...BASE,

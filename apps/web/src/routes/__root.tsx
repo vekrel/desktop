@@ -1,6 +1,6 @@
 import { PermissionUpdateNotice } from "../components/PermissionUpdateNotice";
 import { type ServerLifecycleWelcomePayload } from "@vekrel/contracts";
-import { scopedProjectKey, scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopedProjectKey, scopeProjectRef } from "@vekrel/client-runtime/machine";
 import {
   Outlet,
   Link,
@@ -44,7 +44,7 @@ import { ProviderAuthCallbackCoordinator } from "../components/settings/Provider
 import { ThemeEditorHost } from "../components/settings/ThemeEditorHost";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useDefaultThemeAdoption } from "../hooks/useDefaultTheme";
-import { useEnvironmentThemeSync } from "../hooks/useEnvironmentTheme";
+import { useMachineThemeSync } from "../hooks/useMachineTheme";
 import { Button } from "../components/ui/button";
 import { MorphIcon } from "~/components/MorphIcon";
 import { StandalonePage, StandalonePageHeader } from "../components/ui/standalone-page";
@@ -67,18 +67,18 @@ import {
 import { useUiStateStore } from "../uiStateStore";
 import { syncBrowserChromeTheme } from "../hooks/useTheme";
 import { configureClientTracing } from "../observability/clientTracing";
-import { resolveInitialServerAuthGateState } from "../environments/primary";
+import { resolveInitialServerAuthGateState } from "../machines/primary";
 import { hasHostedPairingRequest, isHostedStaticApp } from "../hostedPairing";
 import { useHostedPromptLinkLanding } from "../components/promptLinks/HostedPromptLinkLanding";
-import { isLocalEnvironmentDisabled } from "../localEnvironment";
+import { isLocalMachineDisabled } from "../localMachine";
 import { useAtomValue } from "@effect/atom-react";
-import { useEnvironments, usePrimaryEnvironment } from "../state/environments";
+import { useMachines, usePrimaryMachine } from "../state/machines";
 import {
   primaryServerConfigAtom,
   primaryServerConfigEventAtom,
   primaryServerWelcomeAtom,
 } from "../state/server";
-import { readProject, setActiveEnvironmentId, useActiveEnvironmentId } from "../state/entities";
+import { readProject, setActiveMachineId, useActiveMachineId } from "../state/entities";
 import {
   createKeybindingsUpdateToastController,
   type KeybindingsUpdateToastController,
@@ -98,7 +98,7 @@ export const Route = createRootRoute({
       };
     }
 
-    if (isLocalEnvironmentDisabled() || isHostedStaticApp(new URL(window.location.href))) {
+    if (isLocalMachineDisabled() || isHostedStaticApp(new URL(window.location.href))) {
       return {
         authGateState: {
           status: "hosted-static",
@@ -146,7 +146,7 @@ function RootRouteView() {
   useEffect(() => installDesktopPasteAsText(window.desktopBridge, window), []);
   const pathname = useLocation({ select: (location) => location.pathname });
   const { authGateState } = Route.useRouteContext();
-  const primaryEnvironmentAuthenticated = authGateState.status === "authenticated";
+  const primaryMachineAuthenticated = authGateState.status === "authenticated";
   // Once true, stays true: a visit to /welcome means the bootstrap already chose a route.
   const [returningFromWelcome, setReturningFromWelcome] = useState(pathname === "/welcome");
   if (pathname === "/welcome" && !returningFromWelcome) setReturningFromWelcome(true);
@@ -183,7 +183,7 @@ function RootRouteView() {
           <DocumentTitleSync />
           <BrowserChromeThemeSync key={pathname} />
           <ContrastAppearanceSync />
-          <EnvironmentThemeSync />
+          <MachineThemeSync />
           <GlassAppearanceSync />
           <FontAppearanceSync />
           <ProviderAuthCallbackCoordinator />
@@ -222,18 +222,18 @@ function RootRouteView() {
         <DocumentTitleSync />
         <BrowserChromeThemeSync key={pathname} />
         <ContrastAppearanceSync />
-        <EnvironmentThemeSync />
+        <MachineThemeSync />
         <GlassAppearanceSync />
         <FontAppearanceSync />
         <ProviderAuthCallbackCoordinator />
         <ChatGptWelcomeCoordinator />
         <FirstRunGate
-          enabled={primaryEnvironmentAuthenticated}
+          enabled={primaryMachineAuthenticated}
           hostedStatic={authGateState.status === "hosted-static"}
         >
-          {primaryEnvironmentAuthenticated ? <AuthenticatedTracingBootstrap /> : null}
-          {primaryEnvironmentAuthenticated ? <DesktopAppActivationCoordinator /> : null}
-          {primaryEnvironmentAuthenticated ? <DesktopWebLinkCoordinator /> : null}
+          {primaryMachineAuthenticated ? <AuthenticatedTracingBootstrap /> : null}
+          {primaryMachineAuthenticated ? <DesktopAppActivationCoordinator /> : null}
+          {primaryMachineAuthenticated ? <DesktopWebLinkCoordinator /> : null}
           {isElectron ? <RunningThreadKeepAlive /> : null}
           <RelayClientInstallDialog />
           <ConnectOnboardingDialog />
@@ -246,15 +246,15 @@ function RootRouteView() {
           <SlowRpcRequestToastCoordinator />
           <HostFreezeToastCoordinator />
           <PermissionUpdateNotice />
-          {primaryEnvironmentAuthenticated ? <LegacyThreadMigrationToast /> : null}
+          {primaryMachineAuthenticated ? <LegacyThreadMigrationToast /> : null}
           <ProjectCloneToastCoordinator />
           <AddProjectToMachineDialogHost />
           <PullRequestGuideRunCoordinator />
-          <HostedStaticEnvironmentBootstrap />
-          {primaryEnvironmentAuthenticated ? (
+          <HostedStaticMachineBootstrap />
+          {primaryMachineAuthenticated ? (
             <EventRouter skipInitialBootstrapNavigation={returningFromWelcome} />
           ) : null}
-          {primaryEnvironmentAuthenticated ? <ProviderUpdateLaunchNotification /> : null}
+          {primaryMachineAuthenticated ? <ProviderUpdateLaunchNotification /> : null}
           {isElectron ? <DesktopUpdateLaunchNotice /> : null}
           {appShell}
           {/* Above the router: a theme draft is judged by walking the app, so the
@@ -266,10 +266,10 @@ function RootRouteView() {
   );
 }
 
-function EnvironmentThemeSync() {
-  useEnvironmentThemeSync();
+function MachineThemeSync() {
+  useMachineThemeSync();
   // Ordered after the palette sync so a first-run client adopting the
-  // environment's own theme finds it already in the library.
+  // machine's own theme finds it already in the library.
   useDefaultThemeAdoption();
   return null;
 }
@@ -357,7 +357,7 @@ function BrowserChromeThemeSync() {
 
 function DocumentTitleSync() {
   const primaryServerVersion =
-    useAtomValue(primaryServerConfigAtom)?.environment.serverVersion ?? null;
+    useAtomValue(primaryServerConfigAtom)?.machine.serverVersion ?? null;
   const title = resolveServerBackedAppDisplayName({
     baseName: APP_BASE_NAME,
     fallbackDisplayName: APP_DISPLAY_NAME,
@@ -372,30 +372,30 @@ function DocumentTitleSync() {
   return null;
 }
 
-function HostedStaticEnvironmentBootstrap() {
-  const { environments } = useEnvironments();
-  const activeEnvironmentId = useActiveEnvironmentId();
+function HostedStaticMachineBootstrap() {
+  const { machines } = useMachines();
+  const activeMachineId = useActiveMachineId();
 
   useEffect(() => {
     if (
-      environments.some(
-        (environment) => environment.entry.target._tag === "PrimaryConnectionTarget",
+      machines.some(
+        (machine) => machine.entry.target._tag === "PrimaryConnectionTarget",
       )
     ) {
       return;
     }
 
-    if (activeEnvironmentId) {
+    if (activeMachineId) {
       return;
     }
 
-    const firstSavedEnvironment = environments[0];
-    if (!firstSavedEnvironment) {
+    const firstSavedMachine = machines[0];
+    if (!firstSavedMachine) {
       return;
     }
 
-    setActiveEnvironmentId(firstSavedEnvironment.environmentId);
-  }, [activeEnvironmentId, environments]);
+    setActiveMachineId(firstSavedMachine.machineId);
+  }, [activeMachineId, machines]);
 
   return null;
 }
@@ -511,7 +511,7 @@ function EventRouter({
   const navigate = useNavigate();
   const pathname = useLocation({ select: (loc) => loc.pathname });
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
-  const primaryEnvironment = usePrimaryEnvironment();
+  const primaryMachine = usePrimaryMachine();
   const serverConfig = useAtomValue(primaryServerConfigAtom);
   const serverConfigEvent = useAtomValue(primaryServerConfigEventAtom);
   const serverWelcome = useAtomValue(primaryServerWelcomeAtom);
@@ -526,23 +526,23 @@ function EventRouter({
   const handleWelcome = useEffectEvent((payload: ServerLifecycleWelcomePayload | null) => {
     if (!payload) return;
 
-    setActiveEnvironmentId(payload.environment.environmentId);
+    setActiveMachineId(payload.machine.machineId);
     void (async () => {
       if (!payload.bootstrapProjectId || !payload.bootstrapThreadId) {
         return;
       }
       const bootstrapProject = readProject(
-        scopeProjectRef(payload.environment.environmentId, payload.bootstrapProjectId),
+        scopeProjectRef(payload.machine.machineId, payload.bootstrapProjectId),
       );
       const bootstrapProjectKey =
         (bootstrapProject
           ? deriveLogicalProjectKeyFromSettings(bootstrapProject, projectGroupingSettings)
           : null) ??
         (serverConfig?.cwd
-          ? derivePhysicalProjectKeyFromPath(payload.environment.environmentId, serverConfig.cwd)
+          ? derivePhysicalProjectKeyFromPath(payload.machine.machineId, serverConfig.cwd)
           : null) ??
         scopedProjectKey(
-          scopeProjectRef(payload.environment.environmentId, payload.bootstrapProjectId),
+          scopeProjectRef(payload.machine.machineId, payload.bootstrapProjectId),
         );
       useUiStateStore.getState().setProjectExpanded(bootstrapProjectKey, true);
 
@@ -558,9 +558,9 @@ function EventRouter({
         return;
       }
       await navigate({
-        to: "/$environmentId/$threadId",
+        to: "/$machineId/$threadId",
         params: {
-          environmentId: payload.environment.environmentId,
+          machineId: payload.machine.machineId,
           threadId: payload.bootstrapThreadId,
         },
         replace: true,
@@ -591,7 +591,7 @@ function EventRouter({
         description: (
           <KeybindingsConfigWarning
             message={decision.message}
-            environmentId={primaryEnvironment?.environmentId ?? null}
+            machineId={primaryMachine?.machineId ?? null}
             configPath={serverConfig?.keybindingsConfigPath ?? null}
             availableEditors={serverConfig?.availableEditors ?? []}
           />
@@ -605,7 +605,7 @@ function EventRouter({
       return;
     }
 
-    setActiveEnvironmentId(serverConfig.environment.environmentId);
+    setActiveMachineId(serverConfig.machine.machineId);
   }, [serverConfig]);
 
   useEffect(() => {

@@ -3,16 +3,16 @@ import { MessageSquareDashedIcon, PlusIcon } from "lucide-react";
 import { openCommandPalette } from "../commandPaletteBus";
 import { isElectron } from "../env";
 import { useScratchProject } from "../hooks/useScratchProject";
-import { usePrimaryEnvironmentId } from "../state/environments";
+import { usePrimaryMachineId } from "../state/machines";
 import { Button } from "./ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
 import { SidebarInset } from "./ui/sidebar";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
 export function NoProjectsHero() {
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const { scratchEnvironmentId, startScratchThread } = useScratchProject();
-  const scratchTargetEnvironmentId = scratchEnvironmentId(primaryEnvironmentId);
+  const primaryMachineId = usePrimaryMachineId();
+  const { scratchMachineId, startScratchThread } = useScratchProject();
+  const scratchTargetMachineId = scratchMachineId(primaryMachineId);
 
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
@@ -24,7 +24,7 @@ export function NoProjectsHero() {
             <EmptyHeader className="max-w-none">
               <EmptyTitle>What should we work on?</EmptyTitle>
               <EmptyDescription>
-                {scratchTargetEnvironmentId === null
+                {scratchTargetMachineId === null
                   ? "Add a project to start your first thread."
                   : "Add a project, or start without one."}
               </EmptyDescription>
@@ -33,11 +33,11 @@ export function NoProjectsHero() {
                   <PlusIcon className="size-4" />
                   Add project
                 </Button>
-                {scratchTargetEnvironmentId === null ? null : (
+                {scratchTargetMachineId === null ? null : (
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => void startScratchThread(scratchTargetEnvironmentId)}
+                    onClick={() => void startScratchThread(scratchTargetMachineId)}
                   >
                     <MessageSquareDashedIcon className="size-4" />
                     Start without a project

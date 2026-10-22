@@ -1,6 +1,6 @@
-import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentId, ScopedThreadRef } from "@vekrel/contracts";
+import type { MachineId, ScopedThreadRef } from "@vekrel/contracts";
 import { parseChangeRequestUrl } from "@vekrel/shared/changeRequestUrl";
 import { promptLinkAppPath } from "@vekrel/shared/promptLinks";
 import { useRouter } from "@tanstack/react-router";
@@ -19,9 +19,9 @@ import { useOpenChangeRequestLink } from "../../lib/openPullRequestLink";
 import { selectActiveRightPanelSurface, useRightPanelStore } from "../../rightPanelStore";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { resolveThreadRouteTarget } from "../../threadRoutes";
-import { assetEnvironment } from "../../state/assets";
-import { useEnvironmentHttpBaseUrl, usePrimaryEnvironment } from "../../state/environments";
-import { previewEnvironment } from "../../state/preview";
+import { assetMachine } from "../../state/assets";
+import { useMachineHttpBaseUrl, usePrimaryMachine } from "../../state/machines";
+import { previewMachine } from "../../state/preview";
 import { allReachableShellsLiveAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useAtomQueryRunner } from "../../state/use-atom-query-runner";
@@ -35,7 +35,7 @@ const externalClick = {
   ctrlKey: false,
 };
 
-/** Resolves once every reachable environment has reported its projects or settled offline. */
+/** Resolves once every reachable machine has reported its projects or settled offline. */
 const projectsSettled = (): Promise<void> =>
   Effect.runPromise(
     AtomRegistry.toStream(appAtomRegistry, allReachableShellsLiveAtom).pipe(
@@ -46,12 +46,12 @@ const projectsSettled = (): Promise<void> =>
   );
 
 /**
- * HTML files are served by this machine's environment, so only its threads can
+ * HTML files are served by this machine, so only its threads can
  * take them.
  */
 function threadShowingBrowser(
   routeParams: Record<string, string | undefined>,
-  fileEnvironmentId: EnvironmentId | null,
+  fileMachineId: MachineId | null,
 ): ScopedThreadRef | null {
   const target = resolveThreadRouteTarget(routeParams);
   if (target === null) return null;
@@ -59,10 +59,10 @@ function threadShowingBrowser(
   if (target.kind === "draft") {
     const session = useComposerDraftStore.getState().getDraftSession(target.draftId);
     if (!session || session.promotedTo) return null;
-    threadRef = scopeThreadRef(session.environmentId, session.threadId);
+    threadRef = scopeThreadRef(session.machineId, session.threadId);
   }
-  if (threadRef === null || !isPreviewAvailableFor(threadRef.environmentId)) return null;
-  if (fileEnvironmentId !== null && threadRef.environmentId !== fileEnvironmentId) return null;
+  if (threadRef === null || !isPreviewAvailableFor(threadRef.machineId)) return null;
+  if (fileMachineId !== null && threadRef.machineId !== fileMachineId) return null;
   const surface = selectActiveRightPanelSurface(
     useRightPanelStore.getState().byThreadKey,
     threadRef,
@@ -72,23 +72,23 @@ function threadShowingBrowser(
 
 export function DesktopWebLinkCoordinator() {
   const router = useRouter();
-  const primaryEnvironment = usePrimaryEnvironment();
+  const primaryMachine = usePrimaryMachine();
   const openPullRequestsInApp = useClientSettings((settings) => settings.pullRequestLinksOpenInApp);
   const openChangeRequest = useOpenChangeRequestLink();
-  const { scratchEnvironmentId, openScratchProject } = useScratchProject();
+  const { scratchMachineId, openScratchProject } = useScratchProject();
   const openThread = useNewThreadHandler();
-  const openPreview = useAtomCommand(previewEnvironment.open, { reportFailure: false });
-  const createAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, {
+  const openPreview = useAtomCommand(previewMachine.open, { reportFailure: false });
+  const createAssetUrl = useAtomQueryRunner(assetMachine.createUrl, {
     reportFailure: false,
     refresh: true,
   });
-  const httpBaseUrl = useEnvironmentHttpBaseUrl(primaryEnvironment?.environmentId ?? null);
+  const httpBaseUrl = useMachineHttpBaseUrl(primaryMachine?.machineId ?? null);
   const queueRef = useRef(Promise.resolve());
   const webLinks = window.desktopBridge?.webLinks;
   const ready =
     webLinks !== undefined &&
-    primaryEnvironment?.connection.phase === "connected" &&
-    primaryEnvironment.serverConfig !== null;
+    primaryMachine?.connection.phase === "connected" &&
+    primaryMachine.serverConfig !== null;
 
   const reportFailure = (url: string, description = url) =>
     toastManager.add(
@@ -96,19 +96,19 @@ export function DesktopWebLinkCoordinator() {
     );
 
   const startThread = async (url: string): Promise<ScopedThreadRef | null> => {
-    const environmentId = scratchEnvironmentId(primaryEnvironment?.environmentId ?? null);
-    if (environmentId === null) {
+    const machineId = scratchMachineId(primaryMachine?.machineId ?? null);
+    if (machineId === null) {
       reportFailure(url);
       return null;
     }
-    const project = await openScratchProject(environmentId, "Could not open the link");
+    const project = await openScratchProject(machineId, "Could not open the link");
     if (!project) return null;
-    const opened = await openThread(scopeProjectRef(project.environmentId, project.id));
+    const opened = await openThread(scopeProjectRef(project.machineId, project.id));
     if (!opened) {
       reportFailure(url);
       return null;
     }
-    const threadRef = scopeThreadRef(project.environmentId, opened.threadId);
+    const threadRef = scopeThreadRef(project.machineId, opened.threadId);
     useRightPanelStore.getState().requestMaximize(threadRef);
     return threadRef;
   };
@@ -125,7 +125,7 @@ export function DesktopWebLinkCoordinator() {
     const threadRef =
       threadShowingBrowser(
         routeParams,
-        isFile ? (primaryEnvironment?.environmentId ?? null) : null,
+        isFile ? (primaryMachine?.machineId ?? null) : null,
       ) ?? (await startThread(url));
     if (threadRef === null) return;
     const result = isFile

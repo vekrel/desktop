@@ -1,12 +1,12 @@
-import { resolveEnvironmentMachineKind, type EnvironmentId } from "@vekrel/contracts";
+import { resolveMachineKind, type MachineId } from "@vekrel/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { ChevronRightIcon, LayersIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "../../lib/utils";
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
-import { useEnvironments, type EnvironmentPresentation } from "../../state/environments";
-import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import { useMachines, type MachinePresentation } from "../../state/machines";
+import { MachineIcon } from "../MachineIcon";
 import { ProjectFavicon } from "../ProjectFavicon";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ITEM_ROW_CLASSNAME } from "./itemRows";
@@ -15,8 +15,8 @@ import { SettingsPageContainer, SettingsSection } from "./settingsLayout";
 import { useSettingsScope } from "./SettingsScopeContext";
 import type { SettingsScopeSearch } from "./settingsScope";
 import {
-  settingsScopeEnvironmentAddress,
-  settingsScopeEnvironmentLabels,
+  settingsScopeMachineAddress,
+  settingsScopeMachineLabels,
   settingsScopeProjectMachines,
 } from "./settingsScopeAxis";
 
@@ -31,22 +31,22 @@ export function SettingsScopeNotice({
   children,
   target,
   targetId,
-  eligibleEnvironmentIds,
+  eligibleMachineIds,
 }: {
   children: string;
-  target: "environment" | "all" | "project" | "checkout";
+  target: "machine" | "all" | "project" | "checkout";
   targetId?: string;
-  eligibleEnvironmentIds?: readonly EnvironmentId[];
+  eligibleMachineIds?: readonly MachineId[];
 }) {
   const { selectScope, search, groups } = useSettingsScope();
   const navigate = useNavigate({ from: "/settings" });
   const pathname = useLocation({ select: (location) => location.pathname });
-  const { environments } = useEnvironments();
-  const environmentIcon = (environment: EnvironmentPresentation | undefined) =>
-    environment ? (
-      <EnvironmentMachineIcon
+  const { machines } = useMachines();
+  const machineIcon = (machine: MachinePresentation | undefined) =>
+    machine ? (
+      <MachineIcon
         aria-hidden
-        kind={resolveEnvironmentMachineKind(environment.serverConfig)}
+        kind={resolveMachineKind(machine.serverConfig)}
         className="size-4 shrink-0 text-muted-foreground"
       />
     ) : null;
@@ -57,22 +57,22 @@ export function SettingsScopeNotice({
   const renderChoices = (group: SidebarProjectSnapshot | null) => {
     const choices: ScopeChoice[] = group
       ? group.memberProjects.map((member) => {
-          const environment = environments.find(
-            (entry) => entry.environmentId === member.environmentId,
+          const machine = machines.find(
+            (entry) => entry.machineId === member.machineId,
           );
-          const { primary, secondary } = environment
-            ? settingsScopeEnvironmentLabels(environment, environments)
+          const { primary, secondary } = machine
+            ? settingsScopeMachineLabels(machine, machines)
             : {
-                primary: member.environmentLabel ?? "Environment",
-                secondary: member.environmentId,
+                primary: member.machineLabel ?? "Machine",
+                secondary: member.machineId,
               };
           return {
             label: primary,
             secondary: [secondary, member.workspaceRoot].filter(Boolean).join(" · "),
-            icon: environmentIcon(environment),
+            icon: machineIcon(machine),
             search: {
               project: group.projectKey,
-              machine: member.environmentId,
+              machine: member.machineId,
               checkout: member.physicalProjectKey,
             },
           };
@@ -85,32 +85,32 @@ export function SettingsScopeNotice({
                 (other) =>
                   other.projectKey !== group.projectKey && other.displayName === group.displayName,
               )
-                ? settingsScopeProjectMachines(group, environments)
+                ? settingsScopeProjectMachines(group, machines)
                 : []),
               group.workspaceRoot,
             ].join(" · "),
             icon: <ProjectFavicon project={group} className="size-4 shrink-0" />,
             search: { project: group.projectKey },
           }))
-        : target === "environment"
-          ? environments
+        : target === "machine"
+          ? machines
               .filter(
                 (entry) =>
-                  eligibleEnvironmentIds === undefined ||
-                  eligibleEnvironmentIds.includes(entry.environmentId),
+                  eligibleMachineIds === undefined ||
+                  eligibleMachineIds.includes(entry.machineId),
               )
               .map((entry) => {
-                const { primary, secondary } = settingsScopeEnvironmentLabels(entry, environments);
+                const { primary, secondary } = settingsScopeMachineLabels(entry, machines);
                 return {
                   label: primary,
-                  secondary: secondary || settingsScopeEnvironmentAddress(entry),
-                  icon: environmentIcon(entry),
-                  search: { machine: entry.environmentId },
+                  secondary: secondary || settingsScopeMachineAddress(entry),
+                  icon: machineIcon(entry),
+                  search: { machine: entry.machineId },
                 };
               })
           : [
               {
-                label: "Open all environments",
+                label: "Open all machines",
                 icon: <LayersIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />,
                 search: {},
               },

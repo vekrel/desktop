@@ -7,9 +7,9 @@ import { OtlpExporter, OtlpSerialization, OtlpTracer } from "effect/observabilit
 
 import { settleAsyncResult, squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
 import { safeErrorLogAttributes } from "@vekrel/client-runtime/errors";
-import { resolvePrimaryEnvironmentHttpUrl } from "../environments/primary";
+import { resolvePrimaryMachineHttpUrl } from "../machines/primary";
 import * as ClientTracer from "./clientTracer";
-import * as PrimaryEnvironmentHttpLayer from "../environments/primary/httpLayer";
+import * as PrimaryMachineHttpLayer from "../machines/primary/httpLayer";
 import { isElectron } from "../env";
 import { APP_VERSION } from "~/branding";
 
@@ -25,7 +25,7 @@ const CLIENT_TRACING_RESOURCE = {
 } as const;
 
 const layerDelegateRuntime = Layer.mergeAll(
-  PrimaryEnvironmentHttpLayer.layer,
+  PrimaryMachineHttpLayer.layer,
   OtlpExporter.layerFlusher,
   OtlpSerialization.layerJson,
   Layer.succeed(HttpClient.TracerDisabledWhen, () => true),
@@ -50,7 +50,7 @@ export function configureClientTracing(config: ClientTracingConfig = {}): Promis
 }
 
 async function applyClientTracingConfig(config: ClientTracingConfig): Promise<void> {
-  const otlpTracesUrl = resolvePrimaryEnvironmentHttpUrl("/api/observability/v1/traces");
+  const otlpTracesUrl = resolvePrimaryMachineHttpUrl("/api/observability/v1/traces");
   const exportIntervalMs = Math.max(10, config.exportIntervalMs ?? DEFAULT_EXPORT_INTERVAL_MS);
   const nextConfigKey = `${otlpTracesUrl}|${exportIntervalMs}`;
 

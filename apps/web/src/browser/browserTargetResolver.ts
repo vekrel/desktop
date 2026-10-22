@@ -1,6 +1,6 @@
 import type {
   BrowserNavigationTarget,
-  EnvironmentId,
+  MachineId,
   PreviewUrlResolution,
 } from "@vekrel/contracts";
 import { isLoopbackHost, normalizePreviewUrl } from "@vekrel/shared/preview";
@@ -19,34 +19,34 @@ export {
   isPublicFaviconHost,
 } from "@vekrel/shared/hostClassification";
 
-const readEnvironmentUrl = (environmentId: EnvironmentId): URL => {
-  const connection = readPreparedConnection(environmentId);
-  if (!connection) throw new Error(`Environment ${environmentId} is not connected.`);
+const readMachineUrl = (machineId: MachineId): URL => {
+  const connection = readPreparedConnection(machineId);
+  if (!connection) throw new Error(`Machine ${machineId} is not connected.`);
   return new URL(connection.httpBaseUrl);
 };
 
-const resolveEnvironmentPortTarget = (
-  environmentId: EnvironmentId,
-  target: Extract<BrowserNavigationTarget, { readonly kind: "environment-port" }>,
-  environmentUrl: URL,
+const resolveMachinePortTarget = (
+  machineId: MachineId,
+  target: Extract<BrowserNavigationTarget, { readonly kind: "machine-port" }>,
+  machineUrl: URL,
   requestedUrl?: string,
   sourceUrl?: URL,
 ): PreviewUrlResolution => {
-  if (!isPrivateNetworkHost(environmentUrl.hostname)) {
+  if (!isPrivateNetworkHost(machineUrl.hostname)) {
     throw new Error(
-      "This environment port needs the planned authenticated preview gateway; its server address is not directly private-network reachable.",
+      "This machine port needs the planned authenticated preview gateway; its server address is not directly private-network reachable.",
     );
   }
   const protocol = target.protocol ?? "http";
   const path = target.path?.startsWith("/") ? target.path : `/${target.path ?? ""}`;
-  const normalizedEnvironmentHost = environmentUrl.hostname.replace(/^\[|\]$/g, "");
-  // Local loopback environments should advertise `localhost` so Chromium
+  const normalizedMachineHost = machineUrl.hostname.replace(/^\[|\]$/g, "");
+  // Local loopback machines should advertise `localhost` so Chromium
   // dual-stack lookup can reach a Vite server bound only to ::1 or 127.0.0.1.
-  const resolvedHost = isLocalLoopbackHost(normalizedEnvironmentHost)
+  const resolvedHost = isLocalLoopbackHost(normalizedMachineHost)
     ? "localhost"
-    : normalizedEnvironmentHost.includes(":")
-      ? `[${normalizedEnvironmentHost}]`
-      : normalizedEnvironmentHost;
+    : normalizedMachineHost.includes(":")
+      ? `[${normalizedMachineHost}]`
+      : normalizedMachineHost;
   const resolved = sourceUrl
     ? new URL(sourceUrl)
     : new URL(path, `${protocol}://${resolvedHost}:${target.port}`);
@@ -57,15 +57,15 @@ const resolveEnvironmentPortTarget = (
   return {
     requestedUrl: requestedUrl ?? `${protocol}://localhost:${target.port}${path}`,
     resolvedUrl: resolved.toString(),
-    resolutionKind: isLocalLoopbackHost(normalizedEnvironmentHost)
+    resolutionKind: isLocalLoopbackHost(normalizedMachineHost)
       ? "direct"
       : "direct-private-network",
-    environmentId,
+    machineId,
   };
 };
 
 export function resolveBrowserNavigationTarget(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   target: BrowserNavigationTarget,
 ): PreviewUrlResolution {
   if (target.kind === "url") {
@@ -73,10 +73,10 @@ export function resolveBrowserNavigationTarget(
       requestedUrl: target.url,
       resolvedUrl: target.url,
       resolutionKind: "direct",
-      environmentId,
+      machineId,
     };
   }
-  return resolveEnvironmentPortTarget(environmentId, target, readEnvironmentUrl(environmentId));
+  return resolveMachinePortTarget(machineId, target, readMachineUrl(machineId));
 }
 
 /**
@@ -85,26 +85,26 @@ export function resolveBrowserNavigationTarget(
  * address (WSL NAT mode binds the distro IP), but a dev server bound to
  * loopback only answers on `localhost` there.
  */
-const reachesEnvironmentLoopback = (target: ConnectionTarget): boolean =>
+const reachesMachineLoopback = (target: ConnectionTarget): boolean =>
   isElectron &&
   (target._tag === "PrimaryConnectionTarget" || isDesktopLocalConnectionTarget(target));
 
-export function resolveDiscoveredServerUrl(environmentId: EnvironmentId, rawUrl: string): string {
+export function resolveDiscoveredServerUrl(machineId: MachineId, rawUrl: string): string {
   try {
     const normalizedUrl = normalizePreviewUrl(rawUrl);
     const parsed = new URL(normalizedUrl);
     if (!isLoopbackHost(parsed.hostname)) return normalizedUrl;
-    const target = readPreparedConnection(environmentId)?.target;
-    if (target && reachesEnvironmentLoopback(target)) return normalizedUrl;
-    return resolveEnvironmentPortTarget(
-      environmentId,
+    const target = readPreparedConnection(machineId)?.target;
+    if (target && reachesMachineLoopback(target)) return normalizedUrl;
+    return resolveMachinePortTarget(
+      machineId,
       {
-        kind: "environment-port",
+        kind: "machine-port",
         port: Number(parsed.port || (parsed.protocol === "https:" ? 443 : 80)),
         protocol: parsed.protocol === "https:" ? "https" : "http",
         path: `${parsed.pathname}${parsed.search}${parsed.hash}`,
       },
-      readEnvironmentUrl(environmentId),
+      readMachineUrl(machineId),
       rawUrl,
       parsed,
     ).resolvedUrl;

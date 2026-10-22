@@ -7,7 +7,7 @@ import {
 } from "@vekrel/client-runtime/state/runtime";
 import {
   AuthFilesystemWriteScope,
-  type EnvironmentId,
+  type MachineId,
   type ScopedThreadRef,
 } from "@vekrel/contracts";
 import {
@@ -33,33 +33,33 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { stackedThreadToast, toastManager } from "../ui/toast";
-import { projectEnvironment } from "~/state/projects";
+import { projectMachine } from "~/state/projects";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useAtomCommand } from "~/state/use-atom-command";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import { readMachineScope, useMachineScope } from "~/state/session";
 
 export const ProposedPlanCard = memo(function ProposedPlanCard({
   planMarkdown,
-  environmentId,
+  machineId,
   threadRef,
   cwd,
   workspaceRoot,
   findActive = false,
 }: {
   planMarkdown: string;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   threadRef?: ScopedThreadRef | undefined;
   cwd: string | undefined;
   workspaceRoot: string | undefined;
   findActive?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const canWriteFiles = useEnvironmentScope(environmentId, AuthFilesystemWriteScope);
+  const canWriteFiles = useMachineScope(machineId, AuthFilesystemWriteScope);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   // The path last submitted, so reopening the dialog offers it again.
   const [lastSavePath, setLastSavePath] = useState("");
   const [isSavingToWorkspace, setIsSavingToWorkspace] = useState(false);
-  const writeProjectFile = useAtomCommand(projectEnvironment.writeFile, {
+  const writeProjectFile = useAtomCommand(projectMachine.writeFile, {
     reportFailure: false,
   });
   const { copyToClipboard, isCopied } = useCopyToClipboard({
@@ -114,7 +114,7 @@ export const ProposedPlanCard = memo(function ProposedPlanCard({
 
   const handleSaveToWorkspace = (savePath: string) => {
     const relativePath = savePath.trim();
-    if (!workspaceRoot || !readEnvironmentScope(environmentId, AuthFilesystemWriteScope)) {
+    if (!workspaceRoot || !readMachineScope(machineId, AuthFilesystemWriteScope)) {
       return;
     }
     if (!relativePath) {
@@ -129,7 +129,7 @@ export const ProposedPlanCard = memo(function ProposedPlanCard({
     setIsSavingToWorkspace(true);
     void (async () => {
       const result = await writeProjectFile({
-        environmentId,
+        machineId,
         input: {
           cwd: workspaceRoot,
           relativePath,
@@ -200,7 +200,7 @@ export const ProposedPlanCard = memo(function ProposedPlanCard({
             <ChatMarkdown
               text={collapsedPreview ?? ""}
               cwd={cwd}
-              environmentId={environmentId}
+              machineId={machineId}
               threadRef={threadRef}
               isStreaming={false}
               headingLevelOffset={3}
@@ -209,7 +209,7 @@ export const ProposedPlanCard = memo(function ProposedPlanCard({
             <ChatMarkdown
               text={displayedPlanMarkdown}
               cwd={cwd}
-              environmentId={environmentId}
+              machineId={machineId}
               threadRef={threadRef}
               isStreaming={false}
               headingLevelOffset={3}

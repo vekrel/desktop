@@ -3,8 +3,8 @@ export interface WslUncPath {
   readonly linuxPath: string;
 }
 
-export interface WslEnvironmentCandidate<TEnvironmentId extends string = string> {
-  readonly environmentId: TEnvironmentId;
+export interface WslEnvironmentCandidate<TMachineId extends string = string> {
+  readonly machineId: TMachineId;
   readonly backendId: string;
   readonly runningDistro: string | null;
 }
@@ -19,8 +19,8 @@ export interface WslEnvironmentConfiguration {
   }>;
 }
 
-export interface WslProjectSelection<TEnvironmentId extends string = string> extends WslUncPath {
-  readonly environmentId: TEnvironmentId;
+export interface WslProjectSelection<TMachineId extends string = string> extends WslUncPath {
+  readonly machineId: TMachineId;
 }
 
 const WSL_UNC_PREFIXES = ["\\\\wsl.localhost\\", "\\\\wsl$\\"] as const;
@@ -49,10 +49,10 @@ export function parseWslUncPath(input: string): WslUncPath | null {
   };
 }
 
-export function resolveWslProjectSelection<TEnvironmentId extends string>(
+export function resolveWslProjectSelection<TMachineId extends string>(
   input: string,
-  candidates: ReadonlyArray<WslEnvironmentCandidate<TEnvironmentId>>,
-): WslProjectSelection<TEnvironmentId> | null {
+  candidates: ReadonlyArray<WslEnvironmentCandidate<TMachineId>>,
+): WslProjectSelection<TMachineId> | null {
   const parsed = parseWslUncPath(input);
   if (!parsed) {
     return null;
@@ -71,7 +71,7 @@ export function resolveWslProjectSelection<TEnvironmentId extends string>(
         : null);
     return runningDistro?.toLowerCase() === parsed.distro.toLowerCase();
   });
-  return exact ? { ...parsed, environmentId: exact.environmentId } : null;
+  return exact ? { ...parsed, machineId: exact.machineId } : null;
 }
 
 interface ConfiguredWslBackend {
@@ -102,9 +102,9 @@ function resolveConfiguredWslBackend(
   return { backendId: `wsl:${resolvedDistro}`, runningDistro: resolvedDistro };
 }
 
-export function resolveProjectPickerTarget<TEnvironmentId extends string>(input: {
-  readonly browseEnvironmentId: TEnvironmentId | null;
-  readonly primaryEnvironmentId: TEnvironmentId | null;
+export function resolveProjectPickerTarget<TMachineId extends string>(input: {
+  readonly browseMachineId: TMachineId | null;
+  readonly primaryMachineId: TMachineId | null;
   readonly desktopInstanceId: string | null;
   readonly wslConfiguration: WslEnvironmentConfiguration | null;
 }): string | null {
@@ -113,8 +113,8 @@ export function resolveProjectPickerTarget<TEnvironmentId extends string>(input:
   }
 
   if (
-    input.browseEnvironmentId === null ||
-    input.browseEnvironmentId !== input.primaryEnvironmentId ||
+    input.browseMachineId === null ||
+    input.browseMachineId !== input.primaryMachineId ||
     !input.wslConfiguration?.enabled ||
     !input.wslConfiguration.wslOnly
   ) {
@@ -124,12 +124,12 @@ export function resolveProjectPickerTarget<TEnvironmentId extends string>(input:
   return resolveConfiguredWslBackend(input.wslConfiguration)?.backendId ?? null;
 }
 
-export function applyWslEnvironmentConfiguration<TEnvironmentId extends string>(
-  candidates: ReadonlyArray<WslEnvironmentCandidate<TEnvironmentId>>,
-  primaryEnvironmentId: TEnvironmentId | null,
+export function applyWslEnvironmentConfiguration<TMachineId extends string>(
+  candidates: ReadonlyArray<WslEnvironmentCandidate<TMachineId>>,
+  primaryMachineId: TMachineId | null,
   configuration: WslEnvironmentConfiguration | null,
   primaryRunningDistro: string | null = null,
-): ReadonlyArray<WslEnvironmentCandidate<TEnvironmentId>> {
+): ReadonlyArray<WslEnvironmentCandidate<TMachineId>> {
   if (!configuration) {
     return candidates;
   }
@@ -142,13 +142,13 @@ export function applyWslEnvironmentConfiguration<TEnvironmentId extends string>(
   if (
     configuration.enabled &&
     configuration.wslOnly &&
-    primaryEnvironmentId !== null &&
-    !candidates.some((candidate) => candidate.environmentId === primaryEnvironmentId)
+    primaryMachineId !== null &&
+    !candidates.some((candidate) => candidate.machineId === primaryMachineId)
   ) {
     return [
       ...candidates,
       {
-        environmentId: primaryEnvironmentId,
+        machineId: primaryMachineId,
         ...configuredBackend,
         runningDistro: primaryRunningDistro ?? configuredBackend.runningDistro,
       },

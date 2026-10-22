@@ -4,11 +4,11 @@ import { PROVIDER_DISPLAY_NAMES } from "@vekrel/contracts";
 import { APP_VERSION } from "~/branding";
 import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
 import { isElectron } from "~/env";
-import { useEnvironments } from "~/state/environments";
+import { useMachines } from "~/state/machines";
 import { useNpmReleasePublished } from "~/state/npmRelease";
-import { environmentIdsKey } from "~/state/environmentAtomList";
-import { environmentUpdateStatesAtom } from "~/state/server";
-import { environmentSessionStatesAtom } from "~/state/session";
+import { machineIdsKey } from "~/state/machineAtomList";
+import { machineUpdateStatesAtom } from "~/state/server";
+import { machineSessionStatesAtom } from "~/state/session";
 import { getProviderUpdateRunOutcome } from "../ProviderUpdateLaunchNotification.logic";
 import { useProviderUpdates } from "../ProviderUpdatesAction";
 import { canUpdateServer, type ServerUpdateOutcome, useServerUpdate } from "../ServerUpdateAction";
@@ -38,19 +38,19 @@ export type ReportLocalUpdateError = (title: string, description: string) => voi
 
 export function useUpdateEverything(localUpdateVersion: string | null) {
   const targetVersion = localUpdateVersion ?? APP_VERSION;
-  const { environments } = useEnvironments();
-  const environmentIds = environmentIdsKey(environments.map(({ environmentId }) => environmentId));
-  const sessionStates = useAtomValue(environmentSessionStatesAtom(environmentIds));
-  const updateStates = useAtomValue(environmentUpdateStatesAtom(environmentIds));
-  const machines = environments.map((environment, index) => ({
-    environmentId: environment.environmentId,
-    label: environment.label,
-    serverConfig: environment.serverConfig,
-    connected: environment.connection.phase === "connected",
+  const { machines: allMachines } = useMachines();
+  const machineIds = machineIdsKey(allMachines.map(({ machineId }) => machineId));
+  const sessionStates = useAtomValue(machineSessionStatesAtom(machineIds));
+  const updateStates = useAtomValue(machineUpdateStatesAtom(machineIds));
+  const machines = allMachines.map((machine, index) => ({
+    machineId: machine.machineId,
+    label: machine.label,
+    serverConfig: machine.serverConfig,
+    connected: machine.connection.phase === "connected",
     hostedByThisApp:
       isElectron &&
-      (environment.entry.target._tag === "PrimaryConnectionTarget" ||
-        isDesktopLocalConnectionTarget(environment.entry.target)),
+      (machine.entry.target._tag === "PrimaryConnectionTarget" ||
+        isDesktopLocalConnectionTarget(machine.entry.target)),
     canMaintain: canUpdateServer(sessionStates[index]!),
     updateState: updateStates[index]!,
   }));
@@ -70,7 +70,7 @@ export function useUpdateEverything(localUpdateVersion: string | null) {
     ...behindServers
       .filter((server) => !servers.includes(server))
       .map((server) => ({
-        environmentId: server.environmentId,
+        machineId: server.machineId,
         label: server.serverLabel,
         reason: `t3@${targetVersion} is not on npm yet`,
       })),
@@ -83,7 +83,7 @@ export function useUpdateEverything(localUpdateVersion: string | null) {
     localVersion: localUpdateVersion,
     servers,
     providerMachines: providers.machines.map((machine) => ({
-      environmentId: machine.environmentId,
+      machineId: machine.machineId,
       label: machine.label,
       providers: machine.candidates.map(
         (candidate) => PROVIDER_DISPLAY_NAMES[candidate.driver] ?? candidate.driver,
@@ -109,10 +109,10 @@ export function useUpdateEverything(localUpdateVersion: string | null) {
         localFailures.push(`${title}: ${description}`);
       };
       const startedAt = Date.now();
-      const machinesById = new Map<UpdateRunMachine["environmentId"], UpdateRunMachine>();
+      const machinesById = new Map<UpdateRunMachine["machineId"], UpdateRunMachine>();
       for (const machine of providers.machines) {
-        machinesById.set(machine.environmentId, {
-          environmentId: machine.environmentId,
+        machinesById.set(machine.machineId, {
+          machineId: machine.machineId,
           label: machine.label,
           updatesProviders: true,
           server: null,
@@ -124,9 +124,9 @@ export function useUpdateEverything(localUpdateVersion: string | null) {
         });
       }
       for (const server of servers) {
-        const existing = machinesById.get(server.environmentId);
-        machinesById.set(server.environmentId, {
-          environmentId: server.environmentId,
+        const existing = machinesById.get(server.machineId);
+        machinesById.set(server.machineId, {
+          machineId: server.machineId,
           label: server.serverLabel,
           updatesProviders: existing?.updatesProviders ?? false,
           server,
@@ -144,7 +144,7 @@ export function useUpdateEverything(localUpdateVersion: string | null) {
         restartAt: null,
         machines: Array.from(machinesById.values()),
       }));
-      const providerFailures = new Map<UpdateRunMachine["environmentId"], string>();
+      const providerFailures = new Map<UpdateRunMachine["machineId"], string>();
       const finishedServers: Array<{ label: string; outcome: ServerUpdateOutcome }> = [];
       try {
         const outcome = await runUpdateEverything({
@@ -155,7 +155,7 @@ export function useUpdateEverything(localUpdateVersion: string | null) {
               const runOutcome = getProviderUpdateRunOutcome(run);
               if (runOutcome.status !== "updated") {
                 providerFailures.set(
-                  run.environmentId,
+                  run.machineId,
                   runOutcome.status === "failed" ? runOutcome.line : "Provider update interrupted",
                 );
               }
@@ -164,8 +164,8 @@ export function useUpdateEverything(localUpdateVersion: string | null) {
             for (const machine of machinesById.values()) {
               if (machine.server === null) {
                 settleUpdateRunMachine(
-                  machine.environmentId,
-                  providerFailures.get(machine.environmentId) ?? null,
+                  machine.machineId,
+                  providerFailures.get(machine.machineId) ?? null,
                 );
               }
             }
@@ -186,13 +186,13 @@ export function useUpdateEverything(localUpdateVersion: string | null) {
             const runs = servers.map(async (server) => {
               const serverOutcome = await updateServer(server, { quiet: true });
               settleUpdateRunMachine(
-                server.environmentId,
+                server.machineId,
                 serverOutcome.status === "failed"
                   ? serverOutcome.message
-                  : (providerFailures.get(server.environmentId) ?? null),
+                  : (providerFailures.get(server.machineId) ?? null),
                 {
                   serverUpdated: serverOutcome.status !== "failed",
-                  providerFailure: providerFailures.get(server.environmentId) ?? null,
+                  providerFailure: providerFailures.get(server.machineId) ?? null,
                 },
               );
               const finished = { label: server.serverLabel, outcome: serverOutcome };
@@ -201,7 +201,7 @@ export function useUpdateEverything(localUpdateVersion: string | null) {
             });
             await Promise.all(
               servers.map((server, index) =>
-                waitForServerUpdateHandoff(server.environmentId, runs[index]!),
+                waitForServerUpdateHandoff(server.machineId, runs[index]!),
               ),
             );
             return runs;

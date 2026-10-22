@@ -12,7 +12,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { APP_DISPLAY_NAME, DESKTOP_DOWNLOAD_URL } from "~/branding";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { isHostedStaticApp } from "~/hostedPairing";
-import { useEnvironments } from "~/state/environments";
+import { useMachines } from "~/state/machines";
 
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
@@ -61,7 +61,7 @@ function summarize(
 
 export function useHostedPromptLinkLanding(enabled: boolean): ReactNode | null {
   const href = useLocation({ select: (location) => location.href });
-  const { environments, isReady } = useEnvironments();
+  const { machines, isReady } = useMachines();
   const [opener, setOpener] = useLocalStorage(OPENER_STORAGE_KEY, null, Opener);
   const [continuedHref, setContinuedHref] = useState<string | null>(null);
   const appPath =
@@ -69,7 +69,7 @@ export function useHostedPromptLinkLanding(enabled: boolean): ReactNode | null {
       ? promptLinkAppPath(new URL(href, window.location.origin).href, window.location.origin)
       : null;
   if (appPath === null || continuedHref === href) return null;
-  const canContinue = isReady && environments.length > 0;
+  const canContinue = isReady && machines.length > 0;
   if (opener === "browser") {
     if (canContinue) return null;
     if (!isReady) return <></>;

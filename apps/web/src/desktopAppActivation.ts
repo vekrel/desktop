@@ -2,8 +2,8 @@ import type {
   DesktopAppActivationFailure,
   DesktopAppActivationRequest,
   DesktopAppActivationResponse,
-  EnvironmentId,
-  ExecutionEnvironmentPlatformOs,
+  MachineId,
+  ExecutionMachinePlatformOs,
   ProjectId,
   ScopedProjectRef,
   ThreadId,
@@ -11,23 +11,23 @@ import type {
 
 export interface DesktopAppActivationProject {
   readonly id: ProjectId;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly workspaceRoot: string;
 }
 
 export interface DesktopAppActivationTarget {
-  readonly environmentId: EnvironmentId;
-  readonly platform: ExecutionEnvironmentPlatformOs;
+  readonly machineId: MachineId;
+  readonly platform: ExecutionMachinePlatformOs;
 }
 
 export interface DesktopAppActivationDependencies {
   readonly getTarget: () => DesktopAppActivationTarget | null;
   readonly findProject: (
-    environmentId: EnvironmentId,
+    machineId: MachineId,
     workspaceRoot: string,
   ) => DesktopAppActivationProject | null;
   readonly createProject: (
-    environmentId: EnvironmentId,
+    machineId: MachineId,
     workspaceRoot: string,
   ) => Promise<ProjectId>;
   readonly waitForProject: (projectRef: ScopedProjectRef) => Promise<void>;
@@ -44,9 +44,9 @@ function failure(
   return { version: 1, requestId, ok: false, code, message };
 }
 
-function desktopPlatformToEnvironmentOs(
+function desktopPlatformToMachineOs(
   platform: DesktopAppActivationRequest["platform"],
-): ExecutionEnvironmentPlatformOs {
+): ExecutionMachinePlatformOs {
   return platform === "win32" ? "windows" : platform;
 }
 
@@ -62,25 +62,25 @@ export async function handleDesktopAppActivationRequest(
   if (target === null) {
     return failure(
       request.requestId,
-      "environment-unavailable",
-      "The desktop app's primary local environment is not connected.",
+      "machine-unavailable",
+      "The desktop app's primary local machine is not connected.",
     );
   }
 
-  const requestPlatform = desktopPlatformToEnvironmentOs(request.platform);
+  const requestPlatform = desktopPlatformToMachineOs(request.platform);
   if (requestPlatform !== target.platform) {
     return failure(
       request.requestId,
       "platform-mismatch",
-      `The command path is for ${requestPlatform}, but the desktop app's primary environment uses ${target.platform}. Cross-platform path mapping is not supported.`,
+      `The command path is for ${requestPlatform}, but the desktop app's primary machine uses ${target.platform}. Cross-platform path mapping is not supported.`,
     );
   }
 
-  let projectId = dependencies.findProject(target.environmentId, request.workspaceRoot)?.id ?? null;
+  let projectId = dependencies.findProject(target.machineId, request.workspaceRoot)?.id ?? null;
   if (projectId === null) {
     try {
-      projectId = await dependencies.createProject(target.environmentId, request.workspaceRoot);
-      await dependencies.waitForProject({ environmentId: target.environmentId, projectId });
+      projectId = await dependencies.createProject(target.machineId, request.workspaceRoot);
+      await dependencies.waitForProject({ machineId: target.machineId, projectId });
     } catch (error) {
       return failure(
         request.requestId,
@@ -92,7 +92,7 @@ export async function handleDesktopAppActivationRequest(
 
   try {
     const opened = await dependencies.openThread({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       projectId,
     });
     if (opened === null) {

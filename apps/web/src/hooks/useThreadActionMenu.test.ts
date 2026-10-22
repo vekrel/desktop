@@ -1,6 +1,6 @@
 import {
   AuthOrchestrationOperateScope,
-  EnvironmentId,
+  MachineId,
   ThreadId,
   type ContextMenuItem,
 } from "@vekrel/contracts";
@@ -43,18 +43,18 @@ vi.mock("@tanstack/react-router", () => ({
   useRouter: () => ({ navigate: async () => recordEffect("project-settings") }),
 }));
 vi.mock("../state/session", () => ({
-  readEnvironmentScope: (environmentId: string, scope: string) =>
-    scope === AuthOrchestrationOperateScope && state.granted.has(environmentId),
+  readMachineScope: (machineId: string, scope: string) =>
+    scope === AuthOrchestrationOperateScope && state.granted.has(machineId),
 }));
 vi.mock("../state/entities", () => ({
-  readEnvironmentSupportsAutoSettleOptOut: () => true,
-  readEnvironmentSupportsPinning: () => true,
-  readEnvironmentSupportsSettlement: () => true,
-  readEnvironmentSupportsSnooze: () => true,
-  readEnvironmentSupportsTitleRegeneration: () => true,
+  readMachineSupportsAutoSettleOptOut: () => true,
+  readMachineSupportsPinning: () => true,
+  readMachineSupportsSettlement: () => true,
+  readMachineSupportsSnooze: () => true,
+  readMachineSupportsTitleRegeneration: () => true,
   readThreadShell: () => ({
     id: "thread",
-    environmentId: "secondary",
+    machineId: "secondary",
     projectId: "project",
     title: "Thread",
     branch: "main",
@@ -62,10 +62,10 @@ vi.mock("../state/entities", () => ({
     runtime: null,
     latestRun: null,
   }),
-  useProjects: () => [{ id: "project", environmentId: "secondary" }],
+  useProjects: () => [{ id: "project", machineId: "secondary" }],
 }));
-vi.mock("../state/environments", () => ({ usePrimaryEnvironmentId: () => "primary" }));
-vi.mock("../state/threads", () => ({ threadEnvironment: { updateMetadata: "metadata" } }));
+vi.mock("../state/machines", () => ({ usePrimaryMachineId: () => "primary" }));
+vi.mock("../state/threads", () => ({ threadMachine: { updateMetadata: "metadata" } }));
 vi.mock("../state/use-atom-command", () => ({
   useAtomCommand: () => async () => {
     recordEffect("metadata");
@@ -147,7 +147,7 @@ vi.mock("./useThreadActions", () => ({
 import { useThreadActionMenu } from "./useThreadActionMenu";
 
 const target = {
-  environmentId: EnvironmentId.make("secondary"),
+  machineId: MachineId.make("secondary"),
   threadId: ThreadId.make("thread"),
 };
 const position = { x: 10, y: 20 };

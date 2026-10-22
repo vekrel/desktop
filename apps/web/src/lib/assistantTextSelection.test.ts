@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   ASSISTANT_CITATION_CONTEXT_LENGTH,
-  EnvironmentId,
+  MachineId,
   MessageId,
   ThreadId,
 } from "@vekrel/contracts";
@@ -35,7 +35,7 @@ function roundTripSelector(selector: AssistantTextSelector) {
   return parseAssistantCitationHref(
     formatAssistantCitationHref({
       version: 1,
-      environmentId: EnvironmentId.make("environment"),
+      machineId: MachineId.make("machine"),
       threadId: ThreadId.make("thread"),
       messageId: MessageId.make("assistant"),
       ...selector,

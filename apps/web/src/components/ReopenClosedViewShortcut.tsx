@@ -3,7 +3,7 @@ import {
   scopeProjectRef,
   scopedThreadKey,
   scopeThreadRef,
-} from "@vekrel/client-runtime/environment";
+} from "@vekrel/client-runtime/machine";
 import type { ScopedThreadRef } from "@vekrel/contracts";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef } from "react";
@@ -11,7 +11,7 @@ import { useEffect, useEffectEvent, useRef } from "react";
 import { isCommandPaletteOpen } from "../commandPaletteBus";
 import { useClosedViewStore } from "../closedViewStore";
 import { useComposerDraftStore } from "../composerDraftStore";
-import { environmentCatalog } from "../connection/catalog";
+import { machineCatalog } from "../connection/catalog";
 import { effectiveShortcutsForCommand, resolveShortcutCommand } from "../keybindings";
 import { isEditableFocused } from "../lib/editableFocus";
 import { isPreviewFocused } from "../lib/previewFocus";
@@ -31,9 +31,9 @@ import {
 } from "../rightPanelStore";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { readProject, readThreadShell } from "../state/entities";
-import { previewEnvironment } from "../state/preview";
+import { previewMachine } from "../state/preview";
 import { primaryServerKeybindingsAtom } from "../state/server";
-import { environmentShell } from "../state/shell";
+import { machineShell } from "../state/shell";
 import { useAtomCommand } from "../state/use-atom-command";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import {
@@ -63,7 +63,7 @@ export function ReopenClosedViewShortcut() {
     target?.kind === "server"
       ? target.threadRef
       : draft
-        ? (draft.promotedTo ?? scopeThreadRef(draft.environmentId, draft.threadId))
+        ? (draft.promotedTo ?? scopeThreadRef(draft.machineId, draft.threadId))
         : null;
   const terminalOpen = useTerminalUiStateStore(
     (state) =>
@@ -74,11 +74,11 @@ export function ReopenClosedViewShortcut() {
   );
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const hasHistory = useClosedViewStore((state) => state.entries.length > 0);
-  const openPreview = useAtomCommand(previewEnvironment.open);
+  const openPreview = useAtomCommand(previewMachine.open);
   const pending = useRef(Promise.resolve());
 
   const reopenNext = useEffectEvent(async () => {
-    const catalog = appAtomRegistry.get(environmentCatalog.catalogValueAtom);
+    const catalog = appAtomRegistry.get(machineCatalog.catalogValueAtom);
     const drafts = useComposerDraftStore.getState();
     const panelsByThread = useRightPanelStore.getState().byThreadKey;
     const { drop, restore } = planNextReopen(useClosedViewStore.getState().entries, (entry) => {
@@ -86,7 +86,7 @@ export function ReopenClosedViewShortcut() {
       const panel = selectThreadRightPanelState(panelsByThread, ref);
       if (isGlobalPullRequests(ref)) {
         return {
-          environmentKnown: true,
+          machineKnown: true,
           catalogReady: true,
           ownerExists: true,
           shellLive: true,
@@ -94,11 +94,11 @@ export function ReopenClosedViewShortcut() {
         };
       }
       return {
-        environmentKnown: catalog.entries.has(ref.environmentId),
+        machineKnown: catalog.entries.has(ref.machineId),
         catalogReady: catalog.isReady,
         ownerExists: readThreadShell(ref) !== null || drafts.getDraftThreadByRef(ref) !== null,
         shellLive:
-          appAtomRegistry.get(environmentShell.stateValueAtom(ref.environmentId)).status === "live",
+          appAtomRegistry.get(machineShell.stateValueAtom(ref.machineId)).status === "live",
         panel,
       };
     });
@@ -109,7 +109,7 @@ export function ReopenClosedViewShortcut() {
     const globalPullRequests = isGlobalPullRequests(ref);
     const thread = globalPullRequests ? null : readThreadShell(ref);
     const owner = thread ?? drafts.getDraftThreadByRef(ref);
-    const project = owner ? readProject(scopeProjectRef(ref.environmentId, owner.projectId)) : null;
+    const project = owner ? readProject(scopeProjectRef(ref.machineId, owner.projectId)) : null;
     if (!(await reopenClosedView(restore, { openPreview, workspaceAvailable: project !== null }))) {
       useClosedViewStore.getState().defer(restore.id);
       return;
@@ -128,7 +128,7 @@ export function ReopenClosedViewShortcut() {
       const draftId = thread === null ? drafts.getDraftIdByRef(ref) : null;
       if (draftId !== null)
         await navigate({ to: "/draft/$draftId", params: buildDraftThreadRouteParams(draftId) });
-      else await navigate({ to: "/$environmentId/$threadId", params: buildThreadRouteParams(ref) });
+      else await navigate({ to: "/$machineId/$threadId", params: buildThreadRouteParams(ref) });
     }
   });
 

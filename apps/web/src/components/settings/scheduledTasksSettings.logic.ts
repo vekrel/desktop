@@ -1,6 +1,6 @@
 import { isWebhookDedupeTemplate } from "@vekrel/contracts";
 import {
-  EnvironmentId,
+  MachineId,
   MAX_WEBHOOK_DELIVERY_AGE_MINUTES,
   type ProjectId,
   ScheduledTaskId,
@@ -29,13 +29,13 @@ import type { ResolvedSettingsScope } from "./settingsScope";
 
 export function matchesScheduledTaskScope(
   scope: ResolvedSettingsScope,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   projectId: ProjectId,
 ): boolean {
-  if (scope.kind === "unavailable" || !scope.environmentIds.includes(environmentId)) return false;
+  if (scope.kind === "unavailable" || !scope.machineIds.includes(machineId)) return false;
   if (scope.kind === "project" || scope.kind === "checkout") {
     return scope.members.some(
-      (member) => member.environmentId === environmentId && member.id === projectId,
+      (member) => member.machineId === machineId && member.id === projectId,
     );
   }
   return true;
@@ -43,8 +43,8 @@ export function matchesScheduledTaskScope(
 
 export function validateScheduledTasksSearch(raw: Record<string, unknown>) {
   return {
-    ...(typeof raw.environmentId === "string" && raw.environmentId.trim()
-      ? { environmentId: EnvironmentId.make(raw.environmentId) }
+    ...(typeof raw.machineId === "string" && raw.machineId.trim()
+      ? { machineId: MachineId.make(raw.machineId) }
       : {}),
     ...(typeof raw.taskId === "string" && raw.taskId.trim()
       ? { taskId: ScheduledTaskId.make(raw.taskId) }

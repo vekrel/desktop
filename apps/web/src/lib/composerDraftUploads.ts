@@ -1,5 +1,5 @@
 import type { ScopedProjectRef, ScopedThreadRef } from "@vekrel/contracts";
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 
 import { type DraftId, useComposerDraftStore } from "../composerDraftStore";
 import { releaseDraftAttachments } from "./attachmentUploadQueue";
@@ -18,7 +18,7 @@ export function releaseProjectDraftUploads(
   const store = useComposerDraftStore.getState();
   for (const [draftKey, session] of Object.entries(store.draftThreadsByThreadKey)) {
     if (
-      session.environmentId === projectRef.environmentId &&
+      session.machineId === projectRef.machineId &&
       session.projectId === projectRef.projectId
     ) {
       const draft = store.draftsByThreadKey[draftKey];

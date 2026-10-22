@@ -1,4 +1,4 @@
-import type { DesktopEnvironmentBootstrap } from "@vekrel/contracts";
+import type { DesktopMachineBootstrap } from "@vekrel/contracts";
 import { useEffect, useState } from "react";
 
 import { readDesktopSecondaryBootstraps } from "./desktopLocal";
@@ -10,8 +10,8 @@ const DESKTOP_LOCAL_BOOTSTRAP_POLL_MS = 2_000;
  * reads retain the latest successful snapshot, while a successful empty read
  * clears it.
  */
-export function useDesktopLocalBootstraps(): ReadonlyArray<DesktopEnvironmentBootstrap> {
-  const [bootstraps, setBootstraps] = useState<ReadonlyArray<DesktopEnvironmentBootstrap>>(
+export function useDesktopLocalBootstraps(): ReadonlyArray<DesktopMachineBootstrap> {
+  const [bootstraps, setBootstraps] = useState<ReadonlyArray<DesktopMachineBootstrap>>(
     readDesktopSecondaryBootstraps,
   );
 

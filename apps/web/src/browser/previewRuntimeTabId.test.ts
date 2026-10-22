@@ -1,4 +1,4 @@
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { MachineId, ThreadId } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { isCurrentPreviewRuntimeTab, previewRuntimeTabId } from "./previewRuntimeTabId";
@@ -6,7 +6,7 @@ import { isCurrentPreviewRuntimeTab, previewRuntimeTabId } from "./previewRuntim
 describe("previewRuntimeTabId", () => {
   it("rejects a pinned operation target after the server epoch changes", () => {
     const ref = {
-      environmentId: EnvironmentId.make("environment-a"),
+      machineId: MachineId.make("machine-a"),
       threadId: ThreadId.make("thread-a"),
     };
     const runtimeTabId = previewRuntimeTabId(ref, "epoch-a", "tab_1");

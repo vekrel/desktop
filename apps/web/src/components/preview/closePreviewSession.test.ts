@@ -17,7 +17,7 @@ import { useClosedViewStore } from "~/closedViewStore";
 import { closePreviewSession } from "./closePreviewSession";
 
 const threadRef = {
-  environmentId: "local" as ScopedThreadRef["environmentId"],
+  machineId: "local" as ScopedThreadRef["machineId"],
   threadId: "thread-1" as ScopedThreadRef["threadId"],
 };
 

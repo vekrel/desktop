@@ -18,12 +18,12 @@ import {
   transitionFirstRunGateState,
   type FirstRunGateState,
 } from "../../onboarding/firstRun.logic";
-import { useAllEnvironmentShellsBootstrapped, useProjects } from "../../state/entities";
-import { useEnvironments } from "../../state/environments";
-import { environmentProjects } from "../../state/projects";
+import { useAllMachineShellsBootstrapped, useProjects } from "../../state/entities";
+import { useMachines } from "../../state/machines";
+import { machineProjects } from "../../state/projects";
 import { primaryServerConfigAtom, primaryServerWelcomeAtom } from "../../state/server";
-import { environmentShell } from "../../state/shell";
-import { environmentThreadShells } from "../../state/threads";
+import { machineShell } from "../../state/shell";
+import { machineThreadShells } from "../../state/threads";
 import { Button } from "../ui/button";
 
 /**
@@ -37,18 +37,18 @@ const primaryShellLiveAtom = Atom.make((get) => {
   const serverConfig = get(primaryServerConfigAtom);
   return (
     serverConfig !== null &&
-    get(environmentShell.stateValueAtom(serverConfig.environment.environmentId)).status === "live"
+    get(machineShell.stateValueAtom(serverConfig.machine.machineId)).status === "live"
   );
 }).pipe(Atom.withLabel("web-onboarding-primary-shell-live"));
 
 const workspaceEvidenceLiveAtom = Atom.make((get) => {
-  const environmentIds = new Set([
-    ...get(environmentProjects.projectsAtom).map((project) => project.environmentId),
-    ...get(environmentThreadShells.threadShellsAtom).map((thread) => thread.environmentId),
+  const machineIds = new Set([
+    ...get(machineProjects.projectsAtom).map((project) => project.machineId),
+    ...get(machineThreadShells.threadShellsAtom).map((thread) => thread.machineId),
   ]);
 
-  for (const environmentId of environmentIds) {
-    if (get(environmentShell.stateValueAtom(environmentId)).status !== "live") {
+  for (const machineId of machineIds) {
+    if (get(machineShell.stateValueAtom(machineId)).status !== "live") {
       return false;
     }
   }
@@ -60,11 +60,11 @@ const workspaceEvidenceLiveAtom = Atom.make((get) => {
 // that thread; a shell update of any thread in a populated workspace must not
 // re-render the app root.
 const threadCountAtom = Atom.make(
-  (get) => get(environmentThreadShells.threadShellsAtom).length,
+  (get) => get(machineThreadShells.threadShellsAtom).length,
 ).pipe(Atom.withLabel("web-onboarding-thread-count"));
 
 const soleThreadAtom = Atom.make((get) => {
-  const threads = get(environmentThreadShells.threadShellsAtom);
+  const threads = get(machineThreadShells.threadShellsAtom);
   return threads.length === 1 ? threads[0]! : null;
 }).pipe(Atom.withLabel("web-onboarding-sole-thread"));
 
@@ -82,8 +82,8 @@ export function FirstRunGate({
   const hydrationStatus = useClientSettingsHydrationStatus();
   const hydrated = hydrationStatus === "ready";
   const onboardingCompletedAt = useClientSettings((settings) => settings.onboardingCompletedAt);
-  const bootstrapped = useAllEnvironmentShellsBootstrapped();
-  const { isReady: environmentCatalogReady } = useEnvironments();
+  const bootstrapped = useAllMachineShellsBootstrapped();
+  const { isReady: machineCatalogReady } = useMachines();
   const projects = useProjects();
   const threadCount = useAtomValue(threadCountAtom);
   const soleThread = useAtomValue(soleThreadAtom);
@@ -105,11 +105,11 @@ export function FirstRunGate({
   // (`autoBootstrapProjectFromCwd` defaults on there), so "no projects at all"
   // would mean `npx t3` users never see the wizard.
   const serverCwd = serverConfig?.cwd ?? null;
-  const primaryEnvironmentId = serverConfig?.environment.environmentId ?? null;
+  const primaryMachineId = serverConfig?.machine.machineId ?? null;
   const workspaceFresh =
     threadCount <= 1 &&
     isFreshFirstRunWorkspace({
-      primaryEnvironmentId,
+      primaryMachineId,
       serverCwd,
       bootstrapProjectId: serverWelcome?.bootstrapProjectId,
       bootstrapThreadId: serverWelcome?.bootstrapThreadId,
@@ -132,7 +132,7 @@ export function FirstRunGate({
           welcomeReceived: serverWelcome !== null,
           bootstrapStatus: serverWelcome?.bootstrapStatus ?? null,
         }),
-        catalogReady: environmentCatalogReady,
+        catalogReady: machineCatalogReady,
         serverConfigAvailable: serverConfig !== null,
         workspaceFresh,
         projectCount: projects.length,

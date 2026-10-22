@@ -1,9 +1,9 @@
-import type { EnvironmentConnectionPhase } from "@vekrel/client-runtime/connection";
+import type { MachineConnectionPhase } from "@vekrel/client-runtime/connection";
 
 import { cn } from "~/lib/utils";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
 
-export function connectionPhaseDotClassName(phase: EnvironmentConnectionPhase): string {
+export function connectionPhaseDotClassName(phase: MachineConnectionPhase): string {
   switch (phase) {
     case "connected":
       return "bg-success";
@@ -17,7 +17,7 @@ export function connectionPhaseDotClassName(phase: EnvironmentConnectionPhase): 
   }
 }
 
-export function connectionPhasePingClassName(phase: EnvironmentConnectionPhase): string | null {
+export function connectionPhasePingClassName(phase: MachineConnectionPhase): string | null {
   return phase === "connecting" || phase === "reconnecting" ? "bg-warning/60 duration-2000" : null;
 }
 

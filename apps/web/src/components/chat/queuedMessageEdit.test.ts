@@ -1,5 +1,5 @@
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { MachineId, ThreadId } from "@vekrel/contracts";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import {
   DraftId,
@@ -9,8 +9,8 @@ import {
 } from "../../composerDraftStore";
 import { prepareQueuedEditAttachments, recoverQueuedMessageEdit } from "./queuedMessageEdit";
 
-const environmentId = EnvironmentId.make("remote-environment");
-const threadTarget = scopeThreadRef(environmentId, ThreadId.make("thread:edit"));
+const machineId = MachineId.make("remote-machine");
+const threadTarget = scopeThreadRef(machineId, ThreadId.make("thread:edit"));
 const editTarget = DraftId.make("queued-edit:test");
 const file: ComposerFileAttachment = {
   type: "file",

@@ -1,11 +1,11 @@
 import { memo, useRef } from "react";
 import { describe, expect, it } from "vite-plus/test";
-import type { EnvironmentId, ScopedThreadRef, ThreadId } from "@vekrel/contracts";
+import type { MachineId, ScopedThreadRef, ThreadId } from "@vekrel/contracts";
 
 import { act, render } from "../../../test/render";
 import { THREAD_CONTEXT_DROP_EVENT, useThreadContextDrop } from "./threadContextDrag";
 
-const ENVIRONMENT_ID = "environment-local" as EnvironmentId;
+const MACHINE_ID = "machine-local" as MachineId;
 
 // ChatComposer is memoized and reused across thread navigation; each render's
 // drop callback must write into the draft of the thread it last rendered.
@@ -17,7 +17,7 @@ const ComposerDropTarget = memo(function ComposerDropTarget({
   drafts: Map<string, Array<ThreadId>>;
 }) {
   const targetRef = useRef<HTMLDivElement | null>(null);
-  useThreadContextDrop(targetRef, ENVIRONMENT_ID, draftKey, (refs, isActive) => {
+  useThreadContextDrop(targetRef, MACHINE_ID, draftKey, (refs, isActive) => {
     if (!isActive()) return;
     drafts.get(draftKey)?.push(...refs.map((ref) => ref.threadId));
   });
@@ -32,7 +32,7 @@ const StableKeyDropTarget = memo(function StableKeyDropTarget({
   received: Array<ThreadId>;
 }) {
   const targetRef = useRef<HTMLDivElement | null>(null);
-  useThreadContextDrop(targetRef, ENVIRONMENT_ID, "thread-a", (refs) => {
+  useThreadContextDrop(targetRef, MACHINE_ID, "thread-a", (refs) => {
     received.push(...refs.map((ref) => ref.threadId));
   });
   return <div data-drop-target ref={targetRef} />;
@@ -49,7 +49,7 @@ describe("useThreadContextDrop", () => {
     await screen.rerender(<ComposerDropTarget draftKey="thread-b" drafts={drafts} />);
 
     const dropped: ScopedThreadRef = {
-      environmentId: ENVIRONMENT_ID,
+      machineId: MACHINE_ID,
       threadId: "thread-dropped" as ThreadId,
     };
     const target = screen.container.querySelector("[data-drop-target]");
@@ -74,7 +74,7 @@ describe("useThreadContextDrop", () => {
     await act(() => {
       target!.dispatchEvent(
         new CustomEvent(THREAD_CONTEXT_DROP_EVENT, {
-          detail: [{ environmentId: ENVIRONMENT_ID, threadId: "thread-dropped" as ThreadId }],
+          detail: [{ machineId: MACHINE_ID, threadId: "thread-dropped" as ThreadId }],
         }),
       );
     });

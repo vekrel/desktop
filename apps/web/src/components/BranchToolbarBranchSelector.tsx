@@ -3,7 +3,7 @@ import { ComposerContextLabel } from "./ComposerContextLabel";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@vekrel/shared/threadPullRequests";
 import { useRightPanelStore } from "../rightPanelStore";
-import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/machine";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -12,7 +12,7 @@ import {
   AuthOrchestrationOperateScope,
   AuthSourceControlWriteScope,
   type ContextMenuItem,
-  type EnvironmentId,
+  type MachineId,
   type VcsRef,
   type ThreadId,
 } from "@vekrel/contracts";
@@ -34,11 +34,11 @@ import { readLocalApi } from "../localApi";
 import { useOpenPrLink } from "../lib/openPullRequestLink";
 import { usePaginatedBranches } from "../state/queries";
 import { useProject, useQuietThreadShell } from "../state/entities";
-import { useEnvironmentQuery } from "../state/query";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
-import { threadEnvironment } from "../state/threads";
+import { useMachineQuery } from "../state/query";
+import { readMachineScope, useMachineScope } from "~/state/session";
+import { threadMachine } from "../state/threads";
 import { useAtomCommand } from "../state/use-atom-command";
-import { vcsEnvironment } from "../state/vcs";
+import { vcsMachine } from "../state/vcs";
 import { cn } from "../lib/utils";
 import { THREAD_DETAILS_PANEL_ICON_CLASS } from "./chat/threadDetailsPanelStyles";
 import { ThreadDetailsPrRows } from "./chat/ThreadDetailsPrRows";
@@ -78,7 +78,7 @@ interface BranchToolbarBranchSelectorProps {
   ref?: Ref<BranchToolbarBranchSelectorHandle>;
   className?: string;
   displayMode?: "toolbar" | "panel";
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   threadId: ThreadId;
   draftId?: DraftId;
   envLocked: boolean;
@@ -100,7 +100,7 @@ export function BranchToolbarBranchSelector({
   ref,
   className,
   displayMode = "toolbar",
-  environmentId,
+  machineId,
   threadId,
   draftId,
   envLocked,
@@ -113,23 +113,23 @@ export function BranchToolbarBranchSelector({
   onComposerFocusRequest,
 }: BranchToolbarBranchSelectorProps) {
   const composerFloatingLayerProps = useComposerMenuProps();
-  const canWriteSourceControl = useEnvironmentScope(environmentId, AuthSourceControlWriteScope);
-  const canOperateThread = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
-  const stopThreadSession = useAtomCommand(threadEnvironment.stopSession, "thread session stop");
+  const canWriteSourceControl = useMachineScope(machineId, AuthSourceControlWriteScope);
+  const canOperateThread = useMachineScope(machineId, AuthOrchestrationOperateScope);
+  const stopThreadSession = useAtomCommand(threadMachine.stopSession, "thread session stop");
   const updateThreadMetadata = useAtomCommand(
-    threadEnvironment.updateMetadata,
+    threadMachine.updateMetadata,
     "thread metadata update",
   );
-  const updateEmptyThreadMetadata = useAtomCommand(threadEnvironment.updateMetadata, {
+  const updateEmptyThreadMetadata = useAtomCommand(threadMachine.updateMetadata, {
     reportFailure: false,
   });
-  const switchRef = useAtomCommand(vcsEnvironment.switchRef, {
+  const switchRef = useAtomCommand(vcsMachine.switchRef, {
     reportFailure: false,
   });
-  const createRefMutation = useAtomCommand(vcsEnvironment.createRef, {
+  const createRefMutation = useAtomCommand(vcsMachine.createRef, {
     reportFailure: false,
   });
-  const threadRef = scopeThreadRef(environmentId, threadId);
+  const threadRef = scopeThreadRef(machineId, threadId);
   const serverThread = useQuietThreadShell(threadRef);
   const serverSession = serverThread?.runtime ?? null;
   const draftThread = useComposerDraftStore((store) =>
@@ -138,9 +138,9 @@ export function BranchToolbarBranchSelector({
   const setDraftThreadContext = useComposerDraftStore((store) => store.setDraftThreadContext);
 
   const activeProjectRef = serverThread
-    ? scopeProjectRef(serverThread.environmentId, serverThread.projectId)
+    ? scopeProjectRef(serverThread.machineId, serverThread.projectId)
     : draftThread
-      ? scopeProjectRef(draftThread.environmentId, draftThread.projectId)
+      ? scopeProjectRef(draftThread.machineId, draftThread.projectId)
       : null;
   const activeProject = useProject(activeProjectRef);
 
@@ -173,18 +173,18 @@ export function BranchToolbarBranchSelector({
     if (
       !activeThreadId ||
       !activeProject ||
-      (hasServerThread && !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope))
+      (hasServerThread && !readMachineScope(machineId, AuthOrchestrationOperateScope))
     )
       return;
     if (serverSession && worktreePath !== activeWorktreePath) {
       void stopThreadSession({
-        environmentId,
+        machineId,
         input: { threadId: activeThreadId },
       });
     }
     if (hasServerThread) {
       void (automatic ? updateEmptyThreadMetadata : updateThreadMetadata)({
-        environmentId,
+        machineId,
         input: {
           threadId: activeThreadId,
           branch,
@@ -206,8 +206,8 @@ export function BranchToolbarBranchSelector({
       branch,
       worktreePath,
       envMode: nextDraftEnvMode,
-      environmentSelection: automatic ? (draftThread?.environmentSelection ?? "auto") : "manual",
-      projectRef: scopeProjectRef(environmentId, activeProject.id),
+      machineSelection: automatic ? (draftThread?.machineSelection ?? "auto") : "manual",
+      projectRef: scopeProjectRef(machineId, activeProject.id),
     });
   };
 
@@ -215,16 +215,16 @@ export function BranchToolbarBranchSelector({
   const [branchQuery, setBranchQuery] = useState("");
   const deferredBranchQuery = useDeferredValue(branchQuery);
 
-  const branchStatusQuery = useEnvironmentQuery(
+  const branchStatusQuery = useMachineQuery(
     branchCwd === null
       ? null
-      : vcsEnvironment.status({
-          environmentId,
+      : vcsMachine.status({
+          machineId,
           input: { cwd: branchCwd },
         }),
   );
   const branchRefState = usePaginatedBranches({
-    environmentId,
+    machineId,
     cwd: branchCwd,
     // The server filters refs by substring, so it has to be given the sanitized
     // name as well: querying the raw "new branch" drops an existing new-branch
@@ -291,10 +291,10 @@ export function BranchToolbarBranchSelector({
   );
   const listedActiveBranch =
     resolvedActiveBranch === null ? null : (branchByName.get(resolvedActiveBranch) ?? null);
-  const activeBranchRefQuery = useEnvironmentQuery(
+  const activeBranchRefQuery = useMachineQuery(
     branchCwd !== null && resolvedActiveBranch !== null
-      ? vcsEnvironment.listRefs({
-          environmentId,
+      ? vcsMachine.listRefs({
+          machineId,
           input: {
             cwd: branchCwd,
             query: resolvedActiveBranch,
@@ -360,8 +360,8 @@ export function BranchToolbarBranchSelector({
 
   const runBranchAction = (action: () => Promise<void>) => {
     if (
-      !readEnvironmentScope(environmentId, AuthSourceControlWriteScope) ||
-      (hasServerThread && !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope))
+      !readMachineScope(machineId, AuthSourceControlWriteScope) ||
+      (hasServerThread && !readMachineScope(machineId, AuthOrchestrationOperateScope))
     ) {
       toastManager.add(
         stackedThreadToast({
@@ -413,7 +413,7 @@ export function BranchToolbarBranchSelector({
       const previousBranch = resolvedActiveBranch;
       setOptimisticBranch(selectedBranchName);
       const checkoutResult = await switchRef({
-        environmentId,
+        machineId,
         input: {
           cwd: selectionTarget.checkoutCwd,
           refName: refName.name,
@@ -452,7 +452,7 @@ export function BranchToolbarBranchSelector({
       const previousBranch = resolvedActiveBranch;
       setOptimisticBranch(name);
       const createBranchResult = await createRefMutation({
-        environmentId,
+        machineId,
         input: {
           cwd: branchCwd,
           refName: name,
@@ -539,9 +539,9 @@ export function BranchToolbarBranchSelector({
     branchPrBranch !== null && branchStatusQuery.data?.refName === branchPrBranch
       ? (branchStatusQuery.data.pr ?? null)
       : null;
-  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(environmentId);
+  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(machineId);
   const linkedStatus = useLinkedThreadPullRequest(
-    environmentId,
+    machineId,
     serverThread?.linkedPullRequest,
     true,
     serverThread?.pullRequests,
@@ -741,7 +741,7 @@ export function BranchToolbarBranchSelector({
             links={serverThread?.pullRequests ?? []}
             currentLink={currentLinkedPr}
             onOpenLink={openPrLink}
-            environmentId={environmentId}
+            machineId={machineId}
             pr={displayedPr}
             number={prNumber}
             reference={currentLinkedPr}

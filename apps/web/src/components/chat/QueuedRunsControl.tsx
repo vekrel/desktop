@@ -1,10 +1,10 @@
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { deriveThreadQueueWorkflowState } from "@vekrel/client-runtime/state/thread-workflows";
 import { assistantCitationsToPlainText } from "@vekrel/shared/assistantCitations";
 import { replaceComposerContextReferences } from "@vekrel/shared/composerContextReferences";
 import type {
   ChatAttachment as ContractChatAttachment,
-  EnvironmentId,
+  MachineId,
   MessageId,
   RunId,
   ThreadId,
@@ -19,7 +19,7 @@ import {
 import { useId, useImperativeHandle, useRef, useState, type Ref } from "react";
 
 import { useAssetUrls } from "../../assets/assetUrls";
-import { threadEnvironment } from "../../state/threads";
+import { threadMachine } from "../../state/threads";
 import { useThreadProjection } from "../../state/entities";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { isImageAttachment, type ChatMessage } from "../../types";
@@ -68,7 +68,7 @@ export function QueuedRunsControl({
   readonly ref?: Ref<QueuedRunsControlHandle>;
   readonly steerShortcutLabel?: string | null;
   readonly editShortcutLabel?: string | null;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId: ThreadId;
   readonly optimisticMessages: ReadonlyArray<
     Pick<ChatMessage, "id" | "inputIntent" | "text" | "attachments">
@@ -78,12 +78,12 @@ export function QueuedRunsControl({
   readonly onCancelEdit: () => void;
 }) {
   const projection = useThreadProjection(
-    scopeThreadRef(props.environmentId, props.threadId),
+    scopeThreadRef(props.machineId, props.threadId),
   )?.projection;
-  const reorder = useAtomCommand(threadEnvironment.reorderQueuedRun);
-  const promote = useAtomCommand(threadEnvironment.promoteQueuedRun);
-  const resume = useAtomCommand(threadEnvironment.resumeThreadQueue);
-  const cancel = useAtomCommand(threadEnvironment.cancelQueuedRun);
+  const reorder = useAtomCommand(threadMachine.reorderQueuedRun);
+  const promote = useAtomCommand(threadMachine.promoteQueuedRun);
+  const resume = useAtomCommand(threadMachine.resumeThreadQueue);
+  const cancel = useAtomCommand(threadMachine.cancelQueuedRun);
   const [expanded, setExpanded] = useState(true);
   const queueListId = useId();
   const [busyRunId, setBusyRunId] = useState<RunId | null>(null);
@@ -101,7 +101,7 @@ export function QueuedRunsControl({
   const acknowledgedMessageIds = new Set((projection?.messages ?? []).map((message) => message.id));
   const queuedImageAttachmentResources = queuedImageResources(projection);
   const queuedImageAttachmentUrls = useAssetUrls(
-    props.environmentId,
+    props.machineId,
     queuedImageAttachmentResources,
   );
   const workflow = projection ? deriveThreadQueueWorkflowState(projection) : null;
@@ -156,7 +156,7 @@ export function QueuedRunsControl({
   const move = async (runId: RunId, beforeRunId: RunId | null) => {
     setBusyRunId(runId);
     await reorder({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { threadId: props.threadId, runId, beforeRunId },
     });
     setBusyRunId(null);
@@ -178,12 +178,12 @@ export function QueuedRunsControl({
     setBusyRunId(queuedRunId);
     if (workflow?.canSendNow) {
       await resume({
-        environmentId: props.environmentId,
+        machineId: props.machineId,
         input: { threadId: props.threadId, runId: queuedRunId },
       });
     } else if (activeRun !== null) {
       await promote({
-        environmentId: props.environmentId,
+        machineId: props.machineId,
         input: { threadId: props.threadId, queuedRunId, targetRunId: activeRun.id },
       });
     }
@@ -221,7 +221,7 @@ export function QueuedRunsControl({
   const remove = async (runId: RunId) => {
     setBusyRunId(runId);
     await cancel({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { threadId: props.threadId, runId },
     });
     setBusyRunId(null);

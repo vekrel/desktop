@@ -1,15 +1,15 @@
 import {
   type ClientSettings,
-  type EnvironmentId,
+  type MachineId,
   type ProjectId,
-  resolveEnvironmentMachineKind,
+  resolveMachineKind,
 } from "@vekrel/contracts";
 
 import { isDesktopLocalConnectionTarget } from "../connection/desktopLocal";
 import { useClientSettings } from "../hooks/useSettings";
 import { getProjectOrderKey } from "../logicalProject";
 import { useProjects, useThreadShells } from "../state/entities";
-import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
+import { useMachines, usePrimaryMachineId } from "../state/machines";
 import { buildSidebarProjectSnapshots } from "../sidebarProjectGrouping";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
 import { orderItemsByPreferredIds, sortLogicalProjectsForSidebar } from "./Sidebar.logic";
@@ -17,26 +17,26 @@ import { orderItemsByPreferredIds, sortLogicalProjectsForSidebar } from "./Sideb
 // Each helper reads its own source hook so the compiler caches the derived value on that
 // source. Taking the source as an argument instead leaves the helper hook-free, and the
 // compiler then treats it as a plain function and caches nothing.
-export function useEnvironmentLookups() {
-  const { environments } = useEnvironments();
-  const environmentLabelById = new Map(
-    environments.map((environment) => [environment.environmentId, environment.label] as const),
+export function useMachineLookups() {
+  const { machines } = useMachines();
+  const machineLabelById = new Map(
+    machines.map((machine) => [machine.machineId, machine.label] as const),
   );
-  const projectEnvironmentLocationById = new Map(
-    environments.map((environment) => {
-      const isPrimary = environment.entry.target._tag === "PrimaryConnectionTarget";
-      const isLocal = isPrimary || isDesktopLocalConnectionTarget(environment.entry.target);
+  const projectMachineLocationById = new Map(
+    machines.map((machine) => {
+      const isPrimary = machine.entry.target._tag === "PrimaryConnectionTarget";
+      const isLocal = isPrimary || isDesktopLocalConnectionTarget(machine.entry.target);
       return [
-        environment.environmentId,
+        machine.machineId,
         {
           kind: isLocal ? "local" : "remote",
-          label: isPrimary ? "Local" : isLocal ? `${environment.label} (Local)` : environment.label,
-          machine: resolveEnvironmentMachineKind(environment.serverConfig),
+          label: isPrimary ? "Local" : isLocal ? `${machine.label} (Local)` : machine.label,
+          machine: resolveMachineKind(machine.serverConfig),
         },
       ] as const;
     }),
   );
-  return { environmentLabelById, projectEnvironmentLocationById };
+  return { machineLabelById, projectMachineLocationById };
 }
 
 export function useProjectLookups() {
@@ -45,7 +45,7 @@ export function useProjectLookups() {
     projects.map((project) => [project.id, project.workspaceRoot]),
   );
   const projectByKey = new Map(
-    projects.map((project) => [`${project.environmentId}:${project.id}`, project]),
+    projects.map((project) => [`${project.machineId}:${project.id}`, project]),
   );
   const projectTitleById = new Map<ProjectId, string>(
     projects.map((project) => [project.id, project.title]),
@@ -60,12 +60,12 @@ export const selectCommandPaletteClientSettings = (settings: ClientSettings) => 
   sidebarThreadSortOrder: settings.sidebarThreadSortOrder,
 });
 
-export function useSortedProjectGroups(environmentLabelById: ReadonlyMap<EnvironmentId, string>) {
+export function useSortedProjectGroups(machineLabelById: ReadonlyMap<MachineId, string>) {
   const projects = useProjects();
   const threads = useThreadShells();
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const clientSettings = useClientSettings(selectCommandPaletteClientSettings);
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const primaryMachineId = usePrimaryMachineId();
   const projectGroupingSettings = {
     sidebarProjectGroupingMode: clientSettings.sidebarProjectGroupingMode,
     sidebarProjectGroupingOverrides: clientSettings.sidebarProjectGroupingOverrides,
@@ -82,8 +82,8 @@ export function useSortedProjectGroups(environmentLabelById: ReadonlyMap<Environ
   const unsortedProjectGroups = buildSidebarProjectSnapshots({
     projects: clientSettings.sidebarProjectSortOrder === "manual" ? orderedProjects : projects,
     settings: projectGroupingSettings,
-    primaryEnvironmentId,
-    resolveEnvironmentLabel: (environmentId) => environmentLabelById.get(environmentId) ?? null,
+    primaryMachineId,
+    resolveMachineLabel: (machineId) => machineLabelById.get(machineId) ?? null,
   });
   return sortLogicalProjectsForSidebar(
     unsortedProjectGroups,

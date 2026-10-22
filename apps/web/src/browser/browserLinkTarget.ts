@@ -42,5 +42,5 @@ export async function resolveBrowserLinkTargetPreference(): Promise<BrowserLinkT
 }
 
 export function canOpenLinksInApp(threadRef: ScopedThreadRef | null | undefined): boolean {
-  return threadRef != null && isPreviewAvailableFor(threadRef.environmentId);
+  return threadRef != null && isPreviewAvailableFor(threadRef.machineId);
 }

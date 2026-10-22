@@ -15,7 +15,7 @@ import { ensureInlineContextReferences } from "../lib/composerContextReferences"
 import { terminalContextReference } from "../lib/composerContextRecords";
 import {
   CommandId,
-  EnvironmentId,
+  MachineId,
   MessageId,
   ProjectId,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
@@ -33,7 +33,7 @@ import * as Option from "effect/Option";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { Atom } from "effect/reactivity";
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { environmentThreadDetails } from "../state/threads";
+import { machineThreadDetails } from "../state/threads";
 
 import type { Thread } from "../types";
 import { makeThreadFixture, makeThreadProjectionFixture } from "../test-fixtures";
@@ -45,7 +45,7 @@ import {
   rememberReadyThreadTimeline,
   resetHeldThreadTimeline,
   resolveThreadSwitchTimeline,
-  threadKeysShareEnvironment,
+  threadKeysShareMachine,
   timelineHasEphemeralPreviewUrls,
   createLocalDispatchSnapshot,
   deriveCommittedServerUserMessageIds,
@@ -56,7 +56,7 @@ import {
   waitForRevertedMessage,
 } from "./ChatView.logic";
 
-const environmentId = EnvironmentId.make("environment-local");
+const machineId = MachineId.make("machine-local");
 const projectId = ProjectId.make("project-1");
 const threadId = ThreadId.make("thread-1");
 const now = "2026-03-29T00:00:00.000Z";
@@ -64,7 +64,7 @@ const now = "2026-03-29T00:00:00.000Z";
 function makeThread(overrides: Partial<Thread> = {}): Thread {
   return makeThreadFixture({
     id: threadId,
-    environmentId,
+    machineId,
     projectId,
     title: "Thread",
     modelSelection: {
@@ -106,7 +106,7 @@ const readySession = {
 };
 
 describe("resolveDraftPromotionNavigationTarget", () => {
-  const serverThreadRef = { environmentId, threadId };
+  const serverThreadRef = { machineId, threadId };
   const preparingRun = {
     ...completedTurn,
     status: "preparing" as const,
@@ -420,8 +420,8 @@ describe("resolveThreadSwitchTimeline", () => {
     ).toEqual({ entries: ["a1", "a2"], displayThreadKey: "env-1:thread-a" });
   });
 
-  it("does not hold another environment's timeline across a jump", () => {
-    expect(threadKeysShareEnvironment("env-1:thread-a", "env-2:thread-b")).toBe(false);
+  it("does not hold another machine's timeline across a jump", () => {
+    expect(threadKeysShareMachine("env-1:thread-a", "env-2:thread-b")).toBe(false);
     expect(
       resolveThreadSwitchTimeline({
         loading: true,
@@ -669,9 +669,9 @@ describe("resolveComposerProviderSelection", () => {
 });
 
 describe("checkout Git memory", () => {
-  it("does not confuse an environment id containing the separator with a path", () => {
-    rememberCheckoutIsRepo(EnvironmentId.make("env"), "a:b", false);
-    expect(recallCheckoutIsRepo(EnvironmentId.make("env:a"), "b")).toBeUndefined();
+  it("does not confuse a machine id containing the separator with a path", () => {
+    rememberCheckoutIsRepo(MachineId.make("env"), "a:b", false);
+    expect(recallCheckoutIsRepo(MachineId.make("env:a"), "b")).toBeUndefined();
   });
 });
 
@@ -736,7 +736,7 @@ describe("worktree setup visibility", () => {
 });
 
 describe("waitForRevertedMessage", () => {
-  const threadRef = { environmentId: EnvironmentId.make("env-1"), threadId: ThreadId.make("t") };
+  const threadRef = { machineId: MachineId.make("env-1"), threadId: ThreadId.make("t") };
   const messageId = MessageId.make("message-2");
   const requestId = CommandId.make("rollback-1");
 
@@ -798,7 +798,7 @@ describe("waitForRevertedMessage", () => {
       ],
     } as unknown as ReturnType<typeof makeThreadProjectionFixture>;
     const state = Atom.make({ data: Option.some(projection) });
-    vi.spyOn(environmentThreadDetails, "stateAtom").mockReturnValue(state as never);
+    vi.spyOn(machineThreadDetails, "stateAtom").mockReturnValue(state as never);
     return { state, projection };
   }
 

@@ -3,63 +3,63 @@ import {
   connectionProjectionPhase,
 } from "@vekrel/client-runtime/connection";
 import {
-  createEnvironmentShellAtoms,
-  createEnvironmentSnapshotAtom,
-  createShellEnvironmentAtoms,
-  type EnvironmentShellState,
-  type EnvironmentShellStatus,
+  createMachineShellAtoms,
+  createMachineSnapshotAtom,
+  createShellMachineAtoms,
+  type MachineShellState,
+  type MachineShellStatus,
 } from "@vekrel/client-runtime/state/shell";
 import {
-  type EnvironmentCatalogState,
-  enabledEnvironmentIds,
+  type MachineCatalogState,
+  enabledMachineIds,
 } from "@vekrel/client-runtime/state/connections";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 
-import { environmentCatalog } from "../connection/catalog";
+import { machineCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
 import { isHostedStaticApp } from "../hostedPairing";
 
-export const shellEnvironment = createShellEnvironmentAtoms(connectionAtomRuntime);
-export const environmentShell = createEnvironmentShellAtoms(connectionAtomRuntime);
-export const environmentSnapshotAtom = createEnvironmentSnapshotAtom(environmentShell.stateAtom);
+export const shellMachine = createShellMachineAtoms(connectionAtomRuntime);
+export const machineShell = createMachineShellAtoms(connectionAtomRuntime);
+export const machineSnapshotAtom = createMachineSnapshotAtom(machineShell.stateAtom);
 
-const NO_SHELL_STATUS_ATOM = Atom.make<EnvironmentShellStatus | null>(null).pipe(
-  Atom.withLabel("web-environment-shell-status:none"),
+const NO_SHELL_STATUS_ATOM = Atom.make<MachineShellStatus | null>(null).pipe(
+  Atom.withLabel("web-machine-shell-status:none"),
 );
 const NO_SHELL_SNAPSHOT_ATOM = Atom.make(false).pipe(
-  Atom.withLabel("web-environment-shell-has-snapshot:none"),
+  Atom.withLabel("web-machine-shell-has-snapshot:none"),
 );
 
-export function useEnvironmentShellStatus(
-  environmentId: EnvironmentId | null,
-): EnvironmentShellStatus | null {
+export function useMachineShellStatus(
+  machineId: MachineId | null,
+): MachineShellStatus | null {
   return useAtomValue(
-    environmentId === null ? NO_SHELL_STATUS_ATOM : environmentShell.statusAtom(environmentId),
+    machineId === null ? NO_SHELL_STATUS_ATOM : machineShell.statusAtom(machineId),
   );
 }
 
-export function useEnvironmentShellHasSnapshot(environmentId: EnvironmentId | null): boolean {
+export function useMachineShellHasSnapshot(machineId: MachineId | null): boolean {
   return useAtomValue(
-    environmentId === null
+    machineId === null
       ? NO_SHELL_SNAPSHOT_ATOM
-      : environmentShell.hasSnapshotAtom(environmentId),
+      : machineShell.hasSnapshotAtom(machineId),
   );
 }
 
-export const allEnvironmentShellsBootstrappedAtom = Atom.make((get) => {
-  const catalog = AsyncResult.value(get(environmentCatalog.catalogAtom));
+export const allMachineShellsBootstrappedAtom = Atom.make((get) => {
+  const catalog = AsyncResult.value(get(machineCatalog.catalogAtom));
   if (Option.isNone(catalog)) {
     return false;
   }
-  for (const environmentId of enabledEnvironmentIds(catalog.value)) {
-    if (Option.isSome(get(environmentShell.stateValueAtom(environmentId)).snapshot)) {
+  for (const machineId of enabledMachineIds(catalog.value)) {
+    if (Option.isSome(get(machineShell.stateValueAtom(machineId)).snapshot)) {
       continue;
     }
     const connection = Option.getOrElse(
-      AsyncResult.value(get(environmentCatalog.stateAtom(environmentId))),
+      AsyncResult.value(get(machineCatalog.stateAtom(machineId))),
       () => AVAILABLE_CONNECTION_STATE,
     );
     if (connectionProjectionPhase(connection) !== "disconnected") {
@@ -70,55 +70,55 @@ export const allEnvironmentShellsBootstrappedAtom = Atom.make((get) => {
     }
   }
   return true;
-}).pipe(Atom.withLabel("web-all-environment-shells-bootstrapped"));
+}).pipe(Atom.withLabel("web-all-machine-shells-bootstrapped"));
 
 /**
- * The persisted catalog can emit before platform discovery registers the primary environment.
+ * The persisted catalog can emit before platform discovery registers the primary machine.
  * Neither that gap nor an empty catalog proves a project is absent.
  */
 function catalogIsComplete(
-  catalog: EnvironmentCatalogState,
-  requiresPrimaryEnvironment: boolean,
+  catalog: MachineCatalogState,
+  requiresPrimaryMachine: boolean,
 ): boolean {
   if (!catalog.isReady || catalog.entries.size === 0) return false;
   return (
-    !requiresPrimaryEnvironment ||
+    !requiresPrimaryMachine ||
     Array.from(catalog.entries.values()).some(
       (entry) => entry.target._tag === "PrimaryConnectionTarget",
     )
   );
 }
 
-export function createAllEnvironmentProjectSnapshotsReadyAtom(input: {
-  readonly catalogValueAtom: Atom.Atom<EnvironmentCatalogState>;
-  readonly shellStateValueAtom: (environmentId: EnvironmentId) => Atom.Atom<EnvironmentShellState>;
-  readonly requiresPrimaryEnvironment: boolean;
+export function createAllMachineProjectSnapshotsReadyAtom(input: {
+  readonly catalogValueAtom: Atom.Atom<MachineCatalogState>;
+  readonly shellStateValueAtom: (machineId: MachineId) => Atom.Atom<MachineShellState>;
+  readonly requiresPrimaryMachine: boolean;
 }) {
   return Atom.make((get) => {
     const catalog = get(input.catalogValueAtom);
-    if (!catalogIsComplete(catalog, input.requiresPrimaryEnvironment)) return false;
-    for (const environmentId of enabledEnvironmentIds(catalog)) {
-      const shell = get(input.shellStateValueAtom(environmentId));
+    if (!catalogIsComplete(catalog, input.requiresPrimaryMachine)) return false;
+    for (const machineId of enabledMachineIds(catalog)) {
+      const shell = get(input.shellStateValueAtom(machineId));
       if (shell.status !== "live" || Option.isNone(shell.snapshot)) return false;
     }
     return true;
-  }).pipe(Atom.withLabel("web-all-environment-project-snapshots-ready"));
+  }).pipe(Atom.withLabel("web-all-machine-project-snapshots-ready"));
 }
 
-export const allEnvironmentProjectSnapshotsReadyAtom =
-  createAllEnvironmentProjectSnapshotsReadyAtom({
-    catalogValueAtom: environmentCatalog.catalogValueAtom,
-    shellStateValueAtom: environmentShell.stateValueAtom,
-    requiresPrimaryEnvironment: !isHostedStaticApp(),
+export const allMachineProjectSnapshotsReadyAtom =
+  createAllMachineProjectSnapshotsReadyAtom({
+    catalogValueAtom: machineCatalog.catalogValueAtom,
+    shellStateValueAtom: machineShell.stateValueAtom,
+    requiresPrimaryMachine: !isHostedStaticApp(),
   });
 
 export const allReachableShellsLiveAtom = Atom.make((get) => {
-  const catalog = get(environmentCatalog.catalogValueAtom);
+  const catalog = get(machineCatalog.catalogValueAtom);
   if (!catalogIsComplete(catalog, !isHostedStaticApp())) return false;
-  for (const environmentId of enabledEnvironmentIds(catalog)) {
-    const shell = get(environmentShell.stateValueAtom(environmentId));
+  for (const machineId of enabledMachineIds(catalog)) {
+    const shell = get(machineShell.stateValueAtom(machineId));
     if (shell.status === "live" && Option.isSome(shell.snapshot)) continue;
-    const state = AsyncResult.value(get(environmentCatalog.stateAtom(environmentId)));
+    const state = AsyncResult.value(get(machineCatalog.stateAtom(machineId)));
     if (Option.isNone(state)) return false;
     const connection = state.value;
     const settledOffline =

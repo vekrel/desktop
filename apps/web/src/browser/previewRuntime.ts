@@ -1,20 +1,20 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { EnvironmentId, PreviewRuntime, PreviewSessionSnapshot } from "@vekrel/contracts";
+import type { MachineId, PreviewRuntime, PreviewSessionSnapshot } from "@vekrel/contracts";
 
 import { isElectron } from "~/env";
 import { isPreviewSupportedInRuntime } from "~/previewStateStore";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
-import { primaryEnvironmentIdAtom } from "~/state/primaryEnvironment";
+import { primaryMachineIdAtom } from "~/state/primaryMachine";
 import {
-  readEnvironmentSupportsServerBrowser,
-  useEnvironmentSupportsServerBrowser,
+  readMachineSupportsServerBrowser,
+  useMachineSupportsServerBrowser,
 } from "~/state/entities";
 
-export function previewRuntimeFor(environmentId: EnvironmentId): PreviewRuntime | undefined {
-  if (!readEnvironmentSupportsServerBrowser(environmentId)) return undefined;
+export function previewRuntimeFor(machineId: MachineId): PreviewRuntime | undefined {
+  if (!readMachineSupportsServerBrowser(machineId)) return undefined;
   if (
     isPreviewSupportedInRuntime() &&
-    environmentId !== appAtomRegistry.get(primaryEnvironmentIdAtom)
+    machineId !== appAtomRegistry.get(primaryMachineIdAtom)
   ) {
     return undefined;
   }
@@ -22,41 +22,41 @@ export function previewRuntimeFor(environmentId: EnvironmentId): PreviewRuntime 
 }
 
 export function alternatePreviewRuntime(
-  environmentId: EnvironmentId,
-  primaryEnvironmentId: EnvironmentId | null,
+  machineId: MachineId,
+  primaryMachineId: MachineId | null,
   serverBrowser: boolean,
   snapshot: Pick<PreviewSessionSnapshot, "runtime"> | null | undefined,
 ): PreviewRuntime | null {
   if (!snapshot || !serverBrowser || !isPreviewSupportedInRuntime()) return null;
-  if (environmentId === primaryEnvironmentId) return null;
+  if (machineId === primaryMachineId) return null;
   return snapshot.runtime === "server" ? "desktop" : "server";
 }
 
-export function isPreviewAvailableFor(environmentId: EnvironmentId): boolean {
-  return isPreviewSupportedInRuntime() || readEnvironmentSupportsServerBrowser(environmentId);
+export function isPreviewAvailableFor(machineId: MachineId): boolean {
+  return isPreviewSupportedInRuntime() || readMachineSupportsServerBrowser(machineId);
 }
 
-export function usePreviewAvailable(environmentId: EnvironmentId | null): boolean {
-  const serverBrowser = useEnvironmentSupportsServerBrowser(environmentId);
+export function usePreviewAvailable(machineId: MachineId | null): boolean {
+  const serverBrowser = useMachineSupportsServerBrowser(machineId);
   return isPreviewSupportedInRuntime() || serverBrowser;
 }
 
 export function rendersServerTabNatively(
-  environmentId: EnvironmentId,
-  primaryEnvironmentId: EnvironmentId | null,
+  machineId: MachineId,
+  primaryMachineId: MachineId | null,
   snapshot: Pick<PreviewSessionSnapshot, "runtime"> | null | undefined,
 ): boolean {
   return (
     isElectron &&
     snapshot?.runtime === "server" &&
-    primaryEnvironmentId !== null &&
-    environmentId === primaryEnvironmentId
+    primaryMachineId !== null &&
+    machineId === primaryMachineId
   );
 }
 
 export function useRendersServerTabNatively(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   snapshot: Pick<PreviewSessionSnapshot, "runtime"> | null | undefined,
 ): boolean {
-  return rendersServerTabNatively(environmentId, useAtomValue(primaryEnvironmentIdAtom), snapshot);
+  return rendersServerTabNatively(machineId, useAtomValue(primaryMachineIdAtom), snapshot);
 }

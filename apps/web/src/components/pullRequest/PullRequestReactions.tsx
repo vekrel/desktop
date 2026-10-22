@@ -1,6 +1,6 @@
 import { useAtomCommand } from "~/state/use-atom-command";
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestReaction,
   PullRequestReactionContent,
   PullRequestRef,
@@ -9,7 +9,7 @@ import { SmilePlusIcon } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "~/lib/utils";
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { toastManager } from "../ui/toast";
@@ -37,7 +37,7 @@ export function PullRequestReactionBar({
   reactions,
   canReact,
   subjectId,
-  environmentId,
+  machineId,
   reference,
   onRefresh,
   className,
@@ -46,7 +46,7 @@ export function PullRequestReactionBar({
   readonly canReact: boolean;
   /** Absent reacts to the change request itself, which is where its description's reactions live. */
   readonly subjectId?: string | undefined;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly reference: PullRequestRef;
   readonly onRefresh: () => void;
   readonly className?: string | undefined;
@@ -56,7 +56,7 @@ export function PullRequestReactionBar({
     readonly signature: string;
     readonly values: ReadonlyMap<PullRequestReactionContent, boolean>;
   }>({ signature: "", values: EMPTY_PENDING });
-  const setReaction = useAtomCommand(pullRequestEnvironment.setReaction, {
+  const setReaction = useAtomCommand(pullRequestMachine.setReaction, {
     reportFailure: false,
   });
 
@@ -67,7 +67,7 @@ export function PullRequestReactionBar({
   const toggle = async (content: PullRequestReactionContent, reacted: boolean) => {
     setPending({ signature, values: new Map([...values, [content, reacted]]) });
     const result = await setReaction({
-      environmentId,
+      machineId,
       input: {
         ...reference,
         ...(subjectId === undefined ? {} : { subjectId }),

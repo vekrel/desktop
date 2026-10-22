@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { EnvironmentId, ThreadId, type TerminalSummary } from "@vekrel/contracts";
+import { MachineId, ThreadId, type TerminalSummary } from "@vekrel/contracts";
 import { selectRunningSubprocessTerminalIds } from "@vekrel/client-runtime/state/terminal";
 
 import { selectKnownTerminalSessions } from "./terminalSessions";
 
-vi.mock("./terminal", () => ({ terminalEnvironment: {} }));
+vi.mock("./terminal", () => ({ terminalMachine: {} }));
 
-const environmentA = EnvironmentId.make("environment-a");
+const machineA = MachineId.make("machine-a");
 const threadA = ThreadId.make("thread-a");
 const threadB = ThreadId.make("thread-b");
 
@@ -37,8 +37,8 @@ describe("selectKnownTerminalSessions", () => {
     const second = summary(threadA, "terminal-2");
     const other = summary(threadB, "terminal-1");
     const metadata = [first, second, other];
-    const beforeA = selectKnownTerminalSessions(metadata, environmentA, threadA);
-    const beforeB = selectKnownTerminalSessions(metadata, environmentA, threadB);
+    const beforeA = selectKnownTerminalSessions(metadata, machineA, threadA);
+    const beforeB = selectKnownTerminalSessions(metadata, machineA, threadB);
     Object.freeze(beforeA);
     Object.freeze(beforeB);
     const exited = {
@@ -51,8 +51,8 @@ describe("selectKnownTerminalSessions", () => {
       updatedAt: "2026-09-04T00:00:01.000Z",
     };
     const next = [first, other, exited];
-    const afterA = selectKnownTerminalSessions(next, environmentA, threadA);
-    expect(selectKnownTerminalSessions(next, environmentA, threadB)).toBe(beforeB);
+    const afterA = selectKnownTerminalSessions(next, machineA, threadA);
+    expect(selectKnownTerminalSessions(next, machineA, threadB)).toBe(beforeB);
     expect(afterA).not.toBe(beforeA);
     expect(afterA[0]).toBe(beforeA[0]);
     expect(afterA[1]?.state).toMatchObject({
@@ -66,14 +66,14 @@ describe("selectKnownTerminalSessions", () => {
       hasRunningSubprocess: true,
       summary: { label: "Terminal", pid: 123 },
     });
-    expect(selectKnownTerminalSessions(metadata, environmentA, threadA)).toBe(beforeA);
+    expect(selectKnownTerminalSessions(metadata, machineA, threadA)).toBe(beforeA);
 
     const renamed = [first, exited, { ...other, label: "Renamed" }];
-    expect(selectKnownTerminalSessions(renamed, environmentA, threadA)).toBe(afterA);
+    expect(selectKnownTerminalSessions(renamed, machineA, threadA)).toBe(afterA);
     expect(
-      selectKnownTerminalSessions(renamed, environmentA, threadB)[0]?.state.summary?.label,
+      selectKnownTerminalSessions(renamed, machineA, threadB)[0]?.state.summary?.label,
     ).toBe("Renamed");
-    expect(selectKnownTerminalSessions([other], environmentA, threadA)).toEqual([]);
-    expect(selectKnownTerminalSessions([other], environmentA, threadB)).toBe(beforeB);
+    expect(selectKnownTerminalSessions([other], machineA, threadA)).toEqual([]);
+    expect(selectKnownTerminalSessions([other], machineA, threadB)).toBe(beforeB);
   });
 });

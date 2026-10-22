@@ -1,8 +1,8 @@
-import { settingsScopeEnvironmentLabels } from "./settingsScopeAxis";
+import { settingsScopeMachineLabels } from "./settingsScopeAxis";
 import { Spinner } from "~/components/ui/spinner";
 import { ArchiveIcon, ArchiveX } from "lucide-react";
 import { type ScopedThreadRef } from "@vekrel/contracts";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { presentThreadShell } from "@vekrel/client-runtime/state/shell";
 import {
   isAtomCommandInterrupted,
@@ -21,62 +21,62 @@ import { searchableSetting } from "./settingsSearch";
 import { ProjectFavicon } from "../ProjectFavicon";
 
 export function ArchivedThreadsPanel() {
-  const { scope, groups: projectGroups, environments } = useSettingsScope();
+  const { scope, groups: projectGroups, machines } = useSettingsScope();
   const { unarchiveThread, confirmAndDeleteThread } = useThreadActions();
   const {
     snapshots: archivedSnapshots,
     error: archiveError,
     isLoading: isLoadingArchive,
     refresh: refreshArchivedThreads,
-  } = useArchivedThreadSnapshots(scope.environmentIds);
+  } = useArchivedThreadSnapshots(scope.machineIds);
 
-  const { groups: archivedGroups, hasMultipleEnvironments } = (() => {
+  const { groups: archivedGroups, hasMultipleMachines } = (() => {
     const selectedProjectKeys =
       scope.kind === "project" || scope.kind === "checkout"
-        ? new Set(scope.members.map((member) => `${member.environmentId}:${member.id}`))
+        ? new Set(scope.members.map((member) => `${member.machineId}:${member.id}`))
         : null;
-    const projectsByEnvironmentAndId = new Map(
-      archivedSnapshots.flatMap(({ environmentId, snapshot }) =>
+    const projectsByMachineAndId = new Map(
+      archivedSnapshots.flatMap(({ machineId, snapshot }) =>
         snapshot.projects
           .filter(
             (project) =>
               selectedProjectKeys === null ||
-              selectedProjectKeys.has(`${environmentId}:${project.id}`),
+              selectedProjectKeys.has(`${machineId}:${project.id}`),
           )
           .map(
-            (project) => [`${environmentId}:${project.id}`, { ...project, environmentId }] as const,
+            (project) => [`${machineId}:${project.id}`, { ...project, machineId }] as const,
           ),
       ),
     );
-    const environmentLabels = new Map(
-      environments.map((environment) => {
-        const { primary, secondary } = settingsScopeEnvironmentLabels(environment, environments);
-        return [environment.environmentId, secondary ? `${primary} (${secondary})` : primary];
+    const machineLabels = new Map(
+      machines.map((machine) => {
+        const { primary, secondary } = settingsScopeMachineLabels(machine, machines);
+        return [machine.machineId, secondary ? `${primary} (${secondary})` : primary];
       }),
     );
-    const threads = archivedSnapshots.flatMap(({ environmentId, snapshot }) =>
+    const threads = archivedSnapshots.flatMap(({ machineId, snapshot }) =>
       snapshot.threads.map((thread) => ({
-        ...presentThreadShell(environmentId, thread),
-        environmentLabel: environmentLabels.get(environmentId) ?? environmentId,
+        ...presentThreadShell(machineId, thread),
+        machineLabel: machineLabels.get(machineId) ?? machineId,
       })),
     );
-    const hasMultipleEnvironments =
+    const hasMultipleMachines =
       new Set(
         threads
           .filter((thread) =>
-            projectsByEnvironmentAndId.has(`${thread.environmentId}:${thread.projectId}`),
+            projectsByMachineAndId.has(`${thread.machineId}:${thread.projectId}`),
           )
-          .map((thread) => thread.environmentId),
+          .map((thread) => thread.machineId),
       ).size > 1;
     const logicalGroupsByProjectKey = new Map(
       projectGroups.flatMap((group) =>
         group.memberProjectRefs.map(
-          (member) => [`${member.environmentId}:${member.projectId}`, group] as const,
+          (member) => [`${member.machineId}:${member.projectId}`, group] as const,
         ),
       ),
     );
 
-    const archivedProjects = Array.from(projectsByEnvironmentAndId.values());
+    const archivedProjects = Array.from(projectsByMachineAndId.values());
     const groups = new Map<
       string,
       {
@@ -88,13 +88,13 @@ export function ArchivedThreadsPanel() {
     for (const project of archivedProjects) {
       const projectThreads: Array<(typeof threads)[number]> = [];
       for (const thread of threads) {
-        if (thread.projectId === project.id && thread.environmentId === project.environmentId) {
+        if (thread.projectId === project.id && thread.machineId === project.machineId) {
           projectThreads.push(thread);
         }
       }
       if (projectThreads.length > 0) {
-        const physicalProjectKey = `${project.environmentId}:${project.id}` as const;
-        const logicalGroup = hasMultipleEnvironments
+        const physicalProjectKey = `${project.machineId}:${project.id}` as const;
+        const logicalGroup = hasMultipleMachines
           ? logicalGroupsByProjectKey.get(physicalProjectKey)
           : undefined;
         const groupKey = logicalGroup?.projectKey ?? physicalProjectKey;
@@ -119,7 +119,7 @@ export function ArchivedThreadsPanel() {
         return rightKey.localeCompare(leftKey) || right.id.localeCompare(left.id);
       }),
     }));
-    return { groups: sortedGroups, hasMultipleEnvironments };
+    return { groups: sortedGroups, hasMultipleMachines };
   })();
 
   const handleArchivedThreadContextMenu = async (
@@ -194,7 +194,7 @@ export function ArchivedThreadsPanel() {
             }
             description={
               isLoadingArchive
-                ? "Checking connected environments."
+                ? "Checking connected machines."
                 : (archiveError ?? "Archived threads will appear here.")
             }
           />
@@ -209,13 +209,13 @@ export function ArchivedThreadsPanel() {
           >
             {projectThreads.map((thread) => (
               <SettingsRow
-                key={`${thread.environmentId}:${thread.id}`}
+                key={`${thread.machineId}:${thread.id}`}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   void (async () => {
                     const result = await settlePromise(() =>
                       handleArchivedThreadContextMenu(
-                        scopeThreadRef(thread.environmentId, thread.id),
+                        scopeThreadRef(thread.machineId, thread.id),
                         {
                           x: event.clientX,
                           y: event.clientY,
@@ -237,8 +237,8 @@ export function ArchivedThreadsPanel() {
                 }}
                 title={thread.title}
                 description={
-                  <span className={hasMultipleEnvironments ? "block truncate" : undefined}>
-                    {hasMultipleEnvironments ? `${thread.environmentLabel} · ` : null}
+                  <span className={hasMultipleMachines ? "block truncate" : undefined}>
+                    {hasMultipleMachines ? `${thread.machineLabel} · ` : null}
                     Archived <RelativeTime timestamp={thread.archivedAt ?? thread.createdAt} />
                     {" \u00b7 Created "}
                     <RelativeTime timestamp={thread.createdAt} />
@@ -253,7 +253,7 @@ export function ArchivedThreadsPanel() {
                     onClick={() => {
                       void (async () => {
                         const result = await unarchiveThread(
-                          scopeThreadRef(thread.environmentId, thread.id),
+                          scopeThreadRef(thread.machineId, thread.id),
                         );
                         if (result._tag === "Success") {
                           refreshArchivedThreads();

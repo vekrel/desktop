@@ -1,9 +1,9 @@
 import { useAtomValue } from "@effect/atom-react";
-import { createEnvironmentSessionAtoms } from "@vekrel/client-runtime/state/session";
+import { createMachineSessionAtoms } from "@vekrel/client-runtime/state/session";
 import {
-  type AuthEnvironmentScope,
+  type AuthMachineScope,
   type AuthSessionState,
-  type EnvironmentId,
+  type MachineId,
   sessionGrantsScope,
 } from "@vekrel/contracts";
 import * as Option from "effect/Option";
@@ -11,64 +11,64 @@ import { AsyncResult, Atom } from "effect/reactivity";
 
 import { connectionAtomRuntime } from "../connection/runtime";
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { environmentAtomList, environmentIdsKey } from "./environmentAtomList";
+import { machineAtomList, machineIdsKey } from "./machineAtomList";
 
-export const environmentSession = createEnvironmentSessionAtoms(connectionAtomRuntime);
-export const environmentSessionStatesAtom = environmentAtomList(
-  "web-environment-session-states",
-  environmentSession.sessionStateAtom,
+export const machineSession = createMachineSessionAtoms(connectionAtomRuntime);
+export const machineSessionStatesAtom = machineAtomList(
+  "web-machine-session-states",
+  machineSession.sessionStateAtom,
 );
 
 const EMPTY_SESSION_STATE_ATOM = Atom.make(AsyncResult.initial<AuthSessionState>());
 
-export function useEnvironmentScope(
-  environmentId: EnvironmentId | null,
-  scope: AuthEnvironmentScope,
+export function useMachineScope(
+  machineId: MachineId | null,
+  scope: AuthMachineScope,
 ): boolean {
   const result = useAtomValue(
-    environmentId === null
+    machineId === null
       ? EMPTY_SESSION_STATE_ATOM
-      : environmentSession.sessionStateAtom(environmentId),
+      : machineSession.sessionStateAtom(machineId),
   );
   return sessionHasScope(result, scope);
 }
 
 function sessionHasScope(
   result: AsyncResult.AsyncResult<AuthSessionState, unknown>,
-  scope: AuthEnvironmentScope,
+  scope: AuthMachineScope,
 ): boolean {
   const session = Option.getOrNull(AsyncResult.value(result));
   return result._tag !== "Failure" && session !== null && sessionGrantsScope(session, scope);
 }
 
 // Keyed by scope and ids so callers get one Set per session change, not one per render.
-const environmentsWithScopeAtom = Atom.family((key: string) => {
-  const [scope, idsKey = ""] = key.split(/\n(.*)/s) as [AuthEnvironmentScope, string?];
-  const ids = idsKey === "" ? [] : (idsKey.split("\n") as EnvironmentId[]);
-  const statesAtom = environmentSessionStatesAtom(idsKey);
+const machinesWithScopeAtom = Atom.family((key: string) => {
+  const [scope, idsKey = ""] = key.split(/\n(.*)/s) as [AuthMachineScope, string?];
+  const ids = idsKey === "" ? [] : (idsKey.split("\n") as MachineId[]);
+  const statesAtom = machineSessionStatesAtom(idsKey);
   return Atom.make((get) => {
     const states = get(statesAtom);
     return new Set(ids.filter((_, index) => sessionHasScope(states[index]!, scope)));
-  }).pipe(Atom.withLabel(`web-environments-with-scope:${key}`));
+  }).pipe(Atom.withLabel(`web-machines-with-scope:${key}`));
 });
 
-export function useEnvironmentsWithScope(
-  environments: ReadonlyArray<{ readonly environmentId: EnvironmentId }>,
-  scope: AuthEnvironmentScope,
-): ReadonlySet<EnvironmentId> {
+export function useMachinesWithScope(
+  machines: ReadonlyArray<{ readonly machineId: MachineId }>,
+  scope: AuthMachineScope,
+): ReadonlySet<MachineId> {
   return useAtomValue(
-    environmentsWithScopeAtom(
-      `${scope}\n${environmentIdsKey(environments.map(({ environmentId }) => environmentId))}`,
+    machinesWithScopeAtom(
+      `${scope}\n${machineIdsKey(machines.map(({ machineId }) => machineId))}`,
     ),
   );
 }
 
-export function readEnvironmentScope(
-  environmentId: EnvironmentId,
-  scope: AuthEnvironmentScope,
+export function readMachineScope(
+  machineId: MachineId,
+  scope: AuthMachineScope,
 ): boolean {
   return sessionHasScope(
-    appAtomRegistry.get(environmentSession.sessionStateAtom(environmentId)),
+    appAtomRegistry.get(machineSession.sessionStateAtom(machineId)),
     scope,
   );
 }
@@ -77,17 +77,17 @@ const EMPTY_PREPARED_CONNECTION_ATOM = Atom.make(Option.none()).pipe(
   Atom.withLabel("web-prepared-connection:empty"),
 );
 
-export function usePreparedConnection(environmentId: EnvironmentId | null) {
+export function usePreparedConnection(machineId: MachineId | null) {
   return useAtomValue(
-    environmentId === null
+    machineId === null
       ? EMPTY_PREPARED_CONNECTION_ATOM
-      : environmentSession.preparedConnectionValueAtom(environmentId),
+      : machineSession.preparedConnectionValueAtom(machineId),
   );
 }
 
-export function readPreparedConnection(environmentId: EnvironmentId) {
+export function readPreparedConnection(machineId: MachineId) {
   return Option.getOrNull(
-    appAtomRegistry.get(environmentSession.preparedConnectionValueAtom(environmentId)),
+    appAtomRegistry.get(machineSession.preparedConnectionValueAtom(machineId)),
   );
 }
 
@@ -95,8 +95,8 @@ export function readPreparedConnection(environmentId: EnvironmentId) {
  * `data` stays populated across SWR revalidations; `isPending` is only
  * meaningful before the first resolve.
  */
-export function useEnvironmentSessionState(environmentId: EnvironmentId) {
-  const result = useAtomValue(environmentSession.sessionStateAtom(environmentId));
+export function useMachineSessionState(machineId: MachineId) {
+  const result = useAtomValue(machineSession.sessionStateAtom(machineId));
   return {
     data: Option.getOrNull(AsyncResult.value(result)),
     hasError: result._tag === "Failure",

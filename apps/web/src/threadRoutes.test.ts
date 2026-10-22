@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
-import { EMPTY_ENVIRONMENT_THREAD_STATE } from "@vekrel/client-runtime/state/threads";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
+import { EMPTY_MACHINE_THREAD_STATE } from "@vekrel/client-runtime/state/threads";
 import { ThreadId } from "@vekrel/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
@@ -33,12 +33,12 @@ describe("threadRoutes", () => {
 
     expect(
       resolveActiveThreadRouteRef(target, {
-        environmentId: "env-1" as never,
+        machineId: "env-1" as never,
         threadId: ThreadId.make("draft-thread"),
         promotedTo: scopeThreadRef("env-2" as never, ThreadId.make("server-thread")),
       }),
     ).toEqual({
-      environmentId: "env-2",
+      machineId: "env-2",
       threadId: "server-thread",
     });
   });
@@ -48,7 +48,7 @@ describe("threadRoutes", () => {
 
     expect(
       resolveActiveThreadRouteRef(target, {
-        environmentId: "env-1" as never,
+        machineId: "env-1" as never,
         threadId: ThreadId.make("draft-thread"),
         promotedTo: null,
       }),
@@ -68,7 +68,7 @@ describe("threadRoutes", () => {
           bootstrapComplete: isThreadRouteSnapshotAuthoritative(status),
           serverThreadExists: source === "server thread",
           serverThreadDeleted: false,
-          unlistedThreadDetail: EMPTY_ENVIRONMENT_THREAD_STATE,
+          unlistedThreadDetail: EMPTY_MACHINE_THREAD_STATE,
           draftThreadExists: source === "draft",
         }),
       ).toBe("ready");
@@ -81,7 +81,7 @@ describe("threadRoutes", () => {
         bootstrapComplete: false,
         serverThreadExists: false,
         serverThreadDeleted: false,
-        unlistedThreadDetail: { ...EMPTY_ENVIRONMENT_THREAD_STATE, status: "deleted" },
+        unlistedThreadDetail: { ...EMPTY_MACHINE_THREAD_STATE, status: "deleted" },
         draftThreadExists: false,
       }),
     ).toBe("loading");
@@ -90,7 +90,7 @@ describe("threadRoutes", () => {
         bootstrapComplete: true,
         serverThreadExists: false,
         serverThreadDeleted: false,
-        unlistedThreadDetail: { ...EMPTY_ENVIRONMENT_THREAD_STATE, status: "deleted" },
+        unlistedThreadDetail: { ...EMPTY_MACHINE_THREAD_STATE, status: "deleted" },
         draftThreadExists: false,
       }),
     ).toBe("missing");
@@ -107,14 +107,14 @@ describe("threadRoutes", () => {
     expect(
       resolveThreadRouteRenderState({
         ...route,
-        unlistedThreadDetail: EMPTY_ENVIRONMENT_THREAD_STATE,
+        unlistedThreadDetail: EMPTY_MACHINE_THREAD_STATE,
       }),
     ).toBe("loading");
     expect(
       resolveThreadRouteRenderState({
         ...route,
         unlistedThreadDetail: {
-          ...EMPTY_ENVIRONMENT_THREAD_STATE,
+          ...EMPTY_MACHINE_THREAD_STATE,
           status: "synchronizing",
         },
       }),
@@ -123,7 +123,7 @@ describe("threadRoutes", () => {
       resolveThreadRouteRenderState({
         ...route,
         unlistedThreadDetail: {
-          ...EMPTY_ENVIRONMENT_THREAD_STATE,
+          ...EMPTY_MACHINE_THREAD_STATE,
           status: "synchronizing",
           error: Option.some("Connection interrupted"),
         },
@@ -133,7 +133,7 @@ describe("threadRoutes", () => {
       resolveThreadRouteRenderState({
         ...route,
         unlistedThreadDetail: {
-          ...EMPTY_ENVIRONMENT_THREAD_STATE,
+          ...EMPTY_MACHINE_THREAD_STATE,
           status: "live",
           data: Option.some(makeThreadProjectionFixture()),
         },
@@ -154,7 +154,7 @@ describe("threadRoutes", () => {
         resolveThreadRouteRenderState({
           ...route,
           unlistedThreadDetail: {
-            ...EMPTY_ENVIRONMENT_THREAD_STATE,
+            ...EMPTY_MACHINE_THREAD_STATE,
             status: "synchronizing",
           },
         }),
@@ -167,9 +167,9 @@ describe("threadRoutes", () => {
           ...route,
           unlistedThreadDetail:
             outcome === "missing"
-              ? { ...EMPTY_ENVIRONMENT_THREAD_STATE, status: "deleted" }
+              ? { ...EMPTY_MACHINE_THREAD_STATE, status: "deleted" }
               : {
-                  ...EMPTY_ENVIRONMENT_THREAD_STATE,
+                  ...EMPTY_MACHINE_THREAD_STATE,
                   status: "live",
                   data: Option.some({
                     ...projection,
@@ -191,7 +191,7 @@ describe("threadRoutes", () => {
         bootstrapComplete: isThreadRouteSnapshotAuthoritative("cached"),
         serverThreadExists: true,
         serverThreadDeleted: true,
-        unlistedThreadDetail: EMPTY_ENVIRONMENT_THREAD_STATE,
+        unlistedThreadDetail: EMPTY_MACHINE_THREAD_STATE,
         draftThreadExists: false,
       }),
     ).toBe("loading");

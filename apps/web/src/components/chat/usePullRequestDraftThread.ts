@@ -1,7 +1,7 @@
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 import type { UnifiedSettings } from "@vekrel/contracts";
 import { useStableCallback } from "../../hooks/useStableCallback";
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
 import { resolveProjectSettings } from "@vekrel/shared/projectSettings";
 import { useNavigate } from "@tanstack/react-router";
 import { DEFAULT_INTERACTION_MODE } from "../../types";
@@ -18,7 +18,7 @@ interface PullRequestDraftThreadInput {
   readonly draftId: DraftId | null;
   readonly settings: UnifiedSettings;
   readonly projectGroupingSettings: ReturnType<typeof selectProjectGroupingSettings>;
-  readonly activeProject: EnvironmentProject | null;
+  readonly activeProject: MachineProject | null;
   readonly activeThreadKey: string | null;
   readonly isServerThread: boolean;
   readonly canCheckoutPullRequestIntoThread: boolean;
@@ -66,7 +66,7 @@ export function usePullRequestDraftThread(input: PullRequestDraftThreadInput) {
     if (!activeProject) {
       throw new Error("No active project is available for this pull request.");
     }
-    const activeProjectRef = scopeProjectRef(activeProject.environmentId, activeProject.id);
+    const activeProjectRef = scopeProjectRef(activeProject.machineId, activeProject.id);
     const logicalProjectKey = deriveLogicalProjectKeyFromSettings(
       activeProject,
       projectGroupingSettings,

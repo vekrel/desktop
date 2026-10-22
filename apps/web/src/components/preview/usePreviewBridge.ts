@@ -14,7 +14,7 @@ import {
 } from "~/browserFaviconStore";
 import { useBrowserPointerStore } from "~/browser/browserPointerStore";
 import { applyPreviewDesktopState, type DesktopPreviewOverlay } from "~/previewStateStore";
-import { previewEnvironment } from "~/state/preview";
+import { previewMachine } from "~/state/preview";
 import { usePreparedConnection } from "~/state/session";
 import { useAtomCommand } from "~/state/use-atom-command";
 
@@ -39,14 +39,14 @@ export function usePreviewBridge(input: {
 }): void {
   const { threadRef, tabId, runtimeTabId, serverDriven = false } = input;
   const clearBrowserPointer = useBrowserPointerStore((state) => state.clear);
-  const reportStatus = useAtomCommand(previewEnvironment.reportStatus, "preview status report");
+  const reportStatus = useAtomCommand(previewMachine.reportStatus, "preview status report");
   // Callers pass a fresh threadRef each render; rebuilding it from its ids keeps the ref
   // stable for the effects.
-  const { environmentId, threadId } = threadRef;
-  const stableThreadRef: ScopedThreadRef = { environmentId, threadId };
+  const { machineId, threadId } = threadRef;
+  const stableThreadRef: ScopedThreadRef = { machineId, threadId };
   const projectRef = useFaviconProjectRefForThread(stableThreadRef);
-  const preparedConnection = usePreparedConnection(stableThreadRef.environmentId);
-  const environmentHostname = Option.isSome(preparedConnection)
+  const preparedConnection = usePreparedConnection(stableThreadRef.machineId);
+  const machineHostname = Option.isSome(preparedConnection)
     ? new URL(preparedConnection.value.httpBaseUrl).hostname
     : undefined;
 
@@ -62,7 +62,7 @@ export function usePreviewBridge(input: {
       lastDesktopNavStatus.current = state.navStatus;
       applyPreviewDesktopState(stableThreadRef, tabId, projectDesktopState(state));
       if (state.favicon) {
-        recordFaviconForThread(stableThreadRef, state.favicon, projectRef, environmentHostname);
+        recordFaviconForThread(stableThreadRef, state.favicon, projectRef, machineHostname);
       }
       const reported = buildReportInput({
         threadId: stableThreadRef.threadId,
@@ -75,7 +75,7 @@ export function usePreviewBridge(input: {
       lastReportedUrl.current = reported.lastReportedUrl;
       lastReportedKind.current = reported.lastReportedKind;
       void reportStatus({
-        environmentId: stableThreadRef.environmentId,
+        machineId: stableThreadRef.machineId,
         input: reported.input,
       });
     },
@@ -94,8 +94,8 @@ export function usePreviewBridge(input: {
   ]);
   useEffect(() => {
     if (!projectRef) return;
-    flushPendingFaviconsForThread(stableThreadRef, projectRef, environmentHostname);
-  }, [environmentHostname, projectRef, stableThreadRef]);
+    flushPendingFaviconsForThread(stableThreadRef, projectRef, machineHostname);
+  }, [machineHostname, projectRef, stableThreadRef]);
 }
 
 function shouldClearBrowserPointer(

@@ -1,13 +1,13 @@
 import {
   type DeviceHostSummary,
   type DevicePlatformAvailability,
-  type EnvironmentId,
+  type MachineId,
   SshDeviceHostConfig,
 } from "@vekrel/contracts";
 import * as Schema from "effect/Schema";
 
 export interface DeviceHostCheckTarget {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   label: string;
   connected: boolean;
 }
@@ -38,17 +38,17 @@ export function deviceHostConnectionKey(host: SshDeviceHostConfig) {
 export async function checkDeviceHostConnections(
   targets: ReadonlyArray<DeviceHostCheckTarget>,
   host: SshDeviceHostConfig,
-  probe: (environmentId: EnvironmentId, host: SshDeviceHostConfig) => Promise<DeviceHostSummary>,
-  report: (environmentId: EnvironmentId, result: DeviceHostCheck) => void,
+  probe: (machineId: MachineId, host: SshDeviceHostConfig) => Promise<DeviceHostSummary>,
+  report: (machineId: MachineId, result: DeviceHostCheck) => void,
 ) {
   await Promise.all(
     targets.map(async (target) => {
-      report(target.environmentId, { status: "pending" });
+      report(target.machineId, { status: "pending" });
       try {
-        if (!target.connected) throw new Error("Environment disconnected");
-        const result = await probe(target.environmentId, host);
+        if (!target.connected) throw new Error("Machine disconnected");
+        const result = await probe(target.machineId, host);
         report(
-          target.environmentId,
+          target.machineId,
           result.kind === "local"
             ? { status: "local" }
             : {
@@ -58,7 +58,7 @@ export async function checkDeviceHostConnections(
               },
         );
       } catch (error) {
-        report(target.environmentId, {
+        report(target.machineId, {
           status: "failed",
           error: error instanceof Error ? error.message : String(error),
         });

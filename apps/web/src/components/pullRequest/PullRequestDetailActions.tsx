@@ -1,5 +1,5 @@
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestAction,
   PullRequestMergeMethod,
   PullRequestUpdateMethod,
@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 
 import { AnimatedWidth } from "~/components/AnimatedWidth";
 import { cn } from "~/lib/utils";
-import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import { MachineIcon } from "../MachineIcon";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
@@ -25,7 +25,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type { resolvePullRequestPrimaryControl } from "./pullRequestDetail.logic";
 import { PullRequestGlyph } from "./pullRequestIcons";
 import type { resolvePullRequestState } from "./pullRequestPresentation";
-import type { PickableEnvironment } from "./pullRequestProjectAssignment.logic";
+import type { PickableMachine } from "./pullRequestProjectAssignment.logic";
 import { useInlineActionConfirm } from "./useInlineActionConfirm";
 
 export type PerformPullRequestAction = (
@@ -34,15 +34,15 @@ export type PerformPullRequestAction = (
   updateMethod?: PullRequestUpdateMethod,
 ) => Promise<boolean>;
 
-export function ActOnEnvironmentPicker({
-  environments,
+export function ActOnMachinePicker({
+  machines,
   value,
   onChange,
   disabled,
 }: {
-  environments: ReadonlyArray<PickableEnvironment>;
-  value: EnvironmentId;
-  onChange: (environmentId: EnvironmentId) => void;
+  machines: ReadonlyArray<PickableMachine>;
+  value: MachineId;
+  onChange: (machineId: MachineId) => void;
   disabled: boolean;
 }) {
   return (
@@ -50,20 +50,20 @@ export function ActOnEnvironmentPicker({
       <MenuSeparator />
       <MenuRadioGroup
         value={value}
-        onValueChange={(environmentId) => onChange(environmentId as EnvironmentId)}
+        onValueChange={(machineId) => onChange(machineId as MachineId)}
       >
-        {environments.map((environment) => (
+        {machines.map((machine) => (
           <MenuRadioItem
-            key={environment.environmentId}
-            value={environment.environmentId}
+            key={machine.machineId}
+            value={machine.machineId}
             disabled={disabled}
           >
             <span className="flex min-w-0 items-center gap-2">
-              <EnvironmentMachineIcon
-                kind={environment.machine ?? "server"}
+              <MachineIcon
+                kind={machine.machine ?? "server"}
                 className="size-3.5 shrink-0"
               />
-              <span className="truncate">{environment.label}</span>
+              <span className="truncate">{machine.label}</span>
             </span>
           </MenuRadioItem>
         ))}
@@ -78,18 +78,18 @@ export function PullRequestCheckoutMenu({
   canPrepareWorktree,
   canCheckoutHere,
   onCheckout,
-  pickableEnvironments,
-  actingEnvironmentId,
-  onActingEnvironmentChange,
+  pickableMachines,
+  actingMachineId,
+  onActingMachineChange,
 }: {
   handoff: string | null;
   checkoutRoot: string | null;
   canPrepareWorktree: boolean;
   canCheckoutHere: boolean;
   onCheckout: (mode: "worktree" | "local") => void;
-  pickableEnvironments: ReadonlyArray<PickableEnvironment>;
-  actingEnvironmentId: EnvironmentId;
-  onActingEnvironmentChange: (environmentId: EnvironmentId) => void;
+  pickableMachines: ReadonlyArray<PickableMachine>;
+  actingMachineId: MachineId;
+  onActingMachineChange: (machineId: MachineId) => void;
 }) {
   return (
     <Menu>
@@ -135,11 +135,11 @@ export function PullRequestCheckoutMenu({
             </span>
           </span>
         </MenuItem>
-        {pickableEnvironments.length > 0 ? (
-          <ActOnEnvironmentPicker
-            environments={pickableEnvironments}
-            value={actingEnvironmentId}
-            onChange={onActingEnvironmentChange}
+        {pickableMachines.length > 0 ? (
+          <ActOnMachinePicker
+            machines={pickableMachines}
+            value={actingMachineId}
+            onChange={onActingMachineChange}
             disabled={handoff !== null}
           />
         ) : null}

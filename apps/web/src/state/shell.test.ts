@@ -2,19 +2,19 @@ import {
   BearerConnectionTarget,
   PrimaryConnectionTarget,
 } from "@vekrel/client-runtime/connection";
-import type { EnvironmentCatalogState } from "@vekrel/client-runtime/state/connections";
-import type { EnvironmentShellState } from "@vekrel/client-runtime/state/shell";
-import { EnvironmentId } from "@vekrel/contracts";
+import type { MachineCatalogState } from "@vekrel/client-runtime/state/connections";
+import type { MachineShellState } from "@vekrel/client-runtime/state/shell";
+import { MachineId } from "@vekrel/contracts";
 import * as Option from "effect/Option";
 import { Atom, AtomRegistry } from "effect/reactivity";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createAllEnvironmentProjectSnapshotsReadyAtom } from "./shell";
+import { createAllMachineProjectSnapshotsReadyAtom } from "./shell";
 
-const LOCAL = EnvironmentId.make("local");
-const REMOTE = EnvironmentId.make("remote");
+const LOCAL = MachineId.make("local");
+const REMOTE = MachineId.make("remote");
 
-function shellState(status: EnvironmentShellState["status"]): EnvironmentShellState {
+function shellState(status: MachineShellState["status"]): MachineShellState {
   return {
     status,
     snapshot:
@@ -31,25 +31,25 @@ function shellState(status: EnvironmentShellState["status"]): EnvironmentShellSt
   };
 }
 
-function catalogState(environmentIds: readonly EnvironmentId[]): EnvironmentCatalogState {
+function catalogState(machineIds: readonly MachineId[]): MachineCatalogState {
   return {
     isReady: true,
     entries: new Map(
-      environmentIds.map((environmentId) => [
-        environmentId,
+      machineIds.map((machineId) => [
+        machineId,
         {
           target:
-            environmentId === LOCAL
+            machineId === LOCAL
               ? new PrimaryConnectionTarget({
-                  environmentId,
-                  label: environmentId,
-                  httpBaseUrl: `https://${environmentId}.example.test`,
-                  wsBaseUrl: `wss://${environmentId}.example.test`,
+                  machineId,
+                  label: machineId,
+                  httpBaseUrl: `https://${machineId}.example.test`,
+                  wsBaseUrl: `wss://${machineId}.example.test`,
                 })
               : new BearerConnectionTarget({
-                  environmentId,
-                  connectionId: environmentId,
-                  label: environmentId,
+                  machineId,
+                  connectionId: machineId,
+                  label: machineId,
                 }),
           profile: Option.none(),
           enabled: true,
@@ -59,15 +59,15 @@ function catalogState(environmentIds: readonly EnvironmentId[]): EnvironmentCata
   };
 }
 
-function makeHarness(requiresPrimaryEnvironment = true) {
-  const catalog = Atom.make<EnvironmentCatalogState>({ isReady: false, entries: new Map() });
-  const shells = Atom.family((_environmentId: EnvironmentId) =>
-    Atom.make<EnvironmentShellState>(shellState("empty")),
+function makeHarness(requiresPrimaryMachine = true) {
+  const catalog = Atom.make<MachineCatalogState>({ isReady: false, entries: new Map() });
+  const shells = Atom.family((_machineId: MachineId) =>
+    Atom.make<MachineShellState>(shellState("empty")),
   );
-  const ready = createAllEnvironmentProjectSnapshotsReadyAtom({
+  const ready = createAllMachineProjectSnapshotsReadyAtom({
     catalogValueAtom: catalog,
     shellStateValueAtom: shells,
-    requiresPrimaryEnvironment,
+    requiresPrimaryMachine,
   });
   const registry = AtomRegistry.make();
   return { catalog, shells, ready, registry };
@@ -95,7 +95,7 @@ describe("project snapshot readiness", () => {
     registry.dispose();
   });
 
-  it("allows a hosted client to load projects without a primary environment", () => {
+  it("allows a hosted client to load projects without a primary machine", () => {
     const { catalog, shells, ready, registry } = makeHarness(false);
     registry.set(catalog, catalogState([REMOTE]));
     expect(registry.get(ready)).toBe(false);
@@ -124,7 +124,7 @@ describe("project snapshot readiness", () => {
     registry.dispose();
   });
 
-  it("stops waiting for an environment only when it leaves the catalog", () => {
+  it("stops waiting for a machine only when it leaves the catalog", () => {
     const { catalog, shells, ready, registry } = makeHarness();
     registry.set(catalog, catalogState([LOCAL, REMOTE]));
     registry.set(shells(LOCAL), shellState("live"));

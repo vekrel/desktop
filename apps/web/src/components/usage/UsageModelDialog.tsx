@@ -1,7 +1,7 @@
 import { formatPercent, formatTokens, formatUsd } from "@vekrel/shared/usageFormat";
 import { isModelCostUnknown, type ModelTotals } from "@vekrel/shared/usageMerge";
 
-import { mergeAnsweredUsage, type EnvironmentUsageStatus } from "../../state/usage";
+import { mergeAnsweredUsage, type MachineUsageStatus } from "../../state/usage";
 import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
 import { Button } from "../ui/button";
 import {
@@ -35,21 +35,21 @@ export interface UsageChartWindow {
 
 export function UsageModelDialog({
   model,
-  environments,
+  machines,
   metric,
   chartWindow,
   onSetPrice,
   onClose,
 }: {
   readonly model: ModelTotals;
-  readonly environments: readonly EnvironmentUsageStatus[];
+  readonly machines: readonly MachineUsageStatus[];
   readonly metric: UsageChartMetric;
   readonly chartWindow: UsageChartWindow;
   readonly onSetPrice: () => void;
   readonly onClose: () => void;
 }) {
   const usage = mergeAnsweredUsage(
-    environments,
+    machines,
     (bucket) => bucket.provider === model.provider && bucket.model === model.model,
   );
   const providers = [model.provider];

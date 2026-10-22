@@ -7,7 +7,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 import { cn } from "~/lib/utils";
 import { resolveSidebarRowAccessibility } from "../Sidebar.logic";
 import { ProjectFavicon, type ProjectFaviconProject } from "../ProjectFavicon";
@@ -138,7 +138,7 @@ interface SidebarDraftRowData {
 }
 
 export const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
-  projectByKey: ReadonlyMap<string, EnvironmentProject>;
+  projectByKey: ReadonlyMap<string, MachineProject>;
   projectDisplayNameByKey: ReadonlyMap<string, string>;
   scopedProjectKeys: ReadonlySet<string> | null;
   routeDraftId: string | null;
@@ -172,7 +172,7 @@ export const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
       }
       if (
         props.scopedProjectKeys !== null &&
-        !props.scopedProjectKeys.has(`${session.environmentId}:${session.projectId}`)
+        !props.scopedProjectKeys.has(`${session.machineId}:${session.projectId}`)
       ) {
         continue;
       }
@@ -197,7 +197,7 @@ export const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
   return (
     <>
       {drafts.map(({ composer, draftId, session }) => {
-        const projectKey = `${session.environmentId}:${session.projectId}`;
+        const projectKey = `${session.machineId}:${session.projectId}`;
         return (
           <SidebarDraftRow
             key={draftId}

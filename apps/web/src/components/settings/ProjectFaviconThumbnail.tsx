@@ -1,11 +1,11 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { useAssetUrlState } from "~/assets/assetUrls";
 
 export function ProjectFaviconThumbnail(props: {
   readonly cwd: string;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly fallback: ReactNode;
   readonly path: string;
 }) {
@@ -26,7 +26,7 @@ export function ProjectFaviconThumbnail(props: {
   }, [inView]);
 
   const state = useAssetUrlState(
-    props.environmentId,
+    props.machineId,
     inView ? { _tag: "draft-workspace-file", cwd: props.cwd, path: props.path } : null,
   );
   const url = state._tag === "Success" ? state.url : null;

@@ -5,7 +5,7 @@ import {
   DEFAULT_MODEL,
   DEFAULT_MODEL_BY_PROVIDER,
   defaultInstanceIdForDriver,
-  EnvironmentId,
+  MachineId,
   ModelSelection,
   ProjectId,
   ProviderInstanceId,
@@ -32,7 +32,7 @@ import {
   scopeProjectRef,
   scopedThreadKey,
   scopeThreadRef,
-} from "@vekrel/client-runtime/environment";
+} from "@vekrel/client-runtime/machine";
 import * as Schema from "effect/Schema";
 import * as Equal from "effect/Equal";
 import * as Effect from "effect/Effect";
@@ -45,8 +45,8 @@ import {
 import { AsyncResult, Atom, type AtomRegistry } from "effect/reactivity";
 import * as Option from "effect/Option";
 import type {
-  EnvironmentShellState,
-  EnvironmentThreadShell,
+  MachineShellState,
+  MachineThreadShell,
 } from "@vekrel/client-runtime/state/shell";
 import { getLocalStorageItem } from "./hooks/useLocalStorage";
 import { readThreadPreviewState } from "./previewStateStore";
@@ -163,7 +163,7 @@ export interface ComposerImageAttachment extends Omit<ChatImageAttachment, "prev
 export interface ComposerFileAttachment extends Omit<ChatFileAttachment, "previewUrl"> {
   file: File | null;
   uploadedAttachmentId?: string;
-  uploadEnvironmentId?: EnvironmentId;
+  uploadMachineId?: MachineId;
 }
 
 export function composerFileNeedsReattach(file: ComposerFileAttachment): boolean {
@@ -172,13 +172,13 @@ export function composerFileNeedsReattach(file: ComposerFileAttachment): boolean
 
 function clearStaleFileUploadMetadata(
   draft: ComposerThreadDraftState,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
 ): ComposerThreadDraftState {
   let changed = false;
   const files = draft.files.map((file) => {
     if (
-      (file.uploadedAttachmentId === undefined && file.uploadEnvironmentId === undefined) ||
-      file.uploadEnvironmentId === environmentId
+      (file.uploadedAttachmentId === undefined && file.uploadMachineId === undefined) ||
+      file.uploadMachineId === machineId
     ) {
       return file;
     }
@@ -186,7 +186,7 @@ function clearStaleFileUploadMetadata(
     changed = true;
     const nextFile = { ...file };
     delete nextFile.uploadedAttachmentId;
-    delete nextFile.uploadEnvironmentId;
+    delete nextFile.uploadMachineId;
     return nextFile;
   });
 
@@ -199,7 +199,7 @@ export const PersistedComposerFileAttachment = Schema.Struct({
   mimeType: Schema.String,
   sizeBytes: Schema.Number,
   attachmentId: Schema.String,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   source: Schema.optional(PastedTextAttachmentSource),
 });
 export type PersistedComposerFileAttachment = typeof PersistedComposerFileAttachment.Type;
@@ -215,7 +215,7 @@ export const PersistedComposerDraftFileAttachment = Schema.Struct({
   mimeType: Schema.String,
   sizeBytes: Schema.Number,
   attachmentId: Schema.optionalKey(Schema.String),
-  environmentId: Schema.optionalKey(EnvironmentId),
+  machineId: Schema.optionalKey(MachineId),
   source: Schema.optional(PastedTextAttachmentSource),
 });
 export type PersistedComposerDraftFileAttachment = typeof PersistedComposerDraftFileAttachment.Type;
@@ -304,11 +304,11 @@ type LegacyPersistedComposerDraftStoreState = PersistedComposerDraftStoreState &
 
 const PersistedDraftThreadState = Schema.Struct({
   threadId: ThreadId,
-  environmentId: Schema.String,
+  machineId: Schema.String,
   projectId: ProjectId,
   logicalProjectKey: Schema.optionalKey(Schema.String),
-  environmentSelection: Schema.optionalKey(Schema.Literals(["auto", "manual"])),
-  loadBalancedEnvironmentId: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  machineSelection: Schema.optionalKey(Schema.Literals(["auto", "manual"])),
+  loadBalancedMachineId: Schema.optionalKey(Schema.NullOr(Schema.String)),
   createdAt: Schema.String,
   runtimeMode: RuntimeMode,
   interactionMode: ProviderInteractionMode,
@@ -319,7 +319,7 @@ const PersistedDraftThreadState = Schema.Struct({
   promotedTo: Schema.optionalKey(
     Schema.NullOr(
       Schema.Struct({
-        environmentId: Schema.String,
+        machineId: Schema.String,
         threadId: Schema.String,
       }),
     ),
@@ -395,11 +395,11 @@ export function composerDraftHasUserContent(
 
 export interface DraftSessionState {
   threadId: ThreadId;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   projectId: ProjectId;
   logicalProjectKey: string;
-  environmentSelection?: "auto" | "manual";
-  loadBalancedEnvironmentId?: EnvironmentId | null;
+  machineSelection?: "auto" | "manual";
+  loadBalancedMachineId?: MachineId | null;
   createdAt: string;
   runtimeMode: RuntimeMode;
   interactionMode: ProviderInteractionMode;
@@ -440,7 +440,7 @@ interface ComposerDraftStoreState {
   getDraftThreadByRef: (threadRef: ScopedThreadRef) => DraftThreadState | null;
   getDraftThread: (threadRef: ComposerThreadTarget) => DraftThreadState | null;
   listDraftThreadKeys: () => string[];
-  hasDraftThreadsInEnvironment: (environmentId: EnvironmentId) => boolean;
+  hasDraftThreadsInMachine: (machineId: MachineId) => boolean;
   setLogicalProjectDraftThreadId: (
     logicalProjectKey: string,
     projectRef: ScopedProjectRef,
@@ -454,8 +454,8 @@ interface ComposerDraftStoreState {
       startFromOrigin?: boolean;
       runtimeMode?: RuntimeMode;
       interactionMode?: ProviderInteractionMode;
-      environmentSelection?: "auto" | "manual";
-      loadBalancedEnvironmentId?: EnvironmentId | null;
+      machineSelection?: "auto" | "manual";
+      loadBalancedMachineId?: MachineId | null;
     },
   ) => void;
   setProjectDraftThreadId: (
@@ -470,8 +470,8 @@ interface ComposerDraftStoreState {
       startFromOrigin?: boolean;
       runtimeMode?: RuntimeMode;
       interactionMode?: ProviderInteractionMode;
-      environmentSelection?: "auto" | "manual";
-      loadBalancedEnvironmentId?: EnvironmentId | null;
+      machineSelection?: "auto" | "manual";
+      loadBalancedMachineId?: MachineId | null;
     },
   ) => void;
   setDraftThreadContext: (
@@ -485,8 +485,8 @@ interface ComposerDraftStoreState {
       startFromOrigin?: boolean;
       runtimeMode?: RuntimeMode;
       interactionMode?: ProviderInteractionMode;
-      environmentSelection?: "auto" | "manual";
-      loadBalancedEnvironmentId?: EnvironmentId | null;
+      machineSelection?: "auto" | "manual";
+      loadBalancedMachineId?: MachineId | null;
     },
   ) => void;
   clearProjectDraftThreadId: (projectRef: ScopedProjectRef) => void;
@@ -555,13 +555,13 @@ interface ComposerDraftStoreState {
   setFileUpload: (
     threadRef: ComposerThreadTarget,
     fileId: string,
-    environmentId: EnvironmentId,
+    machineId: MachineId,
     attachmentId: string,
   ) => void;
   markFileUploadMissing: (
     threadRef: ComposerThreadTarget,
     fileId: string,
-    environmentId: EnvironmentId,
+    machineId: MachineId,
     attachmentId: string,
   ) => boolean;
   insertTerminalContext: (
@@ -624,7 +624,7 @@ interface ComposerDraftStoreState {
   clearComposerPromptAndImages: (threadRef: ComposerThreadTarget) => void;
   /**
    * Attachments over the destination limit and uploaded files that belong to
-   * another environment stay in the source draft. Terminal and element
+   * another machine stay in the source draft. Terminal and element
    * context, preview annotations, and review comments also stay in the source.
    */
   moveComposerPromptAndImages: (from: ComposerThreadTarget, to: ComposerThreadTarget) => void;
@@ -1293,15 +1293,15 @@ export function composerTargetKey(target: ScopedThreadRef | DraftId): string {
 function normalizeLegacyComposerStorageKey(
   threadKeyOrId: string,
   options?: {
-    environmentId?: EnvironmentId;
+    machineId?: MachineId;
   },
 ): string {
   const parsedThreadRef = parseScopedThreadKey(threadKeyOrId);
   if (parsedThreadRef) {
     return composerTargetKey(parsedThreadRef);
   }
-  if (options?.environmentId) {
-    return composerTargetKey(scopeThreadRef(options.environmentId, threadKeyOrId as ThreadId));
+  if (options?.machineId) {
+    return composerTargetKey(scopeThreadRef(options.machineId, threadKeyOrId as ThreadId));
   }
   return threadKeyOrId;
 }
@@ -1341,7 +1341,7 @@ export function resolveComposerDraftKey(
     }
     for (const [draftId, draftSession] of Object.entries(state.draftThreadsByThreadKey)) {
       if (
-        draftSession.environmentId === normalizedTarget.environmentId &&
+        draftSession.machineId === normalizedTarget.machineId &&
         draftSession.threadId === normalizedTarget.threadId
       ) {
         return draftId;
@@ -1380,7 +1380,7 @@ function getComposerDraftState(
 
 function draftThreadHasOpenPreview(draftThread: DraftThreadState | undefined): boolean {
   if (draftThread === undefined) return false;
-  const ref = scopeThreadRef(draftThread.environmentId, draftThread.threadId);
+  const ref = scopeThreadRef(draftThread.machineId, draftThread.threadId);
   return Object.keys(readThreadPreviewState(ref).sessions).length > 0;
 }
 
@@ -1412,16 +1412,16 @@ function createDraftThreadState(
     startFromOrigin?: boolean;
     runtimeMode?: RuntimeMode;
     interactionMode?: ProviderInteractionMode;
-    environmentSelection?: "auto" | "manual";
-    loadBalancedEnvironmentId?: EnvironmentId | null;
+    machineSelection?: "auto" | "manual";
+    loadBalancedMachineId?: MachineId | null;
   },
 ): DraftThreadState {
-  // A project change (including switching environments within a logical
+  // A project change (including switching machines within a logical
   // project) invalidates machine-specific context: the branch may not exist
   // there and the worktree path certainly doesn't.
   const projectChanged =
     existingThread !== undefined &&
-    (existingThread.environmentId !== projectRef.environmentId ||
+    (existingThread.machineId !== projectRef.machineId ||
       existingThread.projectId !== projectRef.projectId);
   const nextWorktreePath =
     options?.worktreePath === undefined
@@ -1439,21 +1439,21 @@ function createDraftThreadState(
     options?.startFromOrigin === undefined
       ? (existingThread?.startFromOrigin ?? false)
       : options.startFromOrigin;
-  const environmentSelection =
-    options?.environmentSelection ?? existingThread?.environmentSelection;
+  const machineSelection =
+    options?.machineSelection ?? existingThread?.machineSelection;
   return {
     threadId,
-    environmentId: projectRef.environmentId,
+    machineId: projectRef.machineId,
     projectId: projectRef.projectId,
     logicalProjectKey,
-    ...(environmentSelection ? { environmentSelection } : {}),
-    ...(options?.loadBalancedEnvironmentId !== undefined
-      ? { loadBalancedEnvironmentId: options.loadBalancedEnvironmentId }
-      : existingThread?.loadBalancedEnvironmentId !== undefined
+    ...(machineSelection ? { machineSelection } : {}),
+    ...(options?.loadBalancedMachineId !== undefined
+      ? { loadBalancedMachineId: options.loadBalancedMachineId }
+      : existingThread?.loadBalancedMachineId !== undefined
         ? {
-            loadBalancedEnvironmentId: projectChanged
+            loadBalancedMachineId: projectChanged
               ? null
-              : existingThread.loadBalancedEnvironmentId,
+              : existingThread.loadBalancedMachineId,
           }
         : {}),
     createdAt: options?.createdAt ?? existingThread?.createdAt ?? new Date().toISOString(),
@@ -1476,7 +1476,7 @@ function scopedThreadRefsEqual(
   if (!left || !right) {
     return left === right;
   }
-  return left.environmentId === right.environmentId && left.threadId === right.threadId;
+  return left.machineId === right.machineId && left.threadId === right.threadId;
 }
 
 function isDraftThreadPromoting(draftThread: DraftThreadState | null | undefined): boolean {
@@ -1487,11 +1487,11 @@ function draftThreadsEqual(left: DraftThreadState | undefined, right: DraftThrea
   return (
     !!left &&
     left.threadId === right.threadId &&
-    left.environmentId === right.environmentId &&
+    left.machineId === right.machineId &&
     left.projectId === right.projectId &&
     left.logicalProjectKey === right.logicalProjectKey &&
-    left.environmentSelection === right.environmentSelection &&
-    left.loadBalancedEnvironmentId === right.loadBalancedEnvironmentId &&
+    left.machineSelection === right.machineSelection &&
+    left.loadBalancedMachineId === right.loadBalancedMachineId &&
     left.createdAt === right.createdAt &&
     left.runtimeMode === right.runtimeMode &&
     left.interactionMode === right.interactionMode &&
@@ -1546,7 +1546,7 @@ function normalizePersistedDraftThreads(
   "draftThreadsByThreadKey" | "logicalProjectDraftThreadKeyByLogicalProjectKey"
 > {
   const draftThreadsByThreadKey: Record<string, PersistedDraftThreadState> = {};
-  const environmentIdByThreadId = new Map<ThreadId, EnvironmentId>();
+  const machineIdByThreadId = new Map<ThreadId, MachineId>();
   if (
     rawProjectDraftThreadIdByProjectKey &&
     typeof rawProjectDraftThreadIdByProjectKey === "object"
@@ -1563,10 +1563,10 @@ function normalizePersistedDraftThreads(
       }
       const parsedThreadRef = parseScopedThreadKey(threadId);
       if (parsedThreadRef) {
-        environmentIdByThreadId.set(parsedThreadRef.threadId, parsedThreadRef.environmentId);
+        machineIdByThreadId.set(parsedThreadRef.threadId, parsedThreadRef.machineId);
         continue;
       }
-      environmentIdByThreadId.set(threadId as ThreadId, projectRef.environmentId);
+      machineIdByThreadId.set(threadId as ThreadId, projectRef.machineId);
     }
   }
   if (rawDraftThreadsByThreadId && typeof rawDraftThreadsByThreadId === "object") {
@@ -1588,12 +1588,12 @@ function normalizePersistedDraftThreads(
         candidateDraftThread.threadId.length > 0
           ? (candidateDraftThread.threadId as ThreadId)
           : (threadKeyOrId as ThreadId));
-      const environmentId =
-        parsedThreadRef?.environmentId ??
-        (typeof candidateDraftThread.environmentId === "string" &&
-        candidateDraftThread.environmentId.length > 0
-          ? (candidateDraftThread.environmentId as EnvironmentId)
-          : environmentIdByThreadId.get(threadKeyOrId as ThreadId));
+      const machineId =
+        parsedThreadRef?.machineId ??
+        (typeof candidateDraftThread.machineId === "string" &&
+        candidateDraftThread.machineId.length > 0
+          ? (candidateDraftThread.machineId as MachineId)
+          : machineIdByThreadId.get(threadKeyOrId as ThreadId));
       const projectId = candidateDraftThread.projectId;
       const createdAt = candidateDraftThread.createdAt;
       const branch = candidateDraftThread.branch;
@@ -1607,29 +1607,29 @@ function normalizePersistedDraftThreads(
           : null;
       const promotedTo =
         promotedToRecord &&
-        typeof promotedToRecord.environmentId === "string" &&
-        promotedToRecord.environmentId.length > 0 &&
+        typeof promotedToRecord.machineId === "string" &&
+        promotedToRecord.machineId.length > 0 &&
         typeof promotedToRecord.threadId === "string" &&
         promotedToRecord.threadId.length > 0
           ? scopeThreadRef(
-              promotedToRecord.environmentId as EnvironmentId,
+              promotedToRecord.machineId as MachineId,
               promotedToRecord.threadId as ThreadId,
             )
           : null;
-      if (typeof projectId !== "string" || projectId.length === 0 || environmentId === undefined) {
+      if (typeof projectId !== "string" || projectId.length === 0 || machineId === undefined) {
         continue;
       }
-      const normalizedEnvironmentId = environmentId as EnvironmentId;
+      const normalizedMachineId = machineId as MachineId;
       draftThreadsByThreadKey[threadKey] = {
         threadId,
-        environmentId: normalizedEnvironmentId,
+        machineId: normalizedMachineId,
         projectId: projectId as ProjectId,
         logicalProjectKey:
           typeof candidateDraftThread.logicalProjectKey === "string" &&
           candidateDraftThread.logicalProjectKey.length > 0
             ? candidateDraftThread.logicalProjectKey
             : parsedThreadRef
-              ? projectDraftKey(scopeProjectRef(normalizedEnvironmentId, projectId as ProjectId))
+              ? projectDraftKey(scopeProjectRef(normalizedMachineId, projectId as ProjectId))
               : threadKeyOrId,
         createdAt:
           typeof createdAt === "string" && createdAt.length > 0
@@ -1647,15 +1647,15 @@ function normalizePersistedDraftThreads(
         worktreePath: normalizedWorktreePath,
         envMode: normalizeDraftThreadEnvMode(candidateDraftThread.envMode, normalizedWorktreePath),
         startFromOrigin,
-        ...(candidateDraftThread.environmentSelection === "manual" ||
-        candidateDraftThread.environmentSelection === "auto"
-          ? { environmentSelection: candidateDraftThread.environmentSelection }
+        ...(candidateDraftThread.machineSelection === "manual" ||
+        candidateDraftThread.machineSelection === "auto"
+          ? { machineSelection: candidateDraftThread.machineSelection }
           : {}),
-        ...(typeof candidateDraftThread.loadBalancedEnvironmentId === "string" &&
-        candidateDraftThread.loadBalancedEnvironmentId.length > 0
-          ? { loadBalancedEnvironmentId: candidateDraftThread.loadBalancedEnvironmentId }
-          : candidateDraftThread.loadBalancedEnvironmentId === null
-            ? { loadBalancedEnvironmentId: null }
+        ...(typeof candidateDraftThread.loadBalancedMachineId === "string" &&
+        candidateDraftThread.loadBalancedMachineId.length > 0
+          ? { loadBalancedMachineId: candidateDraftThread.loadBalancedMachineId }
+          : candidateDraftThread.loadBalancedMachineId === null
+            ? { loadBalancedMachineId: null }
             : {}),
         promotedTo,
       };
@@ -1679,10 +1679,10 @@ function normalizePersistedDraftThreads(
       logicalProjectDraftThreadKeyByLogicalProjectKey[logicalProjectKey] = threadKey;
       const existingDraftThread = draftThreadsByThreadKey[threadKey];
       if (parsedThreadRef) {
-        environmentIdByThreadId.set(parsedThreadRef.threadId, parsedThreadRef.environmentId);
+        machineIdByThreadId.set(parsedThreadRef.threadId, parsedThreadRef.machineId);
       }
       // Logical project keys may contain a workspace path after the
-      // environment prefix. When the persisted draft already names that
+      // machine prefix. When the persisted draft already names that
       // logical key, its concrete project id remains authoritative.
       if (existingDraftThread?.logicalProjectKey === logicalProjectKey) {
         continue;
@@ -1699,7 +1699,7 @@ function normalizePersistedDraftThreads(
       if (!existingDraftThread) {
         draftThreadsByThreadKey[threadKey] = {
           threadId: parsedThreadRef?.threadId ?? (threadKey as ThreadId),
-          environmentId: projectRef.environmentId,
+          machineId: projectRef.machineId,
           projectId: projectRef.projectId,
           logicalProjectKey,
           createdAt: new Date().toISOString(),
@@ -1713,12 +1713,12 @@ function normalizePersistedDraftThreads(
         };
       } else if (
         existingDraftThread.projectId !== projectRef.projectId ||
-        existingDraftThread.environmentId !== projectRef.environmentId
+        existingDraftThread.machineId !== projectRef.machineId
       ) {
         draftThreadsByThreadKey[threadKey] = {
           ...existingDraftThread,
           threadId: existingDraftThread.threadId,
-          environmentId: projectRef.environmentId,
+          machineId: projectRef.machineId,
           projectId: projectRef.projectId,
           logicalProjectKey,
         };
@@ -1737,15 +1737,15 @@ function normalizePersistedDraftsByThreadId(
     return {};
   }
 
-  const environmentIdByThreadId = new Map<ThreadId, EnvironmentId>();
+  const machineIdByThreadId = new Map<ThreadId, MachineId>();
   for (const [threadKey, draftThread] of Object.entries(draftThreadsByThreadKey)) {
     const parsedThreadRef = composerThreadRefFromKey(threadKey);
     if (!parsedThreadRef) {
       continue;
     }
-    environmentIdByThreadId.set(
+    machineIdByThreadId.set(
       parsedThreadRef.threadId,
-      draftThread.environmentId as EnvironmentId,
+      draftThread.machineId as MachineId,
     );
   }
 
@@ -1912,9 +1912,9 @@ function normalizePersistedDraftsByThreadId(
         : draftThreadsByThreadKey[threadKeyOrId] !== undefined
           ? threadKeyOrId
           : (() => {
-              const environmentId = environmentIdByThreadId.get(threadKeyOrId as ThreadId);
-              return environmentId
-                ? normalizeLegacyComposerStorageKey(threadKeyOrId, { environmentId })
+              const machineId = machineIdByThreadId.get(threadKeyOrId as ThreadId);
+              return machineId
+                ? normalizeLegacyComposerStorageKey(threadKeyOrId, { machineId })
                 : threadKeyOrId;
             })();
     nextDraftsByThreadKey[normalizedThreadKey] = {
@@ -2044,10 +2044,10 @@ export function partializeComposerDraftStoreState(
               mimeType: file.mimeType,
               sizeBytes: file.sizeBytes,
               ...(file.source ? { source: file.source } : {}),
-              ...(file.uploadedAttachmentId && file.uploadEnvironmentId
+              ...(file.uploadedAttachmentId && file.uploadMachineId
                 ? {
                     attachmentId: file.uploadedAttachmentId,
-                    environmentId: file.uploadEnvironmentId,
+                    machineId: file.uploadMachineId,
                   }
                 : {}),
             })),
@@ -2331,8 +2331,8 @@ function toHydratedThreadDraft(
       sizeBytes: file.sizeBytes,
       file: null,
       ...(file.source ? { source: file.source } : {}),
-      ...(file.attachmentId !== undefined && file.environmentId !== undefined
-        ? { uploadedAttachmentId: file.attachmentId, uploadEnvironmentId: file.environmentId }
+      ...(file.attachmentId !== undefined && file.machineId !== undefined
+        ? { uploadedAttachmentId: file.attachmentId, uploadMachineId: file.machineId }
         : {}),
     })) ?? [];
 
@@ -2369,13 +2369,13 @@ function toHydratedDraftThreadState(
 ): DraftThreadState {
   return {
     threadId: persistedDraftThread.threadId,
-    environmentId: persistedDraftThread.environmentId as EnvironmentId,
+    machineId: persistedDraftThread.machineId as MachineId,
     projectId: persistedDraftThread.projectId,
     logicalProjectKey:
       persistedDraftThread.logicalProjectKey ??
       projectDraftKey(
         scopeProjectRef(
-          persistedDraftThread.environmentId as EnvironmentId,
+          persistedDraftThread.machineId as MachineId,
           persistedDraftThread.projectId,
         ),
       ),
@@ -2386,18 +2386,18 @@ function toHydratedDraftThreadState(
     worktreePath: persistedDraftThread.worktreePath,
     envMode: persistedDraftThread.envMode,
     startFromOrigin: persistedDraftThread.startFromOrigin,
-    ...(persistedDraftThread.environmentSelection
-      ? { environmentSelection: persistedDraftThread.environmentSelection }
+    ...(persistedDraftThread.machineSelection
+      ? { machineSelection: persistedDraftThread.machineSelection }
       : {}),
-    ...(persistedDraftThread.loadBalancedEnvironmentId !== undefined
+    ...(persistedDraftThread.loadBalancedMachineId !== undefined
       ? {
-          loadBalancedEnvironmentId:
-            persistedDraftThread.loadBalancedEnvironmentId as EnvironmentId | null,
+          loadBalancedMachineId:
+            persistedDraftThread.loadBalancedMachineId as MachineId | null,
         }
       : {}),
     promotedTo: persistedDraftThread.promotedTo
       ? scopeThreadRef(
-          persistedDraftThread.promotedTo.environmentId as EnvironmentId,
+          persistedDraftThread.promotedTo.machineId as MachineId,
           persistedDraftThread.promotedTo.threadId as ThreadId,
         )
       : null,
@@ -2452,7 +2452,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             }
             if (
               draftThread.projectId === projectRef.projectId &&
-              draftThread.environmentId === projectRef.environmentId
+              draftThread.machineId === projectRef.machineId
             ) {
               return toProjectDraftSession(DraftId.make(draftId), draftThread);
             }
@@ -2463,7 +2463,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             }
             if (
               draftThread.projectId === projectRef.projectId &&
-              draftThread.environmentId === projectRef.environmentId
+              draftThread.machineId === projectRef.machineId
             ) {
               return toProjectDraftSession(DraftId.make(draftId), draftThread);
             }
@@ -2474,7 +2474,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
         getDraftSessionByRef: (threadRef) => {
           for (const draftSession of Object.values(get().draftThreadsByThreadKey)) {
             if (
-              draftSession.environmentId === threadRef.environmentId &&
+              draftSession.machineId === threadRef.machineId &&
               draftSession.threadId === threadRef.threadId
             ) {
               return draftSession;
@@ -2485,7 +2485,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
         getDraftIdByRef: (threadRef) => {
           for (const [draftId, draftSession] of Object.entries(get().draftThreadsByThreadKey)) {
             if (
-              draftSession.environmentId === threadRef.environmentId &&
+              draftSession.machineId === threadRef.machineId &&
               draftSession.threadId === threadRef.threadId
             ) {
               return DraftId.make(draftId);
@@ -2504,11 +2504,11 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
         },
         listDraftThreadKeys: () =>
           Object.values(get().draftThreadsByThreadKey).map((draftThread) =>
-            scopedThreadKey(scopeThreadRef(draftThread.environmentId, draftThread.threadId)),
+            scopedThreadKey(scopeThreadRef(draftThread.machineId, draftThread.threadId)),
           ),
-        hasDraftThreadsInEnvironment: (environmentId) =>
+        hasDraftThreadsInMachine: (machineId) =>
           Object.values(get().draftThreadsByThreadKey).some(
-            (draftThread) => draftThread.environmentId === environmentId,
+            (draftThread) => draftThread.machineId === machineId,
           ),
         setLogicalProjectDraftThreadId: (logicalProjectKey, projectRef, draftId, options) => {
           const normalizedLogicalProjectKey = logicalProjectDraftKey(logicalProjectKey);
@@ -2557,12 +2557,12 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             let nextDraftsByThreadKey = state.draftsByThreadKey;
             if (
               existingThread &&
-              existingThread.environmentId !== projectRef.environmentId &&
+              existingThread.machineId !== projectRef.machineId &&
               existingDraft !== undefined
             ) {
               const nextDraft = clearStaleFileUploadMetadata(
                 existingDraft,
-                projectRef.environmentId,
+                projectRef.machineId,
               );
               if (nextDraft !== existingDraft) {
                 nextDraftsByThreadKey = {
@@ -2625,17 +2625,17 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               return state;
             }
             const nextProjectRef = options.projectRef ?? {
-              environmentId: existing.environmentId,
+              machineId: existing.machineId,
               projectId: existing.projectId,
             };
             if (
               nextProjectRef.projectId.length === 0 ||
-              nextProjectRef.environmentId.length === 0
+              nextProjectRef.machineId.length === 0
             ) {
               return state;
             }
             const projectChanged =
-              nextProjectRef.environmentId !== existing.environmentId ||
+              nextProjectRef.machineId !== existing.machineId ||
               nextProjectRef.projectId !== existing.projectId;
             const nextWorktreePath =
               options.worktreePath === undefined
@@ -2653,23 +2653,23 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               options.startFromOrigin === undefined
                 ? existing.startFromOrigin
                 : options.startFromOrigin;
-            const environmentSelection =
-              options.environmentSelection ??
+            const machineSelection =
+              options.machineSelection ??
               (options.branch != null || options.worktreePath != null
                 ? "manual"
-                : existing.environmentSelection);
+                : existing.machineSelection);
             const nextDraftThread: DraftThreadState = {
               threadId: existing.threadId,
-              environmentId: nextProjectRef.environmentId,
+              machineId: nextProjectRef.machineId,
               projectId: nextProjectRef.projectId,
               logicalProjectKey: existing.logicalProjectKey,
-              ...(environmentSelection ? { environmentSelection } : {}),
-              loadBalancedEnvironmentId:
-                options.loadBalancedEnvironmentId === undefined
+              ...(machineSelection ? { machineSelection } : {}),
+              loadBalancedMachineId:
+                options.loadBalancedMachineId === undefined
                   ? projectChanged
                     ? null
-                    : (existing.loadBalancedEnvironmentId ?? null)
-                  : options.loadBalancedEnvironmentId,
+                    : (existing.loadBalancedMachineId ?? null)
+                  : options.loadBalancedMachineId,
               createdAt:
                 options.createdAt === undefined
                   ? existing.createdAt
@@ -2684,11 +2684,11 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               promotedTo: existing.promotedTo ?? null,
             };
             const isUnchanged =
-              nextDraftThread.environmentId === existing.environmentId &&
+              nextDraftThread.machineId === existing.machineId &&
               nextDraftThread.projectId === existing.projectId &&
               nextDraftThread.logicalProjectKey === existing.logicalProjectKey &&
-              nextDraftThread.environmentSelection === existing.environmentSelection &&
-              nextDraftThread.loadBalancedEnvironmentId === existing.loadBalancedEnvironmentId &&
+              nextDraftThread.machineSelection === existing.machineSelection &&
+              nextDraftThread.loadBalancedMachineId === existing.loadBalancedMachineId &&
               nextDraftThread.createdAt === existing.createdAt &&
               nextDraftThread.runtimeMode === existing.runtimeMode &&
               nextDraftThread.interactionMode === existing.interactionMode &&
@@ -2714,7 +2714,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               .filter(
                 ([, draftThread]) =>
                   draftThread.projectId === projectRef.projectId &&
-                  draftThread.environmentId === projectRef.environmentId,
+                  draftThread.machineId === projectRef.machineId,
               )
               .map(([threadKey]) => threadKey);
             if (matchingThreadKeys.length === 0) {
@@ -2742,7 +2742,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             if (
               !draftThread ||
               draftThread.projectId !== projectRef.projectId ||
-              draftThread.environmentId !== projectRef.environmentId
+              draftThread.machineId !== projectRef.machineId
             ) {
               return state;
             }
@@ -2760,7 +2760,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               return state;
             }
             const nextPromotedTo =
-              promotedTo ?? scopeThreadRef(existing.environmentId, existing.threadId);
+              promotedTo ?? scopeThreadRef(existing.machineId, existing.threadId);
             if (scopedThreadRefsEqual(existing.promotedTo, nextPromotedTo)) {
               return state;
             }
@@ -3398,7 +3398,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             return { draftsByThreadKey: nextDraftsByThreadKey };
           });
         },
-        setFileUpload: (threadRef, fileId, environmentId, attachmentId) => {
+        setFileUpload: (threadRef, fileId, machineId, attachmentId) => {
           const threadKey = resolveComposerDraftKey(get(), threadRef) ?? "";
           if (threadKey.length === 0) {
             return;
@@ -3409,7 +3409,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             if (
               !current ||
               !file ||
-              (file.uploadEnvironmentId === environmentId &&
+              (file.uploadMachineId === machineId &&
                 file.uploadedAttachmentId === attachmentId)
             ) {
               return state;
@@ -3424,7 +3424,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
                       ? {
                           ...entry,
                           uploadedAttachmentId: attachmentId,
-                          uploadEnvironmentId: environmentId,
+                          uploadMachineId: machineId,
                         }
                       : entry,
                   ),
@@ -3433,7 +3433,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             };
           });
         },
-        markFileUploadMissing: (threadRef, fileId, environmentId, attachmentId) => {
+        markFileUploadMissing: (threadRef, fileId, machineId, attachmentId) => {
           const threadKey = resolveComposerDraftKey(get(), threadRef) ?? "";
           if (threadKey.length === 0) {
             return false;
@@ -3446,7 +3446,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               !current ||
               !file ||
               file.file !== null ||
-              file.uploadEnvironmentId !== environmentId ||
+              file.uploadMachineId !== machineId ||
               file.uploadedAttachmentId !== attachmentId
             ) {
               return state;
@@ -3463,7 +3463,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
                     }
                     const marker = { ...entry };
                     delete marker.uploadedAttachmentId;
-                    delete marker.uploadEnvironmentId;
+                    delete marker.uploadMachineId;
                     return marker;
                   }),
                 },
@@ -4016,17 +4016,17 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               return state;
             }
             const destination = state.draftsByThreadKey[toKey] ?? createEmptyThreadDraft();
-            const destinationEnvironmentId =
+            const destinationMachineId =
               typeof to === "string"
-                ? (state.draftThreadsByThreadKey[toKey]?.environmentId ??
-                  parseScopedThreadKey(toKey)?.environmentId ??
+                ? (state.draftThreadsByThreadKey[toKey]?.machineId ??
+                  parseScopedThreadKey(toKey)?.machineId ??
                   null)
-                : to.environmentId;
+                : to.machineId;
             const destinationFileIds = new Set(destination.files.map((file) => file.id));
             const destinationFileKeys = new Set(destination.files.map(composerFileDedupKey));
             const transferableFiles = source.files.filter(
               (file) =>
-                (file.file !== null || file.uploadEnvironmentId === destinationEnvironmentId) &&
+                (file.file !== null || file.uploadMachineId === destinationMachineId) &&
                 !destinationFileIds.has(file.id) &&
                 !destinationFileKeys.has(composerFileDedupKey(file)),
             );
@@ -4042,18 +4042,18 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             const movedFiles = transferableFiles
               .slice(0, remainingAttachmentSlots - movedImages.length)
               .map((file) => {
-                // A byte-backed file moving across environments re-uploads at
-                // the destination. Keeping the source-environment upload id
+                // A byte-backed file moving across machines re-uploads at
+                // the destination. Keeping the source-machine upload id
                 // would mark it uploaded after a reload with no local bytes and
                 // no valid upload anywhere the destination can reach.
                 if (
                   file.file === null ||
-                  file.uploadEnvironmentId === undefined ||
-                  file.uploadEnvironmentId === destinationEnvironmentId
+                  file.uploadMachineId === undefined ||
+                  file.uploadMachineId === destinationMachineId
                 ) {
                   return file;
                 }
-                const { uploadedAttachmentId: _a, uploadEnvironmentId: _e, ...rest } = file;
+                const { uploadedAttachmentId: _a, uploadMachineId: _e, ...rest } = file;
                 return rest;
               });
             const movedFileIds = new Set(movedFiles.map((file) => file.id));
@@ -4152,10 +4152,10 @@ export const useComposerDraftStore = composerDraftStore;
 export function subscribeComposerDraftModelReconciliation(input: {
   readonly registry: AtomRegistry.AtomRegistry;
   readonly threadRefsAtom: Atom.Atom<ReadonlyArray<ScopedThreadRef>>;
-  readonly threadShellAtom: (ref: ScopedThreadRef) => Atom.Atom<EnvironmentThreadShell | null>;
+  readonly threadShellAtom: (ref: ScopedThreadRef) => Atom.Atom<MachineThreadShell | null>;
   readonly shellStateAtom: (
-    environmentId: EnvironmentId,
-  ) => Atom.Atom<AsyncResult.AsyncResult<EnvironmentShellState, unknown>>;
+    machineId: MachineId,
+  ) => Atom.Atom<AsyncResult.AsyncResult<MachineShellState, unknown>>;
 }): () => void {
   const draftsAtom = Atom.make(composerDraftStore.getState());
   const unsubscribeDrafts = composerDraftStore.subscribe((state) =>
@@ -4179,7 +4179,7 @@ export function subscribeComposerDraftModelReconciliation(input: {
       if (!thread || !draftModelPickMatchesThread(pick, thread.modelSelection)) continue;
       // Status and selection must come from the same emission; derived atoms can update apart.
       const shell = Option.getOrNull(
-        AsyncResult.value(get(input.shellStateAtom(ref.environmentId))),
+        AsyncResult.value(get(input.shellStateAtom(ref.machineId))),
       );
       if (shell?.status !== "live") continue;
       const authoritativeThread = Option.getOrNull(shell.snapshot)?.threads.find(
@@ -4244,24 +4244,24 @@ export function useBackgroundDraftSubmissionPending(threadRef: ScopedThreadRef |
   );
 }
 
-export function clearComposerDraftsEnvironment(environmentId: EnvironmentId): void {
+export function clearComposerDraftsMachine(machineId: MachineId): void {
   useComposerDraftStore.setState((state) => {
     const removedThreadKeys = new Set<string>();
 
     for (const [threadKey, draftThread] of Object.entries(state.draftThreadsByThreadKey)) {
-      if (draftThread.environmentId === environmentId) {
+      if (draftThread.machineId === machineId) {
         removedThreadKeys.add(threadKey);
       }
     }
     for (const threadKey of Object.keys(state.draftsByThreadKey)) {
-      if (parseScopedThreadKey(threadKey)?.environmentId === environmentId) {
+      if (parseScopedThreadKey(threadKey)?.machineId === machineId) {
         removedThreadKeys.add(threadKey);
       }
     }
     for (const [logicalProjectKey, threadKey] of Object.entries(
       state.logicalProjectDraftThreadKeyByLogicalProjectKey,
     )) {
-      if (parseScopedProjectKey(logicalProjectKey)?.environmentId === environmentId) {
+      if (parseScopedProjectKey(logicalProjectKey)?.machineId === machineId) {
         removedThreadKeys.add(threadKey);
       }
     }
@@ -4269,14 +4269,14 @@ export function clearComposerDraftsEnvironment(environmentId: EnvironmentId): vo
     const nextLogicalMappings = Object.fromEntries(
       Object.entries(state.logicalProjectDraftThreadKeyByLogicalProjectKey).filter(
         ([logicalProjectKey, threadKey]) =>
-          parseScopedProjectKey(logicalProjectKey)?.environmentId !== environmentId &&
+          parseScopedProjectKey(logicalProjectKey)?.machineId !== machineId &&
           !removedThreadKeys.has(threadKey),
       ),
     ) as Record<string, string>;
     const nextDraftThreads = Object.fromEntries(
       Object.entries(state.draftThreadsByThreadKey).filter(
         ([threadKey, draftThread]) =>
-          draftThread.environmentId !== environmentId && !removedThreadKeys.has(threadKey),
+          draftThread.machineId !== machineId && !removedThreadKeys.has(threadKey),
       ),
     ) as Record<string, DraftThreadState>;
     const nextDrafts = Object.fromEntries(
@@ -4290,7 +4290,7 @@ export function clearComposerDraftsEnvironment(environmentId: EnvironmentId): vo
     ) as Record<string, ComposerThreadDraftState>;
     const nextBackgroundSubmissionThreadKeys = Object.fromEntries(
       Object.entries(state.backgroundSubmissionThreadKeys).filter(
-        ([threadKey]) => parseScopedThreadKey(threadKey)?.environmentId !== environmentId,
+        ([threadKey]) => parseScopedThreadKey(threadKey)?.machineId !== machineId,
       ),
     ) as Record<string, true>;
 
@@ -4301,7 +4301,7 @@ export function clearComposerDraftsEnvironment(environmentId: EnvironmentId): vo
       backgroundSubmissionThreadKeys: nextBackgroundSubmissionThreadKeys,
       rewindingThreadKeys: new Set(
         [...state.rewindingThreadKeys].filter(
-          (threadKey) => parseScopedThreadKey(threadKey)?.environmentId !== environmentId,
+          (threadKey) => parseScopedThreadKey(threadKey)?.machineId !== machineId,
         ),
       ),
     };
@@ -4341,7 +4341,7 @@ export function markPromotedDraftThreadByRef(threadRef: ScopedThreadRef): void {
   const draftStore = useComposerDraftStore.getState();
   for (const [draftId, draftThread] of Object.entries(draftStore.draftThreadsByThreadKey)) {
     if (
-      draftThread.environmentId === threadRef.environmentId &&
+      draftThread.machineId === threadRef.machineId &&
       draftThread.threadId === threadRef.threadId
     ) {
       draftStore.markDraftThreadPromoting(DraftId.make(draftId), threadRef);
@@ -4372,9 +4372,9 @@ export function finalizePromotedDraftThreadByRef(threadRef: ScopedThreadRef): vo
   for (const [draftId, draftThread] of Object.entries(draftStore.draftThreadsByThreadKey)) {
     const promotedRef = draftThread.promotedTo;
     const matches = promotedRef
-      ? promotedRef.environmentId === threadRef.environmentId &&
+      ? promotedRef.machineId === threadRef.machineId &&
         promotedRef.threadId === threadRef.threadId
-      : draftThread.environmentId === threadRef.environmentId &&
+      : draftThread.machineId === threadRef.machineId &&
         draftThread.threadId === threadRef.threadId;
     if (matches) {
       const target = DraftId.make(draftId);

@@ -5,28 +5,28 @@ import type {
 } from "@vekrel/client-runtime/state/runtime";
 import {
   AuthOrchestrationOperateScope,
-  EnvironmentAuthorizationError,
-  type EnvironmentId,
+  MachineAuthorizationError,
+  type MachineId,
 } from "@vekrel/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
 
-import { readEnvironmentScope } from "./session";
+import { readMachineScope } from "./session";
 import { useAtomCommand } from "./use-atom-command";
 
 export const ORCHESTRATION_OPERATE_DENIED_MESSAGE =
   "This connection cannot change threads or projects.";
 
-export function useOrchestrationCommand<W extends { readonly environmentId: EnvironmentId }, A, E>(
+export function useOrchestrationCommand<W extends { readonly machineId: MachineId }, A, E>(
   command: AtomCommand<W, A, E>,
   options?: string | AtomCommandOptions,
-): (value: W) => Promise<AtomCommandResult<A, E | EnvironmentAuthorizationError>> {
+): (value: W) => Promise<AtomCommandResult<A, E | MachineAuthorizationError>> {
   const run = useAtomCommand(command, options);
-  return async (value: W): Promise<AtomCommandResult<A, E | EnvironmentAuthorizationError>> => {
-    if (!readEnvironmentScope(value.environmentId, AuthOrchestrationOperateScope)) {
+  return async (value: W): Promise<AtomCommandResult<A, E | MachineAuthorizationError>> => {
+    if (!readMachineScope(value.machineId, AuthOrchestrationOperateScope)) {
       return AsyncResult.failure(
         Cause.fail(
-          new EnvironmentAuthorizationError({
+          new MachineAuthorizationError({
             requiredScope: AuthOrchestrationOperateScope,
             message: ORCHESTRATION_OPERATE_DENIED_MESSAGE,
           }),

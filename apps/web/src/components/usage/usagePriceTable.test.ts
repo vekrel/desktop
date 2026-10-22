@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import { usagePriceCell, usagePriceTableChanges, type UsagePriceDraft } from "./usagePriceTable";
 import type { UsagePriceTarget } from "./usagePriceTargets";
@@ -9,7 +9,7 @@ const target = (
   prices: UsagePriceTarget["prices"],
   aliases: UsagePriceTarget["aliases"] = {},
 ): UsagePriceTarget => ({
-  environmentId: EnvironmentId.make(name),
+  machineId: MachineId.make(name),
   label: name,
   prices,
   aliases,
@@ -26,12 +26,12 @@ describe("price table edits", () => {
   it.each(["constructor", "toString", "__proto__"])(
     "handles an exact model ID named %s",
     (model) => {
-      const environment = target("a", {});
-      expect(usagePriceCell([environment], model, "inputCostPerMillionTokens")).toEqual({
+      const machine = target("a", {});
+      expect(usagePriceCell([machine], model, "inputCostPerMillionTokens")).toEqual({
         value: "",
         placeholder: "Automatic",
       });
-      const result = usagePriceTableChanges(environment, [
+      const result = usagePriceTableChanges(machine, [
         {
           ...draft({ inputCostPerMillionTokens: "2", outputCostPerMillionTokens: "8" }),
           model,
@@ -45,7 +45,7 @@ describe("price table edits", () => {
     },
   );
 
-  it("changes only edited columns while preserving each environment's other prices and models", () => {
+  it("changes only edited columns while preserving each machine's other prices and models", () => {
     const edits = [draft({ inputCostPerMillionTokens: "3" })];
     const a = usagePriceTableChanges(
       target("a", { example: { ...price, cacheReadCostPerMillionTokens: 0 }, untouched: price }),

@@ -7,10 +7,10 @@ import {
   resolveAssetUrl,
 } from "@vekrel/client-runtime/state/assets";
 import { squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
-import type { AssetResource, EnvironmentId } from "@vekrel/contracts";
+import type { AssetResource, MachineId } from "@vekrel/contracts";
 import { AsyncResult } from "effect/reactivity";
 
-import { assetEnvironment } from "~/state/assets";
+import { assetMachine } from "~/state/assets";
 import { useFilesystemReadAccess } from "~/state/filesystem";
 import { usePreparedConnection } from "~/state/session";
 import { useAtomQueryRunner } from "~/state/use-atom-query-runner";
@@ -20,15 +20,15 @@ export { resolveAssetUrl } from "@vekrel/client-runtime/state/assets";
 export type AssetUrlState = RuntimeAssetUrlState & { readonly waiting?: boolean };
 
 export function useAssetUrlState(
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   resource: AssetResource | null,
 ): AssetUrlState {
-  const blocked = blockedAssetUrlState(resource, useFilesystemReadAccess(environmentId));
-  const preparedConnection = usePreparedConnection(environmentId);
+  const blocked = blockedAssetUrlState(resource, useFilesystemReadAccess(machineId));
+  const preparedConnection = usePreparedConnection(machineId);
   const result = useAtomValue(
-    blocked !== null || environmentId === null || resource === null
+    blocked !== null || machineId === null || resource === null
       ? EMPTY_ASSET_URL_ATOM
-      : assetEnvironment.createUrl({ environmentId, input: { resource } }),
+      : assetMachine.createUrl({ machineId, input: { resource } }),
   );
   if (blocked !== null) return blocked;
   return {
@@ -41,35 +41,35 @@ export function useAssetUrlState(
 }
 
 export function useAssetUrlRefresh(
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   resource: AssetResource | null,
 ): () => Promise<string | null> {
-  const connection = usePreparedConnection(environmentId);
+  const connection = usePreparedConnection(machineId);
   const httpBaseUrl = connection._tag === "Some" ? connection.value.httpBaseUrl : null;
-  const refresh = useAtomQueryRunner(assetEnvironment.createUrl, {
+  const refresh = useAtomQueryRunner(assetMachine.createUrl, {
     reportFailure: false,
     refresh: true,
   });
   return async () => {
-    if (environmentId === null || resource === null || httpBaseUrl === null) return null;
-    const result = await refresh({ environmentId, input: { resource } });
+    if (machineId === null || resource === null || httpBaseUrl === null) return null;
+    const result = await refresh({ machineId, input: { resource } });
     if (result._tag === "Failure") throw squashAtomCommandFailure(result);
     return resolveAssetUrl(httpBaseUrl, result.value.relativeUrl);
   };
 }
 
 export function useAssetUrls(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   resources: ReadonlyArray<AssetResource>,
 ): ReadonlyArray<string | null> {
-  const preparedConnection = usePreparedConnection(environmentId);
-  const { canReadFiles } = useFilesystemReadAccess(environmentId);
+  const preparedConnection = usePreparedConnection(machineId);
+  const { canReadFiles } = useFilesystemReadAccess(machineId);
   const allowedResources = canReadFiles
     ? resources
     : resources.filter((resource) => !isFileResource(resource));
   const results = useAtomValue(
-    assetEnvironment.createUrls({
-      environmentId,
+    assetMachine.createUrls({
+      machineId,
       resources: allowedResources,
     }),
   );

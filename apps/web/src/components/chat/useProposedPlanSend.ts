@@ -1,11 +1,11 @@
 import {
   AuthOrchestrationOperateScope,
-  type EnvironmentId,
+  type MachineId,
   type ModelSelection,
   type ProviderInteractionMode,
   type RuntimeMode,
 } from "@vekrel/contracts";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import {
   isAtomCommandInterrupted,
   settlePromise,
@@ -13,10 +13,10 @@ import {
   type AtomCommandResult,
 } from "@vekrel/client-runtime/state/runtime";
 import type {
-  EnvironmentProject,
-  EnvironmentThreadShell,
+  MachineProject,
+  MachineThreadShell,
 } from "@vekrel/client-runtime/state/shell";
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import { truncate } from "@vekrel/shared/String";
 import { useNavigate } from "@tanstack/react-router";
 import type { Dispatch, SetStateAction } from "react";
@@ -29,8 +29,8 @@ import {
   buildPlanImplementationThreadTitle,
 } from "../../proposedPlan";
 import type { LatestProposedPlanState } from "../../session-logic";
-import { readEnvironmentScope } from "../../state/session";
-import { threadEnvironment } from "../../state/threads";
+import { readMachineScope } from "../../state/session";
+import { threadMachine } from "../../state/threads";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import type { ChatMessage } from "../../types";
 import { stackedThreadToast, toastManager } from "../ui/toast";
@@ -46,9 +46,9 @@ import type { useTimelineFollow } from "./useTimelineFollow";
 type LocalDispatchState = ReturnType<typeof useLocalDispatchState>;
 
 interface PlanSendBase {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly routeThreadKey: string;
-  readonly activeThread: EnvironmentThreadShell | undefined;
+  readonly activeThread: MachineThreadShell | undefined;
   readonly activeThreadBranch: string | null;
   readonly activeProposedPlan: LatestProposedPlanState | null;
   readonly isServerThread: boolean;
@@ -66,7 +66,7 @@ interface PlanFollowUpSendInput extends PlanSendBase {
   readonly setThreadError: ReturnType<typeof makeThreadErrorSetter>;
   readonly anchorNewTurn: ReturnType<typeof useTimelineFollow>["anchorNewTurn"];
   readonly persistThreadSettingsForNextTurn: (input: {
-    threadId: EnvironmentThreadShell["id"];
+    threadId: MachineThreadShell["id"];
     createdAt: string;
     branch?: string;
     runtimeMode: RuntimeMode;
@@ -80,7 +80,7 @@ interface PlanFollowUpSendInput extends PlanSendBase {
  */
 export function usePlanFollowUpSend(input: PlanFollowUpSendInput) {
   const {
-    environmentId,
+    machineId,
     routeThreadKey,
     activeThread,
     activeProposedPlan,
@@ -97,7 +97,7 @@ export function usePlanFollowUpSend(input: PlanFollowUpSendInput) {
     anchorNewTurn,
     persistThreadSettingsForNextTurn,
   } = input;
-  const startThreadTurn = useOrchestrationCommand(threadEnvironment.startTurn, {
+  const startThreadTurn = useOrchestrationCommand(threadMachine.startTurn, {
     reportFailure: false,
   });
   const setComposerDraftInteractionMode = useComposerDraftStore(
@@ -115,7 +115,7 @@ export function usePlanFollowUpSend(input: PlanFollowUpSendInput) {
     interactionMode: "default" | "plan";
   }) {
     if (
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||
+      !readMachineScope(machineId, AuthOrchestrationOperateScope) ||
       !activeThread ||
       !isServerThread ||
       isSendBusy ||
@@ -151,7 +151,7 @@ export function usePlanFollowUpSend(input: PlanFollowUpSendInput) {
     setThreadError(threadIdForSend, null);
 
     anchorNewTurn(
-      scopedThreadKey(scopeThreadRef(activeThread.environmentId, threadIdForSend)),
+      scopedThreadKey(scopeThreadRef(activeThread.machineId, threadIdForSend)),
       messageIdForSend,
     );
 
@@ -181,12 +181,12 @@ export function usePlanFollowUpSend(input: PlanFollowUpSendInput) {
 
     if (failure === null) {
       setComposerDraftInteractionMode(
-        scopeThreadRef(activeThread.environmentId, threadIdForSend),
+        scopeThreadRef(activeThread.machineId, threadIdForSend),
         nextInteractionMode,
       );
 
       const startResult = await startThreadTurn({
-        environmentId,
+        machineId,
         input: {
           threadId: threadIdForSend,
           message: {
@@ -237,8 +237,8 @@ export function usePlanFollowUpSend(input: PlanFollowUpSendInput) {
 }
 
 interface ImplementPlanInNewThreadInput extends PlanSendBase {
-  readonly activeProject: EnvironmentProject | null;
-  readonly activeEnvironmentUnavailable: boolean;
+  readonly activeProject: MachineProject | null;
+  readonly activeMachineUnavailable: boolean;
   readonly defaultRuntimeMode: RuntimeMode;
 }
 
@@ -248,7 +248,7 @@ interface ImplementPlanInNewThreadInput extends PlanSendBase {
  */
 export function useImplementPlanInNewThread(input: ImplementPlanInNewThreadInput) {
   const {
-    environmentId,
+    machineId,
     routeThreadKey,
     activeThread,
     activeThreadBranch,
@@ -260,27 +260,27 @@ export function useImplementPlanInNewThread(input: ImplementPlanInNewThreadInput
     beginLocalDispatch,
     resetLocalDispatch,
     activeProject,
-    activeEnvironmentUnavailable,
+    activeMachineUnavailable,
     defaultRuntimeMode,
   } = input;
   const navigate = useNavigate();
-  const createThread = useOrchestrationCommand(threadEnvironment.create, { reportFailure: false });
-  const deleteThread = useOrchestrationCommand(threadEnvironment.delete, { reportFailure: false });
-  const startThreadTurn = useOrchestrationCommand(threadEnvironment.startTurn, {
+  const createThread = useOrchestrationCommand(threadMachine.create, { reportFailure: false });
+  const deleteThread = useOrchestrationCommand(threadMachine.delete, { reportFailure: false });
+  const startThreadTurn = useOrchestrationCommand(threadMachine.startTurn, {
     reportFailure: false,
   });
   const { sendInFlight: sendInFlightRef } = draftSendState(routeThreadKey);
 
   return async () => {
     if (
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||
+      !readMachineScope(machineId, AuthOrchestrationOperateScope) ||
       !activeThread ||
       !activeProject ||
       !activeProposedPlan ||
       !isServerThread ||
       isSendBusy ||
       isConnecting ||
-      activeEnvironmentUnavailable ||
+      activeMachineUnavailable ||
       sendInFlightRef.current
     ) {
       return;
@@ -308,7 +308,7 @@ export function useImplementPlanInNewThread(input: ImplementPlanInNewThreadInput
     beginLocalDispatch({ preparingWorktree: false });
 
     const createResult = await createThread({
-      environmentId,
+      machineId,
       input: {
         threadId: nextThreadId,
         projectId: activeProject.id,
@@ -326,7 +326,7 @@ export function useImplementPlanInNewThread(input: ImplementPlanInNewThreadInput
 
     if (failure === null) {
       const startResult = await startThreadTurn({
-        environmentId,
+        machineId,
         input: {
           threadId: nextThreadId,
           message: {
@@ -351,7 +351,7 @@ export function useImplementPlanInNewThread(input: ImplementPlanInNewThreadInput
 
     if (failure === null) {
       const startedResult = await settlePromise(() =>
-        waitForStartedServerThread(scopeThreadRef(activeThread.environmentId, nextThreadId)),
+        waitForStartedServerThread(scopeThreadRef(activeThread.machineId, nextThreadId)),
       );
       failure = startedResult._tag === "Failure" ? startedResult : null;
     }
@@ -359,9 +359,9 @@ export function useImplementPlanInNewThread(input: ImplementPlanInNewThreadInput
     if (failure === null) {
       const navigateResult = await settlePromise(() =>
         navigate({
-          to: "/$environmentId/$threadId",
+          to: "/$machineId/$threadId",
           params: {
-            environmentId: activeThread.environmentId,
+            machineId: activeThread.machineId,
             threadId: nextThreadId,
           },
         }),
@@ -371,7 +371,7 @@ export function useImplementPlanInNewThread(input: ImplementPlanInNewThreadInput
 
     if (failure !== null) {
       const cleanupResult = await deleteThread({
-        environmentId,
+        machineId,
         input: {
           threadId: nextThreadId,
         },

@@ -1,7 +1,7 @@
 import { SettingsGroup } from "./SettingsGroup";
 import { AuthSettingsWriteScope } from "@vekrel/contracts";
-import { usePrimaryEnvironmentId, usePrimaryEnvironment } from "../../state/environments";
-import { useEnvironmentScope, useEnvironmentsWithScope } from "../../state/session";
+import { usePrimaryMachineId, usePrimaryMachine } from "../../state/machines";
+import { useMachineScope, useMachinesWithScope } from "../../state/session";
 import { InfoIcon, Undo2Icon } from "lucide-react";
 import { DEFAULT_SERVER_SETTINGS, type ServerSettings } from "@vekrel/contracts";
 import * as Equal from "effect/Equal";
@@ -287,10 +287,10 @@ function projectOverrides(
   scopedKeys: ReadonlyArray<keyof ServerSettings>,
 ): SettingOverridingProject[] {
   if (context === null || scopedKeys.length === 0) return [];
-  return listProjectOverrides(context.connectedEnvironments, scopedKeys).flatMap((entry) => {
+  return listProjectOverrides(context.connectedMachines, scopedKeys).flatMap((entry) => {
     const group = context.groups.find((candidate) =>
       candidate.memberProjects.some(
-        (member) => member.environmentId === entry.environmentId && member.id === entry.projectId,
+        (member) => member.machineId === entry.machineId && member.id === entry.projectId,
       ),
     );
     if (!group) return [];
@@ -336,23 +336,23 @@ export function SettingsRow({
   const targetRef = useSettingsSearchTarget<HTMLDivElement>(rowProps.id);
   const primarySettingsAvailable = usePrimarySettingsAvailable();
   const context = useOptionalSettingsScope();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const primaryEnvironment = usePrimaryEnvironment();
-  const primaryCanWrite = useEnvironmentScope(primaryEnvironmentId, AuthSettingsWriteScope);
-  const writableIds = useEnvironmentsWithScope(
-    context?.connectedEnvironments ?? [],
+  const primaryMachineId = usePrimaryMachineId();
+  const primaryMachine = usePrimaryMachine();
+  const primaryCanWrite = useMachineScope(primaryMachineId, AuthSettingsWriteScope);
+  const writableIds = useMachinesWithScope(
+    context?.connectedMachines ?? [],
     AuthSettingsWriteScope,
   );
   const canWriteSettings = context
-    ? context.connectedEnvironments.length > 0 &&
-      context.connectedEnvironments.every((target) => writableIds.has(target.environmentId))
+    ? context.connectedMachines.length > 0 &&
+      context.connectedMachines.every((target) => writableIds.has(target.machineId))
     : primaryCanWrite;
   const clearOverrides = useClearScopedSettings();
   const clearProjectOverrides = useClearProjectOverrides();
   const isProjectScope =
     context !== null && (context.scope.kind === "project" || context.scope.kind === "checkout");
   const scopedKeys = settingKeys.filter(isProjectScopedSettingKey);
-  const environmentWide = isProjectScope && serverScoped && scopedKeys.length === 0;
+  const machineWide = isProjectScope && serverScoped && scopedKeys.length === 0;
   const mixed =
     mixedOverride ?? (context !== null && scopedSettingsAreMixed(context.targets, settingKeys));
   const source =
@@ -360,17 +360,17 @@ export function SettingsRow({
   const unavailable =
     serverScoped &&
     (!canWriteSettings ||
-      !(context ? context.connectedEnvironments.length > 0 : primarySettingsAvailable));
+      !(context ? context.connectedMachines.length > 0 : primarySettingsAvailable));
   const inheritedFrom =
-    source === "environment" && context?.scope.environmentIds.length === 1
-      ? (context.environments.find(
-          (environment) => environment.environmentId === context.scope.environmentIds[0],
-        )?.label ?? "environment")
-      : "environment";
-  const environmentSettingsById = new Map(
-    (context?.connectedEnvironments ?? []).flatMap((environment) =>
-      environment.serverConfig
-        ? [[environment.environmentId, environment.serverConfig.settings] as const]
+    source === "environment" && context?.scope.machineIds.length === 1
+      ? (context.machines.find(
+          (machine) => machine.machineId === context.scope.machineIds[0],
+        )?.label ?? "machine")
+      : "machine";
+  const machineSettingsById = new Map(
+    (context?.connectedMachines ?? []).flatMap((machine) =>
+      machine.serverConfig
+        ? [[machine.machineId, machine.serverConfig.settings] as const]
         : [],
     ),
   );
@@ -412,32 +412,32 @@ export function SettingsRow({
           !canWriteSettings
             ? `This connection lacks permission to change settings on ${
                 context
-                  ? context.connectedEnvironments
-                      .filter((target) => !writableIds.has(target.environmentId))
+                  ? context.connectedMachines
+                      .filter((target) => !writableIds.has(target.machineId))
                       .map((target) => target.label)
-                      .join(", ") || "the selected environment"
-                  : (primaryEnvironment?.label ?? "the primary environment")
+                      .join(", ") || "the selected machine"
+                  : (primaryMachine?.label ?? "the primary machine")
               }.`
             : context
-              ? "Reconnect the selected environment to change this setting."
+              ? "Reconnect the selected machine to change this setting."
               : PRIMARY_SETTINGS_UNAVAILABLE_MESSAGE,
         )
-      : environmentWide && control
-        ? inertControl("Environment-wide setting. Select an environment to change it.")
+      : machineWide && control
+        ? inertControl("Machine-wide setting. Select a machine to change it.")
         : control;
   const customized =
     context !== null &&
     settingKeys.some((key) =>
       context.targets.some((candidate) => {
-        const environmentSettings = environmentSettingsById.get(candidate.environmentId);
+        const machineSettings = machineSettingsById.get(candidate.machineId);
         return (
-          environmentSettings !== undefined &&
-          !Equal.equals(environmentSettings[key], DEFAULT_SERVER_SETTINGS[key])
+          machineSettings !== undefined &&
+          !Equal.equals(machineSettings[key], DEFAULT_SERVER_SETTINGS[key])
         );
       }),
     );
   const inheritance: { state: SettingInheritanceState; summary: string } = mixed
-    ? { state: "mixed", summary: "Mixed across selected environments" }
+    ? { state: "mixed", summary: "Mixed across selected machines" }
     : source === "project"
       ? { state: "overridden", summary: "Overridden for this project" }
       : source === "t3.json"
@@ -445,7 +445,7 @@ export function SettingsRow({
         : source === "environment" && scopedKeys.length > 0
           ? { state: "inherited", summary: `Inherited from ${inheritedFrom}` }
           : customized
-            ? { state: "environment", summary: "Set on the environment" }
+            ? { state: "environment", summary: "Set on the machine" }
             : { state: "default", summary: "Built-in default" };
   const renderedInheritance =
     context && serverScoped && settingKeys.length > 0 ? (
@@ -453,7 +453,7 @@ export function SettingsRow({
         state={inheritance.state}
         summary={inheritance.summary}
         targets={context.targets}
-        environments={context.connectedEnvironments}
+        machines={context.connectedMachines}
         keys={settingKeys}
         overridingProjects={overridingProjects}
         {...(canWriteSettings

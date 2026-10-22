@@ -1,6 +1,6 @@
 import { Spinner } from "~/components/ui/spinner";
 import type {
-  EnvironmentId,
+  MachineId,
   ProjectId,
   PullRequestInvolvement,
   PullRequestListFilters,
@@ -128,8 +128,8 @@ const UNFILTERED_VALUE = "all";
  */
 export const pullRequestProjectKey = (project: {
   readonly id: ProjectId;
-  readonly environmentId: EnvironmentId;
-}) => JSON.stringify([project.environmentId, project.id]);
+  readonly machineId: MachineId;
+}) => JSON.stringify([project.machineId, project.id]);
 
 const DRAFT_OPTIONS = [
   { value: UNFILTERED_VALUE, label: "All", Icon: LayersIcon },
@@ -394,7 +394,7 @@ export function PullRequestFiltersMenu({
   onServer,
   projects,
   projectId,
-  projectEnvironmentId,
+  projectMachineId,
   unavailable,
   onProject,
 }: {
@@ -412,14 +412,14 @@ export function PullRequestFiltersMenu({
   host: string | undefined;
   hostOptions: ReadonlyArray<PullRequestFilterOption<string>>;
   onHost: (host: string | undefined) => void;
-  server: EnvironmentId | undefined;
+  server: MachineId | undefined;
   serverOptions: ReadonlyArray<PullRequestFilterOption<string>>;
-  onServer: (server: EnvironmentId | undefined) => void;
+  onServer: (server: MachineId | undefined) => void;
   projects: ReadonlyArray<ProjectFaviconProject & { readonly id: ProjectId }>;
   projectId: ProjectId | undefined;
-  projectEnvironmentId: EnvironmentId | undefined;
+  projectMachineId: MachineId | undefined;
   unavailable: ReadonlyMap<string, string>;
-  onProject: (projectId: ProjectId | undefined, environmentId: EnvironmentId | undefined) => void;
+  onProject: (projectId: ProjectId | undefined, machineId: MachineId | undefined) => void;
 }) {
   const selectedLabels = (filters.labels ?? []).flatMap((group) => group);
   const filterCount = [
@@ -445,9 +445,9 @@ export function PullRequestFiltersMenu({
       [key]: value === UNFILTERED_VALUE ? undefined : value,
     } as Partial<PullRequestListFilters>);
   const projectValue =
-    projectId === undefined || projectEnvironmentId === undefined
+    projectId === undefined || projectMachineId === undefined
       ? ALL_PROJECTS_VALUE
-      : pullRequestProjectKey({ id: projectId, environmentId: projectEnvironmentId });
+      : pullRequestProjectKey({ id: projectId, machineId: projectMachineId });
   const projectOptions: ReadonlyArray<PullRequestFilterOption<string>> = [
     { value: ALL_PROJECTS_VALUE, label: "All projects", Icon: LayersIcon },
     ...projects
@@ -542,7 +542,7 @@ export function PullRequestFiltersMenu({
               value={server ?? ALL_SERVERS_VALUE}
               options={serverOptions}
               onChange={(next) =>
-                onServer(next === ALL_SERVERS_VALUE ? undefined : (next as EnvironmentId))
+                onServer(next === ALL_SERVERS_VALUE ? undefined : (next as MachineId))
               }
             />
           </>
@@ -554,7 +554,7 @@ export function PullRequestFiltersMenu({
           options={projectOptions}
           onChange={(next) => {
             const project = projects.find((candidate) => pullRequestProjectKey(candidate) === next);
-            if (project) onProject(project.id, project.environmentId);
+            if (project) onProject(project.id, project.machineId);
             else if (projectId !== undefined) onProject(undefined, undefined);
           }}
         />

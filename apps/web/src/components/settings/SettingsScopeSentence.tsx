@@ -1,11 +1,11 @@
-import { resolveEnvironmentMachineKind } from "@vekrel/contracts";
+import { resolveMachineKind } from "@vekrel/contracts";
 import { useLocation } from "@tanstack/react-router";
 import { CheckIcon, ChevronDownIcon, LayersIcon } from "lucide-react";
 import { Fragment, useState, type ReactNode } from "react";
 
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
-import { useEnvironments, type EnvironmentPresentation } from "../../state/environments";
-import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import { useMachines, type MachinePresentation } from "../../state/machines";
+import { MachineIcon } from "../MachineIcon";
 import { ProjectFavicon } from "../ProjectFavicon";
 import { InlineButton } from "../ui/button";
 import {
@@ -29,16 +29,16 @@ import {
 import { useOptionalSettingsScope } from "./SettingsScopeContext";
 import { resolveSettingsScope, type SettingsScopeSearch } from "./settingsScope";
 import {
-  ALL_ENVIRONMENTS_VALUE,
+  ALL_MACHINES_VALUE,
   ALL_PROJECTS_VALUE,
-  environmentAxisValue,
+  machineAxisValue,
   projectAxisValue,
   projectScopeMenuGroups,
-  selectEnvironmentAxis,
+  selectMachineAxis,
   selectProjectAxis,
-  settingsScopeEnvironmentAddress,
-  settingsScopeEnvironmentLabel,
-  settingsScopeEnvironmentLabels,
+  settingsScopeMachineAddress,
+  settingsScopeMachineLabel,
+  settingsScopeMachineLabels,
   settingsScopeProjectMachines,
 } from "./settingsScopeAxis";
 
@@ -51,21 +51,21 @@ export const SETTINGS_DEVICE_ONLY_PATHS: ReadonlySet<string> = new Set([
 interface SettingsScopeMenuProps {
   readonly value: SettingsScopeSearch;
   readonly groups: readonly SidebarProjectSnapshot[];
-  readonly environments: readonly EnvironmentPresentation[];
-  readonly singleEnvironment: boolean;
+  readonly machines: readonly MachinePresentation[];
+  readonly singleMachine: boolean;
   readonly onChange: (next: SettingsScopeSearch) => void;
 }
 
 export function SettingsScopeSentence() {
   const scope = useOptionalSettingsScope();
   const pathname = useLocation({ select: (location) => location.pathname });
-  const { environments } = useEnvironments();
+  const { machines } = useMachines();
   if (scope === null || SETTINGS_DEVICE_ONLY_PATHS.has(pathname)) return null;
   const props: SettingsScopeMenuProps = {
     value: scope.search,
-    singleEnvironment: scope.singleEnvironment,
+    singleMachine: scope.singleMachine,
     groups: scope.groups,
-    environments,
+    machines,
     onChange: scope.selectScope,
   };
   return (
@@ -78,7 +78,7 @@ export function SettingsScopeSentence() {
         <span className="shrink-0">
           {scope.search.machine || scope.scope.kind === "checkout" ? "on" : "across"}
         </span>
-        <EnvironmentScopeMenu {...props} />
+        <MachineScopeMenu {...props} />
       </span>
     </p>
   );
@@ -215,89 +215,89 @@ function ScopeMenu({
   );
 }
 
-function EnvironmentScopeMenu({
+function MachineScopeMenu({
   value,
   groups,
-  environments,
+  machines,
   onChange,
-  singleEnvironment,
+  singleMachine,
 }: SettingsScopeMenuProps) {
-  const resolved = resolveSettingsScope(value, groups, environments);
-  const environmentValue = environmentAxisValue(
+  const resolved = resolveSettingsScope(value, groups, machines);
+  const machineValue = machineAxisValue(
     value,
-    resolved.kind === "checkout" ? resolved.environmentId : null,
+    resolved.kind === "checkout" ? resolved.machineId : null,
   );
-  const selected = environments.find(
-    (environment) => environment.environmentId === environmentValue,
+  const selected = machines.find(
+    (machine) => machine.machineId === machineValue,
   );
   const project = groups.find((group) => group.projectKey === value.project);
-  const memberEnvironmentIds = project
-    ? new Set(project.memberProjects.map((member) => member.environmentId))
+  const memberMachineIds = project
+    ? new Set(project.memberProjects.map((member) => member.machineId))
     : null;
-  const options = memberEnvironmentIds
-    ? environments.filter((environment) => memberEnvironmentIds.has(environment.environmentId))
-    : environments;
+  const options = memberMachineIds
+    ? machines.filter((machine) => memberMachineIds.has(machine.machineId))
+    : machines;
   return (
     <ScopeMenu
-      ariaLabel="Environment scope"
+      ariaLabel="Machine scope"
       icon={
         selected ? (
-          <EnvironmentMachineIcon
+          <MachineIcon
             aria-hidden
-            kind={resolveEnvironmentMachineKind(selected.serverConfig)}
+            kind={resolveMachineKind(selected.serverConfig)}
             className="size-3.5 shrink-0"
           />
         ) : null
       }
       label={
         selected
-          ? settingsScopeEnvironmentLabel(selected, environments)
-          : environmentValue !== ALL_ENVIRONMENTS_VALUE
-            ? "Unavailable environment"
-            : singleEnvironment
-              ? "No environments"
-              : "All environments"
+          ? settingsScopeMachineLabel(selected, machines)
+          : machineValue !== ALL_MACHINES_VALUE
+            ? "Unavailable machine"
+            : singleMachine
+              ? "No machines"
+              : "All machines"
       }
-      value={environmentValue}
-      onChange={(next) => onChange(selectEnvironmentAxis(value, next))}
-      searchLabel="Search environments"
+      value={machineValue}
+      onChange={(next) => onChange(selectMachineAxis(value, next))}
+      searchLabel="Search machines"
       allOption={
-        singleEnvironment
+        singleMachine
           ? null
           : {
-              value: ALL_ENVIRONMENTS_VALUE,
-              label: "All environments",
+              value: ALL_MACHINES_VALUE,
+              label: "All machines",
               icon: <LayersIcon aria-hidden className="size-3.5 shrink-0" />,
             }
       }
-      options={options.map((environment) => {
-        const { primary, secondary } = settingsScopeEnvironmentLabels(environment, environments);
+      options={options.map((machine) => {
+        const { primary, secondary } = settingsScopeMachineLabels(machine, machines);
         return {
-          value: environment.environmentId,
+          value: machine.machineId,
           label: primary,
           secondary:
-            environments.length <= 1
+            machines.length <= 1
               ? ""
-              : secondary || settingsScopeEnvironmentAddress(environment),
+              : secondary || settingsScopeMachineAddress(machine),
           icon: (
-            <EnvironmentMachineIcon
+            <MachineIcon
               aria-hidden
-              kind={resolveEnvironmentMachineKind(environment.serverConfig)}
+              kind={resolveMachineKind(machine.serverConfig)}
               className="size-3.5 shrink-0"
             />
           ),
-          offline: environment.connection.phase !== "connected",
+          offline: machine.connection.phase !== "connected",
         };
       })}
     />
   );
 }
 
-function ProjectScopeMenu({ value, groups, environments, onChange }: SettingsScopeMenuProps) {
+function ProjectScopeMenu({ value, groups, machines: allMachines, onChange }: SettingsScopeMenuProps) {
   const selected = groups.find((group) => group.projectKey === value.project);
   const projects = projectScopeMenuGroups(groups, value).map((group) => ({
     group,
-    machines: settingsScopeProjectMachines(group, environments, true).join(", "),
+    machines: settingsScopeProjectMachines(group, allMachines, true).join(", "),
   }));
   return (
     <ScopeMenu
@@ -319,7 +319,7 @@ function ProjectScopeMenu({ value, groups, environments, onChange }: SettingsSco
           label: group.displayName,
           secondary:
             sameName.length === 0
-              ? environments.length > 1
+              ? allMachines.length > 1
                 ? group.workspaceRoot
                 : ""
               : sameName.some((other) => other.machines === machines)

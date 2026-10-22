@@ -1,8 +1,8 @@
 import { squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentId, PullRequestDetail, PullRequestRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestDetail, PullRequestRef } from "@vekrel/contracts";
 import { useState } from "react";
 
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -15,21 +15,21 @@ import { canEditPullRequestChangeRequest } from "./pullRequestEditing.logic";
 
 /** The pull request title, which the reader can rename in place when the host allows it. */
 export function PullRequestTitleEditor({
-  environmentId,
+  machineId,
   reference,
   pullRequestKey,
   detail,
   canWriteSourceControl,
   onSaved,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   pullRequestKey: string;
   detail: PullRequestDetail;
   canWriteSourceControl: boolean;
   onSaved: () => void;
 }) {
-  const update = useAtomCommand(pullRequestEnvironment.update, { reportFailure: false });
+  const update = useAtomCommand(pullRequestMachine.update, { reportFailure: false });
   const [titleScope, setTitleScope] = useState<{
     readonly pullRequestKey: string;
     readonly text: string;
@@ -45,7 +45,7 @@ export function PullRequestTitleEditor({
       return;
     }
     setTitleSaving(true);
-    const result = await update({ environmentId, input: { ...reference, title } });
+    const result = await update({ machineId, input: { ...reference, title } });
     setTitleSaving(false);
     if (result._tag === "Failure") {
       toastManager.add({

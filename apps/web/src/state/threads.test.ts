@@ -1,9 +1,9 @@
 import {
-  EMPTY_ENVIRONMENT_THREAD_STATE,
-  type EnvironmentThreadState,
+  EMPTY_MACHINE_THREAD_STATE,
+  type MachineThreadState,
 } from "@vekrel/client-runtime/state/threads";
 import {
-  EnvironmentId,
+  MachineId,
   MessageId,
   RunId,
   ThreadId,
@@ -16,8 +16,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createRunningThreadKeepAliveAtom } from "./threads";
 
-const LOCAL = EnvironmentId.make("local");
-const REMOTE = EnvironmentId.make("remote");
+const LOCAL = MachineId.make("local");
+const REMOTE = MachineId.make("remote");
 
 type Status = "running" | "starting" | "preparing" | "queued" | "waiting" | "idle";
 function shell(id: string, status: Status | null) {
@@ -26,7 +26,7 @@ function shell(id: string, status: Status | null) {
     "id" | "status"
   >;
 }
-function detail(id: string, status: Status, overrides: Partial<EnvironmentThreadState> = {}) {
+function detail(id: string, status: Status, overrides: Partial<MachineThreadState> = {}) {
   const projection = makeThreadProjectionFixture();
   const threadId = ThreadId.make(id);
   const thread = {
@@ -55,8 +55,8 @@ function detail(id: string, status: Status, overrides: Partial<EnvironmentThread
             },
           ],
   };
-  return AsyncResult.success<EnvironmentThreadState>({
-    ...EMPTY_ENVIRONMENT_THREAD_STATE,
+  return AsyncResult.success<MachineThreadState>({
+    ...EMPTY_MACHINE_THREAD_STATE,
     status: "live",
     data: Option.some(thread),
     ...overrides,
@@ -74,32 +74,32 @@ function makeHarness() {
   const flush = () => {
     for (let task = tasks.shift(); task !== undefined; task = tasks.shift()) task();
   };
-  const environmentIds = Atom.make<ReadonlyArray<EnvironmentId>>([LOCAL, REMOTE]).pipe(
+  const machineIds = Atom.make<ReadonlyArray<MachineId>>([LOCAL, REMOTE]).pipe(
     Atom.keepAlive,
   );
-  const threads = Atom.family((_environmentId: EnvironmentId) =>
+  const threads = Atom.family((_machineId: MachineId) =>
     Atom.make<ReadonlyArray<ReturnType<typeof shell>>>([]).pipe(Atom.keepAlive),
   );
   const keys = new Set<string>();
   const states = Atom.family((_key: string) =>
-    Atom.make<AsyncResult.AsyncResult<EnvironmentThreadState>>(
-      AsyncResult.success(EMPTY_ENVIRONMENT_THREAD_STATE),
+    Atom.make<AsyncResult.AsyncResult<MachineThreadState>>(
+      AsyncResult.success(EMPTY_MACHINE_THREAD_STATE),
     ),
   );
-  const stateAtom = (environmentId: EnvironmentId, threadId: string) => {
-    const key = `${environmentId}:${threadId}`;
+  const stateAtom = (machineId: MachineId, threadId: string) => {
+    const key = `${machineId}:${threadId}`;
     keys.add(key);
     return states(key);
   };
   const keepAlive = createRunningThreadKeepAliveAtom({
-    environmentIdsAtom: environmentIds,
+    machineIdsAtom: machineIds,
     threadsAtom: threads,
     stateAtom,
   });
   registry.mount(keepAlive);
   return {
     registry,
-    environmentIds,
+    machineIds,
     threads,
     stateAtom,
     keepAlive,
@@ -151,19 +151,19 @@ describe("createRunningThreadKeepAliveAtom", () => {
     expect(h.openStreams()).toEqual([]);
   });
 
-  it("follows environments that connect and go away", () => {
+  it("follows machines that connect and go away", () => {
     const h = makeHarness();
-    h.registry.set(h.environmentIds, [LOCAL]);
+    h.registry.set(h.machineIds, [LOCAL]);
     h.registry.set(h.threads(REMOTE), [shell("d", "running")]);
     expect(h.openStreams()).toEqual([]);
 
-    h.registry.set(h.environmentIds, [LOCAL, REMOTE]);
+    h.registry.set(h.machineIds, [LOCAL, REMOTE]);
     expect(h.openStreams()).toEqual(["remote:d"]);
 
     h.registry.set(h.stateAtom(REMOTE, "d"), detail("d", "running"));
     h.registry.set(h.threads(REMOTE), [shell("d", "idle")]);
     expect(h.openStreams()).toEqual(["remote:d"]);
-    h.registry.set(h.environmentIds, [LOCAL]);
+    h.registry.set(h.machineIds, [LOCAL]);
     expect(h.openStreams()).toEqual([]);
   });
 });

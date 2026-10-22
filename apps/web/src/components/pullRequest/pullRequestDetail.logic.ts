@@ -174,7 +174,7 @@ type LegacyLinkedPullRequest = Pick<ThreadLinkedPullRequest, "repository" | "num
  * Decided from the thread's full link list, never from the single legacy `linkedPullRequest`:
  * that field is one server-chosen link out of many, and a thread's own second link or lower
  * stack layer would otherwise be handed a checkout button for a branch it already works on.
- * Repository and number are not enough either way: one environment can hold two checkouts of
+ * Repository and number are not enough either way: one machine can hold two checkouts of
  * the same repository under different projects, and the other project's checkout is somebody
  * else's branch.
  */
@@ -1326,27 +1326,27 @@ export interface PullRequestDetailSnapshotRef {
 }
 
 const pullRequestDetailSnapshotKey = (
-  environmentId: string,
+  machineId: string,
   reference: PullRequestDetailSnapshotRef,
 ) =>
   reference.host
-    ? `t3.pullRequests.detail:${JSON.stringify([environmentId, reference.projectId, reference.host.toLowerCase(), reference.repository.toLowerCase(), reference.number])}`
-    : `t3.pullRequests.detail:${environmentId}:${reference.projectId}:${reference.repository}#${reference.number}`;
+    ? `t3.pullRequests.detail:${JSON.stringify([machineId, reference.projectId, reference.host.toLowerCase(), reference.repository.toLowerCase(), reference.number])}`
+    : `t3.pullRequests.detail:${machineId}:${reference.projectId}:${reference.repository}#${reference.number}`;
 
 const decodeDetailSnapshot = Schema.decodeUnknownOption(PullRequestDetail);
 
 export function readPullRequestDetailSnapshot(
   storage: SnapshotStorage | undefined,
-  environmentId: string,
+  machineId: string,
   reference: PullRequestDetailSnapshotRef,
 ): PullRequestDetail | null {
   try {
     const raw =
-      storage?.getItem(pullRequestDetailSnapshotKey(environmentId, reference)) ??
+      storage?.getItem(pullRequestDetailSnapshotKey(machineId, reference)) ??
       (reference.host === undefined
         ? null
         : storage?.getItem(
-            pullRequestDetailSnapshotKey(environmentId, { ...reference, host: undefined }),
+            pullRequestDetailSnapshotKey(machineId, { ...reference, host: undefined }),
           ));
     if (!raw) return null;
     const decoded = decodeDetailSnapshot(JSON.parse(raw));
@@ -1376,13 +1376,13 @@ function readPullRequestDetailSnapshotIndex(storage: SnapshotStorage): string[] 
 // Keeps the snapshots of the 20 most recently saved pull requests and removes older ones.
 export function writePullRequestDetailSnapshot(
   storage: SnapshotStorage | undefined,
-  environmentId: string,
+  machineId: string,
   reference: PullRequestDetailSnapshotRef,
   detail: PullRequestDetail,
 ): void {
   if (!storage) return;
   try {
-    const key = pullRequestDetailSnapshotKey(environmentId, reference);
+    const key = pullRequestDetailSnapshotKey(machineId, reference);
     const recent = readPullRequestDetailSnapshotIndex(storage).filter((entry) => entry !== key);
     recent.push(key);
     for (const evicted of recent.splice(0, recent.length - PULL_REQUEST_DETAIL_SNAPSHOT_LIMIT)) {

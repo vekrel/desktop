@@ -10,18 +10,18 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentId, OrchestrationV2ProjectedTurnItem } from "@vekrel/contracts";
+import type { MachineId, OrchestrationV2ProjectedTurnItem } from "@vekrel/contracts";
 import { CheckIcon, LockIcon, MinusIcon, ShieldCheckIcon } from "lucide-react";
 import { useId, useRef, useState, type FormEvent } from "react";
 
-import { serverEnvironment } from "../../state/server";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { WorkLogRow } from "./WorkLog";
 
 export function SecretRequestCard(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly item: SecretRequestItem;
   readonly visibility: OrchestrationV2ProjectedTurnItem["visibility"];
 }) {
@@ -46,18 +46,18 @@ export function SecretRequestCard(props: {
       />
     );
   }
-  return <PendingSecretRequestForm environmentId={props.environmentId} item={item} />;
+  return <PendingSecretRequestForm machineId={props.machineId} item={item} />;
 }
 
 function PendingSecretRequestForm(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly item: SecretRequestItem;
 }) {
   const { item } = props;
   const inputId = useId();
   const errorId = useId();
   const privacyId = useId();
-  const answer = useAtomCommand(serverEnvironment.answerSecretRequest, {
+  const answer = useAtomCommand(serverMachine.answerSecretRequest, {
     label: "answer secret request",
     // The failure cause holds the request; keep it out of the console.
     reportFailure: false,
@@ -77,7 +77,7 @@ function PendingSecretRequestForm(props: {
     inFlight.current = true;
     setSubmitting(true);
     setError(null);
-    const result = await answer({ environmentId: props.environmentId, input }).finally(() => {
+    const result = await answer({ machineId: props.machineId, input }).finally(() => {
       inFlight.current = false;
       setSubmitting(false);
     });

@@ -1,4 +1,4 @@
-import { EnvironmentId, ProjectId, ThreadId } from "@vekrel/contracts";
+import { MachineId, ProjectId, ThreadId } from "@vekrel/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
@@ -6,7 +6,7 @@ import {
   type DesktopAppActivationDependencies,
 } from "./desktopAppActivation";
 
-const environmentId = EnvironmentId.make("primary");
+const machineId = MachineId.make("primary");
 const existingProjectId = ProjectId.make("project-existing");
 const createdProjectId = ProjectId.make("project-created");
 const threadId = ThreadId.make("thread-1");
@@ -22,10 +22,10 @@ function dependencies(
   overrides: Partial<DesktopAppActivationDependencies> = {},
 ): DesktopAppActivationDependencies {
   return {
-    getTarget: () => ({ environmentId, platform: "linux" }),
+    getTarget: () => ({ machineId, platform: "linux" }),
     findProject: () => ({
       id: existingProjectId,
-      environmentId,
+      machineId,
       workspaceRoot: request.workspaceRoot,
     }),
     createProject: vi.fn(async () => createdProjectId),
@@ -59,10 +59,10 @@ describe("desktop app activation", () => {
     expect(response).toMatchObject({ ok: true, projectId: createdProjectId });
   });
 
-  it("rejects a Windows path when the primary environment is WSL", async () => {
+  it("rejects a Windows path when the primary machine is WSL", async () => {
     const response = await handleDesktopAppActivationRequest(
       { ...request, platform: "win32" },
-      dependencies({ getTarget: () => ({ environmentId, platform: "linux" }) }),
+      dependencies({ getTarget: () => ({ machineId, platform: "linux" }) }),
     );
 
     expect(response).toMatchObject({ ok: false, code: "platform-mismatch" });

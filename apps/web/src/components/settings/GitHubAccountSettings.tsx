@@ -1,9 +1,9 @@
-import type { EnvironmentId, SourceControlProviderAuth } from "@vekrel/contracts";
+import type { MachineId, SourceControlProviderAuth } from "@vekrel/contracts";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { useState } from "react";
 
-import { useEnvironmentSettings } from "../../hooks/useSettings";
-import { serverEnvironment } from "../../state/server";
+import { useMachineSettings } from "../../hooks/useSettings";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
@@ -33,17 +33,17 @@ function RedactedLogin(props: {
 }
 
 export function GitHubAccountSettings({
-  environmentId,
+  machineId,
   auth,
   onSaved,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly auth: SourceControlProviderAuth;
   readonly onSaved: () => void;
 }) {
-  const github = useEnvironmentSettings(environmentId, readGitHubSettings);
+  const github = useMachineSettings(machineId, readGitHubSettings);
   const hosts = github.hosts;
-  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
+  const updateSettings = useAtomCommand(serverMachine.updateSettings, {
     label: "save GitHub account settings",
   });
   const [saving, setSaving] = useState(false);
@@ -56,7 +56,7 @@ export function GitHubAccountSettings({
   ) => {
     setSaving(true);
     const result = await updateSettings({
-      environmentId,
+      machineId,
       input: {
         patch: {
           sourceControlHosts: { github: { hosts: nextGitHubHosts(hosts, host, change) } },

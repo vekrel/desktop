@@ -1,8 +1,8 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { EnvironmentId, ProviderInstanceId } from "@vekrel/contracts";
+import type { MachineId, ProviderInstanceId } from "@vekrel/contracts";
 
-import { useEnvironmentQuery } from "../../state/query";
-import { EMPTY_SERVER_PROVIDERS, serverEnvironment } from "../../state/server";
+import { useMachineQuery } from "../../state/query";
+import { EMPTY_SERVER_PROVIDERS, serverMachine } from "../../state/server";
 import { Button } from "../ui/button";
 import { WizardFooter, WizardPanel } from "../ui/wizard";
 import { ProviderAuthenticationSection } from "./ProviderAuthenticationSection";
@@ -10,21 +10,21 @@ import { SettingsGroup } from "./SettingsGroup";
 import { SettingsRow } from "./settingsLayout";
 
 export function ProviderWizardAuthenticationStep({
-  environmentId,
-  environmentLabel,
+  machineId,
+  machineLabel,
   instanceId,
   onFinish,
 }: {
-  readonly environmentId: EnvironmentId;
-  readonly environmentLabel: string;
+  readonly machineId: MachineId;
+  readonly machineLabel: string;
   readonly instanceId: ProviderInstanceId;
   readonly onFinish: () => void;
 }) {
   const providers =
-    useAtomValue(serverEnvironment.providersValueAtom(environmentId)) ?? EMPTY_SERVER_PROVIDERS;
+    useAtomValue(serverMachine.providersValueAtom(machineId)) ?? EMPTY_SERVER_PROVIDERS;
   const provider = providers.find((candidate) => candidate.instanceId === instanceId);
-  const query = useEnvironmentQuery(
-    serverEnvironment.providerAuthState({ environmentId, input: { instanceId } }),
+  const query = useMachineQuery(
+    serverMachine.providerAuthState({ machineId, input: { instanceId } }),
   );
   const auth = query.data;
   const active =
@@ -41,8 +41,8 @@ export function ProviderWizardAuthenticationStep({
         <SettingsGroup variant="plain">
           {provider && (canAuthenticate || signedIn) ? (
             <ProviderAuthenticationSection
-              environmentId={environmentId}
-              environmentLabel={environmentLabel}
+              machineId={machineId}
+              machineLabel={machineLabel}
               instanceId={instanceId}
               provider={{
                 ...provider,

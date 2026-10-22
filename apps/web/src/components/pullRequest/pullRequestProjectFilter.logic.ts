@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 
 import type { AssignableProject } from "./pullRequestProjectAssignment.logic";
 
@@ -24,28 +24,28 @@ function distinguishTitles<Project extends FilterProject>(
 
 export function pullRequestFilterProjects<Project extends FilterProject>(
   projects: ReadonlyArray<Project>,
-  environmentLabels: ReadonlyMap<EnvironmentId, string>,
-  selectedProject?: Pick<AssignableProject, "id" | "environmentId">,
+  machineLabels: ReadonlyMap<MachineId, string>,
+  selectedProject?: Pick<AssignableProject, "id" | "machineId">,
 ) {
   const byRepository = new Map<string, Project>();
   for (const project of projects) {
     const repository = project.repositoryIdentity?.canonicalKey?.toLowerCase();
     const key = JSON.stringify([
-      project.environmentId,
+      project.machineId,
       repository ? ["repository", repository] : ["project", project.id],
     ]);
     const selected =
-      project.id === selectedProject?.id && project.environmentId === selectedProject.environmentId;
+      project.id === selectedProject?.id && project.machineId === selectedProject.machineId;
     if (!byRepository.has(key) || selected) byRepository.set(key, project);
   }
 
   const byServer = distinguishTitles(
     [...byRepository.values()],
-    (project) => environmentLabels.get(project.environmentId) ?? project.environmentId,
+    (project) => machineLabels.get(project.machineId) ?? project.machineId,
   );
   const byPath = distinguishTitles(byServer, (project) => project.workspaceRoot);
-  const byEnvironment = distinguishTitles(byPath, (project) => project.environmentId);
-  return distinguishTitles(byEnvironment, (project) => project.id).toSorted((left, right) =>
+  const byMachine = distinguishTitles(byPath, (project) => project.machineId);
+  return distinguishTitles(byMachine, (project) => project.id).toSorted((left, right) =>
     left.title.localeCompare(right.title),
   );
 }

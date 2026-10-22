@@ -15,7 +15,7 @@ import {
   previewStreamHostSetupMessage,
 } from "@vekrel/client-runtime/preview/server-browser-stream";
 import type {
-  EnvironmentId,
+  MachineId,
   PreviewStreamHostSetup,
   PreviewViewportSetting,
 } from "@vekrel/contracts";
@@ -134,7 +134,7 @@ function offerDownload(download: PreviewStreamDownload) {
 }
 
 export function ServerBrowserSurface(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId: string;
   readonly tabId: string;
   readonly visible: boolean;
@@ -149,7 +149,7 @@ export function ServerBrowserSurface(props: {
   readonly ref?: Ref<ServerBrowserHandle>;
 }) {
   const {
-    environmentId,
+    machineId,
     threadId,
     tabId,
     visible,
@@ -163,7 +163,7 @@ export function ServerBrowserSurface(props: {
     pdfUrl = null,
     ref,
   } = props;
-  const access = usePreviewStreamAccess(environmentId);
+  const access = usePreviewStreamAccess(machineId);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const keySentRef = useRef(false);
@@ -432,7 +432,7 @@ export function ServerBrowserSurface(props: {
             return;
           }
           refreshTimer = setTimeout(
-            () => refreshPreviewStreamAccess(environmentId),
+            () => refreshPreviewStreamAccess(machineId),
             refusals === 1 ? 0 : 1_000 * 2 ** (refusals - 1),
           );
         },
@@ -454,7 +454,7 @@ export function ServerBrowserSurface(props: {
     accessDenied,
     cap,
     clearInput,
-    environmentId,
+    machineId,
     followSize,
     hostSetup,
     tabId,
@@ -464,9 +464,9 @@ export function ServerBrowserSurface(props: {
 
   useEffect(() => {
     if (!visible || accessDenied || access !== null) return;
-    const timer = setInterval(() => refreshPreviewStreamAccess(environmentId), ACCESS_RETRY_MS);
+    const timer = setInterval(() => refreshPreviewStreamAccess(machineId), ACCESS_RETRY_MS);
     return () => clearInterval(timer);
-  }, [access, accessDenied, environmentId, visible]);
+  }, [access, accessDenied, machineId, visible]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -888,7 +888,7 @@ export function ServerBrowserSurface(props: {
             onClick={() => {
               unauthorizedRef.current = 0;
               setAccessDenied(false);
-              refreshPreviewStreamAccess(environmentId);
+              refreshPreviewStreamAccess(machineId);
             }}
           >
             Reconnect

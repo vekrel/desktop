@@ -1,5 +1,5 @@
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestDiffSide,
   PullRequestRef,
   PullRequestReviewPosition,
@@ -109,7 +109,7 @@ export function ReviewThreadCard({
   canReply,
   canResolve,
   canReact,
-  environmentId,
+  machineId,
   reference,
   pending,
   fixPending,
@@ -127,7 +127,7 @@ export function ReviewThreadCard({
   canReply: boolean;
   canResolve: boolean;
   canReact: boolean;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   pending: boolean;
   fixPending?: boolean;
@@ -274,7 +274,7 @@ export function ReviewThreadCard({
                     reactions={comment.reactions ?? []}
                     canReact={canReact}
                     subjectId={comment.id}
-                    environmentId={environmentId}
+                    machineId={machineId}
                     reference={reference}
                     onRefresh={onReacted}
                   />
@@ -284,7 +284,7 @@ export function ReviewThreadCard({
                     className="mt-1"
                     value={comment.body}
                     cwd={workspaceRoot}
-                    environmentId={environmentId}
+                    machineId={machineId}
                     label="Edit comment"
                     saving={savingEdit}
                     onSave={(body) => void saveEdit(comment.id, body)}
@@ -296,7 +296,7 @@ export function ReviewThreadCard({
                       className="min-w-0 flex-1 text-sm"
                       text={comment.body}
                       cwd={workspaceRoot}
-                      environmentId={environmentId}
+                      machineId={machineId}
                     />
                     {canEditComment(comment) ? (
                       <PullRequestEditButton

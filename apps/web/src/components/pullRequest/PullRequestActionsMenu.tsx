@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import type {
-  EnvironmentId,
+  MachineId,
   PullRequestAction,
   PullRequestDetail,
   PullRequestMergeMethod,
@@ -36,19 +36,19 @@ import {
 } from "../ui/menu";
 import { RefreshIcon } from "../ui/refresh-icon";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { ActOnEnvironmentPicker, type PerformPullRequestAction } from "./PullRequestDetailActions";
+import { ActOnMachinePicker, type PerformPullRequestAction } from "./PullRequestDetailActions";
 import {
   PULL_REQUEST_MERGE_METHOD_LABELS,
   pullRequestActionMenuHasGroup,
 } from "./pullRequestDetail.logic";
 import { PullRequestGlyph } from "./pullRequestIcons";
-import type { PickableEnvironment } from "./pullRequestProjectAssignment.logic";
+import type { PickableMachine } from "./pullRequestProjectAssignment.logic";
 import { PullRequestThreadLinks } from "./PullRequestThreadLinks";
 import { useInlineActionConfirm } from "./useInlineActionConfirm";
 
 /** Everything else the reader can do with the pull request, behind the header's overflow button. */
 export function PullRequestActionsMenu({
-  environmentId,
+  machineId,
   reference,
   pullRequestKey,
   detail,
@@ -67,9 +67,9 @@ export function PullRequestActionsMenu({
   guideRunning,
   guideWritten,
   writeGuide,
-  pickableEnvironments,
-  actingEnvironmentId,
-  onActingEnvironmentChange,
+  pickableMachines,
+  actingMachineId,
+  onActingMachineChange,
   can,
   autoMergeArmed,
   showsDraftToggle,
@@ -80,14 +80,14 @@ export function PullRequestActionsMenu({
   selectedMergeMethod,
   onSelectMergeMethod,
   showsDeleteBranch,
-  environmentConnected,
+  machineConnected,
   confirmDeleteBranch,
   pendingAction,
   perform,
   openOnHostText,
   copyReference,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   pullRequestKey: string;
   detail: Pick<PullRequestDetail, "url" | "state" | "isDraft" | "headBranch">;
@@ -106,9 +106,9 @@ export function PullRequestActionsMenu({
   guideRunning: boolean;
   guideWritten: boolean;
   writeGuide: () => void;
-  pickableEnvironments: ReadonlyArray<PickableEnvironment>;
-  actingEnvironmentId: EnvironmentId;
-  onActingEnvironmentChange: (environmentId: EnvironmentId) => void;
+  pickableMachines: ReadonlyArray<PickableMachine>;
+  actingMachineId: MachineId;
+  onActingMachineChange: (machineId: MachineId) => void;
   can: (action: PullRequestAction) => boolean;
   autoMergeArmed: boolean;
   showsDraftToggle: boolean;
@@ -119,7 +119,7 @@ export function PullRequestActionsMenu({
   selectedMergeMethod: PullRequestMergeMethod;
   onSelectMergeMethod: (method: PullRequestMergeMethod) => void;
   showsDeleteBranch: boolean;
-  environmentConnected: boolean;
+  machineConnected: boolean;
   confirmDeleteBranch: () => Promise<void>;
   pendingAction: PullRequestAction | null;
   perform: PerformPullRequestAction;
@@ -158,7 +158,7 @@ export function PullRequestActionsMenu({
       <MenuPopup align="end" side="bottom">
         <PullRequestThreadLinks
           display="menu-item"
-          environmentId={environmentId}
+          machineId={machineId}
           reference={reference}
           url={detail.url}
           threadRef={linkThreadRef}
@@ -198,11 +198,11 @@ export function PullRequestActionsMenu({
             {guideRunning ? "Writing guide..." : !guideWritten ? "Write guide" : "Rewrite guide"}
           </MenuItem>
         ) : null}
-        {pickableEnvironments.length > 0 ? (
-          <ActOnEnvironmentPicker
-            environments={pickableEnvironments}
-            value={actingEnvironmentId}
-            onChange={onActingEnvironmentChange}
+        {pickableMachines.length > 0 ? (
+          <ActOnMachinePicker
+            machines={pickableMachines}
+            value={actingMachineId}
+            onChange={onActingMachineChange}
             disabled={handoff !== null}
           />
         ) : null}
@@ -350,7 +350,7 @@ export function PullRequestActionsMenu({
             <MenuSeparator />
             <MenuItem
               variant="destructive"
-              disabled={actionPending || !environmentConnected}
+              disabled={actionPending || !machineConnected}
               onClick={() => void confirmDeleteBranch()}
             >
               <Trash2Icon className="mt-1 size-3.5 shrink-0 self-start" />
@@ -359,7 +359,7 @@ export function PullRequestActionsMenu({
                   {pendingAction === "delete-branch" ? "Deleting branch..." : "Delete branch"}
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {environmentConnected ? detail.headBranch : "Reconnect to delete this branch"}
+                  {machineConnected ? detail.headBranch : "Reconnect to delete this branch"}
                 </span>
               </span>
             </MenuItem>

@@ -5,7 +5,7 @@ import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { CollapsibleSectionHeader, SectionHeaderStatus } from "../ui/collapsible-section-header";
 import { SubagentTooltipContent } from "./SubagentTooltipContent";
 import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
-import { scopedThreadKey, scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey, scopeThreadRef } from "@vekrel/client-runtime/machine";
 import {
   deriveWorkflowGroups,
   projectedSubagentsToRuntime,
@@ -31,7 +31,7 @@ import {
   isOrchestrationV2WorkActive,
   isProviderNativeSubagentThread,
   NodeId,
-  type EnvironmentId,
+  type MachineId,
   type OrchestrationV2Subagent,
   type OrchestrationV2ThreadShell,
   type ThreadId,
@@ -60,9 +60,9 @@ import {
   useThreadProjection,
   useThreadRelationshipShells,
 } from "../../state/entities";
-import { useEnvironmentProviders } from "../../state/environments";
-import { threadEnvironment } from "../../state/threads";
-import { orchestrationEnvironment } from "../../state/orchestration";
+import { useMachineProviders } from "../../state/machines";
+import { threadMachine } from "../../state/threads";
+import { orchestrationMachine } from "../../state/orchestration";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { AgentElapsed } from "./AgentElapsed";
 import { ThreadRelationshipIcon, threadRelationshipStatusLabel } from "./ThreadRelationshipIcon";
@@ -208,17 +208,17 @@ function currentSubagent<Agent extends RuntimeSubagent>(
 }
 
 export function ThreadRelationshipsPanel(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId: ThreadId;
 }) {
-  const ref = scopeThreadRef(props.environmentId, props.threadId);
+  const ref = scopeThreadRef(props.machineId, props.threadId);
   const projection = useThreadProjection(ref)?.projection ?? null;
-  const providersByEnvironment = useEnvironmentProviders();
+  const providersByMachine = useMachineProviders();
   const relationshipShells = useThreadRelationshipShells(ref);
   const allProjects = useProjects();
-  const archived = useArchivedThreadSnapshots([props.environmentId]);
+  const archived = useArchivedThreadSnapshots([props.machineId]);
   const archivedShells = archived.snapshots.find(
-    (entry) => entry.environmentId === props.environmentId,
+    (entry) => entry.machineId === props.machineId,
   )?.snapshot.threads;
   const currentThread =
     projection?.thread ??
@@ -234,23 +234,23 @@ export function ThreadRelationshipsPanel(props: {
     : undefined;
   const parentRef =
     parentShell && isProviderNativeSubagentThread(parentShell)
-      ? scopeThreadRef(props.environmentId, parentShell.id)
+      ? scopeThreadRef(props.machineId, parentShell.id)
       : null;
   const parentProjection = useThreadProjection(parentRef)?.projection;
   const navigate = useNavigate();
-  const mergeBack = useAtomCommand(threadEnvironment.mergeBack);
-  const stopSession = useAtomCommand(threadEnvironment.stopSession);
-  const interruptTurn = useAtomCommand(threadEnvironment.interruptTurn);
-  const stopWorkflowCommand = useAtomCommand(orchestrationEnvironment.stopWorkflow);
+  const mergeBack = useAtomCommand(threadMachine.mergeBack);
+  const stopSession = useAtomCommand(threadMachine.stopSession);
+  const interruptTurn = useAtomCommand(threadMachine.interruptTurn);
+  const stopWorkflowCommand = useAtomCommand(orchestrationMachine.stopWorkflow);
   const canOperateWorkflow = useAtomValue(
-    orchestrationEnvironment.stopWorkflow.permissionAtom(props.environmentId),
+    orchestrationMachine.stopWorkflow.permissionAtom(props.machineId),
   );
   const [busyAction, setBusyAction] = useState<"merge" | "detach" | null>(null);
   const [stoppingId, setStoppingId] = useState<string | null>(null);
   // These lookups and the graph walk every subagent and thread, so they sit below
   // the panel's hooks where the compiler can cache them.
-  const providers = providersByEnvironment.get(props.environmentId);
-  const projects = allProjects.filter((project) => project.environmentId === props.environmentId);
+  const providers = providersByMachine.get(props.machineId);
+  const projects = allProjects.filter((project) => project.machineId === props.machineId);
   const parentNativeStatus = parentProjection
     ? deriveProviderSubagentStatus(parentProjection)?.status
     : undefined;
@@ -334,8 +334,8 @@ export function ThreadRelationshipsPanel(props: {
 
   const openThread = (threadId: ThreadId) => {
     void navigate({
-      to: "/$environmentId/$threadId",
-      params: buildThreadRouteParams(scopeThreadRef(props.environmentId, threadId)),
+      to: "/$machineId/$threadId",
+      params: buildThreadRouteParams(scopeThreadRef(props.machineId, threadId)),
     });
   };
 
@@ -343,7 +343,7 @@ export function ThreadRelationshipsPanel(props: {
     if (!latestMergeBackRun || mergeTargetThreadId === null || busyAction !== null) return;
     setBusyAction("merge");
     const result = await mergeBack({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: {
         sourceThreadId: props.threadId,
         targetThreadId: mergeTargetThreadId,
@@ -358,7 +358,7 @@ export function ThreadRelationshipsPanel(props: {
     if (!canDetach || busyAction !== null) return;
     setBusyAction("detach");
     await stopSession({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { threadId: props.threadId },
     });
     setBusyAction(null);
@@ -371,7 +371,7 @@ export function ThreadRelationshipsPanel(props: {
     if (stoppingId !== null) return;
     setStoppingId(childThreadId);
     const result = await interruptTurn({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { threadId: agent.threadId, subagentId: agent.id },
     });
     setStoppingId(null);
@@ -384,7 +384,7 @@ export function ThreadRelationshipsPanel(props: {
     if (stoppingId !== null) return;
     setStoppingId(subagentId);
     const result = await stopWorkflowCommand({
-      environmentId: props.environmentId,
+      machineId: props.machineId,
       input: { threadId: props.threadId, subagentId: NodeId.make(subagentId) },
     });
     setStoppingId(null);

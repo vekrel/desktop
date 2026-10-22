@@ -1,10 +1,10 @@
-import type { EnvironmentId, PullRequestRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef } from "@vekrel/contracts";
 import { squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
 import { useAtomValue } from "@effect/atom-react";
 import { useEffect, useEffectEvent, useState } from "react";
 
-import { pullRequestEnvironment } from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestMachine } from "~/state/pullRequests";
+import { useMachineQuery } from "~/state/query";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { toastManager } from "../../ui/toast";
@@ -12,21 +12,21 @@ import { readableFailure } from "../pullRequestDetail.logic";
 import { guideRunKey, useGuideRunStore } from "./guideRunStore";
 
 export function useReviewGuideWriter({
-  environmentId,
+  machineId,
   reference,
   title,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   title: string | null;
 }) {
-  const query = useEnvironmentQuery(
-    pullRequestEnvironment.reviewGuide({ environmentId, input: reference }),
+  const query = useMachineQuery(
+    pullRequestMachine.reviewGuide({ machineId, input: reference }),
   );
   const canWrite = useAtomValue(
-    pullRequestEnvironment.generateReviewGuide.permissionAtom(environmentId),
+    pullRequestMachine.generateReviewGuide.permissionAtom(machineId),
   );
-  const generate = useAtomCommand(pullRequestEnvironment.generateReviewGuide, {
+  const generate = useAtomCommand(pullRequestMachine.generateReviewGuide, {
     reportFailure: false,
   });
   const [starting, setStarting] = useState(false);
@@ -35,7 +35,7 @@ export function useReviewGuideWriter({
 
   const watchRun = useEffectEvent(() =>
     useGuideRunStore.getState().watch({
-      environmentId,
+      machineId,
       reference,
       title,
       previousGuideAt: data?.guide?.generatedAt ?? null,
@@ -51,10 +51,10 @@ export function useReviewGuideWriter({
     if (running) return;
     setStarting(true);
     watchRun();
-    const result = await generate({ environmentId, input: reference });
+    const result = await generate({ machineId, input: reference });
     setStarting(false);
     if (result._tag === "Failure") {
-      useGuideRunStore.getState().settle(guideRunKey(environmentId, reference));
+      useGuideRunStore.getState().settle(guideRunKey(machineId, reference));
       toastManager.add({
         type: "error",
         title: "Could not start a review guide",

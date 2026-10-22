@@ -1,4 +1,4 @@
-import { EnvironmentId, ThreadId } from "@vekrel/contracts";
+import { MachineId, ThreadId } from "@vekrel/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { act, render } from "../../test/render";
 import "../index.css";
 
-import { filesystemEnvironment } from "../state/filesystem";
+import { filesystemMachine } from "../state/filesystem";
 import { useRightPanelStore } from "../rightPanelStore";
 import { setMarkdownTaskChecked } from "./files/filePreviewMode";
 
@@ -17,7 +17,7 @@ const { workspaceSearch, filesystemMetadata } = vi.hoisted(() => ({
 vi.mock(import("../state/use-atom-query-runner"), async (original) => ({
   ...(await original()),
   useAtomQueryRunner: ((family: unknown) =>
-    family === filesystemEnvironment.getMetadata ? filesystemMetadata : workspaceSearch) as never,
+    family === filesystemMachine.getMetadata ? filesystemMetadata : workspaceSearch) as never,
 }));
 
 // Atoms derived from the server config run in the real registry over a missing config.
@@ -27,19 +27,19 @@ vi.mock(import("../state/server"), async (original) => {
   const noConfig = Atom.make(null);
   return {
     ...actual,
-    serverEnvironment: { ...actual.serverEnvironment, configValueAtom: (() => noConfig) as never },
+    serverMachine: { ...actual.serverMachine, configValueAtom: (() => noConfig) as never },
   };
 });
-// A standard client session, so environment-owned file links can open.
+// A standard client session, so machine-owned file links can open.
 vi.mock(import("../state/session"), async (original) => {
   const { AuthStandardClientScopes } = await import("@vekrel/contracts");
   const granted = new Set<string>(AuthStandardClientScopes);
-  const hasScope = (environmentId: unknown, scope: string) =>
-    environmentId !== null && granted.has(scope);
+  const hasScope = (machineId: unknown, scope: string) =>
+    machineId !== null && granted.has(scope);
   return {
     ...(await original()),
-    useEnvironmentScope: hasScope as never,
-    readEnvironmentScope: hasScope as never,
+    useMachineScope: hasScope as never,
+    readMachineScope: hasScope as never,
   };
 });
 vi.mock(import("../remoteOpen"), async (original) => ({
@@ -191,7 +191,7 @@ describe("ChatMarkdown streaming", () => {
 
 describe("ChatMarkdown workspace file opens", () => {
   const threadRef = {
-    environmentId: EnvironmentId.make("workspace"),
+    machineId: MachineId.make("workspace"),
     threadId: ThreadId.make("thread"),
   };
 
@@ -250,11 +250,11 @@ describe("ChatMarkdown headings", () => {
 });
 
 describe("ChatMarkdown Windows file links", () => {
-  const environmentId = EnvironmentId.make("env-windows");
+  const machineId = MachineId.make("env-windows");
   const renderWindows = (text: string, parseRawHtml: boolean) =>
     renderText(text, {
       cwd: "C:/Users/shawn/project",
-      environmentId,
+      machineId,
       lineBreaks: !parseRawHtml,
       parseRawHtml,
     });

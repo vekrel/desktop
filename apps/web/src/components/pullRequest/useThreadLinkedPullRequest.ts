@@ -1,18 +1,18 @@
 import {
-  type EnvironmentId,
+  type MachineId,
   type ProjectId,
   type ScopedThreadRef,
   type ThreadLinkedPullRequest,
   type VcsStatusResult,
 } from "@vekrel/contracts";
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@vekrel/client-runtime/state/runtime";
 import { useEffect, useRef } from "react";
 import { selectActiveRightPanelSurface, useRightPanelStore } from "../../rightPanelStore";
-import { threadEnvironment } from "../../state/threads";
+import { threadMachine } from "../../state/threads";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import { useLinkedThreadPullRequest } from "../ThreadStatusIndicators";
 import { stackedThreadToast, toastManager } from "../ui/toast";
@@ -26,7 +26,7 @@ import { stackedThreadToast, toastManager } from "../ui/toast";
 export function useThreadLinkedPullRequest(input: {
   // Null for drafts, which have nothing to relink on the server.
   readonly serverThreadRef: ScopedThreadRef | null;
-  readonly environmentId: EnvironmentId | null;
+  readonly machineId: MachineId | null;
   readonly persisted: ThreadLinkedPullRequest | null;
   readonly projectId: ProjectId | null;
   readonly projectRepository: string | null;
@@ -35,10 +35,10 @@ export function useThreadLinkedPullRequest(input: {
 }) {
   const { serverThreadRef, persisted, projectId, projectRepository, threadBranch, gitStatus } =
     input;
-  const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
+  const updateThreadMetadata = useOrchestrationCommand(threadMachine.updateMetadata, {
     reportFailure: false,
   });
-  const persistedStatus = useLinkedThreadPullRequest(input.environmentId, persisted);
+  const persistedStatus = useLinkedThreadPullRequest(input.machineId, persisted);
   const detected = gitStatus?.pr;
   const replacement: ThreadLinkedPullRequest | null =
     persisted === null ||
@@ -83,7 +83,7 @@ export function useThreadLinkedPullRequest(input: {
     relinkWriteRef.current = relinkWriteRef.current.then(async () => {
       if (relinkKeysRef.current.get(threadKey) !== relinkKey) return;
       const result = await updateThreadMetadata({
-        environmentId: serverThreadRef.environmentId,
+        machineId: serverThreadRef.machineId,
         input: { threadId: serverThreadRef.threadId, linkedPullRequest: replacement },
       });
       if (relinkKeysRef.current.get(threadKey) !== relinkKey) return;

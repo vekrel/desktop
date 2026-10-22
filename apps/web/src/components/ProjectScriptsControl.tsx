@@ -1,7 +1,7 @@
 import { ThreadDetailsControl } from "./chat/ThreadDetailsControl";
 import {
   AuthSettingsWriteScope,
-  type EnvironmentId,
+  type MachineId,
   type ProjectScript,
   type T3ProjectFileScript,
 } from "@vekrel/contracts";
@@ -17,8 +17,8 @@ import React, { useState } from "react";
 
 import { commandForProjectScript, primaryProjectScript } from "~/projectScripts";
 import { shortcutLabelForCommand } from "~/keybindings";
-import { serverEnvironment } from "~/state/server";
-import { readEnvironmentScope } from "~/state/session";
+import { serverMachine } from "~/state/server";
+import { readMachineScope } from "~/state/session";
 import {
   EMPTY_PROJECT_SCRIPT_INPUT,
   editorRequestForScript,
@@ -62,7 +62,7 @@ interface ProjectScriptsControlProps {
   displayMode?: "toolbar" | "panel";
   presentation?: "toolbar" | "menu";
   onRequestMenuClose?: () => void;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   scripts: ReadonlyArray<ProjectScript>;
   fileScripts?: ReadonlyArray<T3ProjectFileScript>;
   preferredScriptId?: string | null;
@@ -79,7 +79,7 @@ export default function ProjectScriptsControl({
   displayMode = "toolbar",
   presentation = "toolbar",
   onRequestMenuClose,
-  environmentId,
+  machineId,
   scripts,
   fileScripts = NO_FILE_SCRIPTS,
   preferredScriptId = null,
@@ -92,7 +92,7 @@ export default function ProjectScriptsControl({
   const ActionGroup = isPanel ? "div" : Group;
   const panelAnchorRef = React.useRef<HTMLDivElement | null>(null);
   const keybindings =
-    useAtomValue(serverEnvironment.configValueAtom(environmentId))?.keybindings ??
+    useAtomValue(serverMachine.configValueAtom(machineId))?.keybindings ??
     DEFAULT_RESOLVED_KEYBINDINGS;
   const [actionsMenuOpen, setActionsMenuOpen] = useState({
     presentation,
@@ -137,7 +137,7 @@ export default function ProjectScriptsControl({
       runOnWorktreeCreate: fileScript.runOnWorktreeCreate ?? false,
       waitForSetup: fileScript.runOnWorktreeCreate === true && fileScript.async === false,
       runOnSettle: fileScript.runOnSettle ?? false,
-      ...(readEnvironmentScope(environmentId, AuthSettingsWriteScope) ? { keybinding: null } : {}),
+      ...(readMachineScope(machineId, AuthSettingsWriteScope) ? { keybinding: null } : {}),
       previewUrl: fileScript.previewUrl ?? null,
       autoOpenPreview: fileScript.previewUrl ? (fileScript.autoOpenPreview ?? false) : false,
     };
@@ -450,7 +450,7 @@ export default function ProjectScriptsControl({
       )}
 
       <ProjectScriptEditorDialog
-        environmentId={environmentId}
+        machineId={machineId}
         request={editorRequest}
         scripts={scripts}
         onSubmit={submitScript}

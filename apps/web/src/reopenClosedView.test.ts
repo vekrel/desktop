@@ -18,7 +18,7 @@ import {
 } from "./rightPanelStore";
 
 const threadRef = {
-  environmentId: "local" as ScopedThreadRef["environmentId"],
+  machineId: "local" as ScopedThreadRef["machineId"],
   threadId: "thread-1" as ScopedThreadRef["threadId"],
 };
 const snapshot: PreviewSessionSnapshot = {
@@ -95,7 +95,7 @@ describe("reopenClosedView", () => {
     );
     expect(result).toBe(true);
     expect(openPreview).toHaveBeenCalledWith({
-      environmentId: threadRef.environmentId,
+      machineId: threadRef.machineId,
       input: {
         threadId: threadRef.threadId,
         url: "https://example.com",
@@ -131,7 +131,7 @@ describe("planNextReopen", () => {
     { id: "b", kind: "panel-tab", threadRef, surface: { kind: "files", id: "files" } },
   ];
   const known: ReopenOwnerState = {
-    environmentKnown: true,
+    machineKnown: true,
     catalogReady: true,
     ownerExists: true,
     shellLive: true,
@@ -146,14 +146,14 @@ describe("planNextReopen", () => {
   it.each([
     ["restores the newest entry", [known, known], [], "a"],
     [
-      "drops a removed environment once the catalog is ready",
-      [{ ...known, environmentKnown: false }, known],
+      "drops a removed machine once the catalog is ready",
+      [{ ...known, machineKnown: false }, known],
       ["a"],
       "b",
     ],
     [
       "waits for the catalog before dropping",
-      [{ ...known, environmentKnown: false, catalogReady: false }, known],
+      [{ ...known, machineKnown: false, catalogReady: false }, known],
       [],
       null,
     ],

@@ -228,7 +228,7 @@ export function readActiveBrowserRecordingTabIds(threadRef?: ScopedThreadRef): R
   for (const recording of activeRecordings.values()) {
     if (
       threadRef === undefined ||
-      (recording.threadRef?.environmentId === threadRef.environmentId &&
+      (recording.threadRef?.machineId === threadRef.machineId &&
         recording.threadRef.threadId === threadRef.threadId)
     ) {
       tabIds.add(recording.tabId);
@@ -241,7 +241,7 @@ export function readActiveBrowserRecordingTargets(
   threadRef: ScopedThreadRef,
 ): ReadonlyArray<ActiveBrowserRecordingTarget> {
   return Array.from(activeRecordings.values()).flatMap((recording) =>
-    recording.threadRef?.environmentId === threadRef.environmentId &&
+    recording.threadRef?.machineId === threadRef.machineId &&
     recording.threadRef.threadId === threadRef.threadId
       ? [{ runtimeTabId: recording.tabId, serverTabId: recording.serverTabId }]
       : [],

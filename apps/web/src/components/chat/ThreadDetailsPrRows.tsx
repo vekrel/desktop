@@ -1,5 +1,5 @@
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
-import type { EnvironmentId, ScopedThreadRef, ThreadPullRequestLink } from "@vekrel/contracts";
+import type { MachineId, ScopedThreadRef, ThreadPullRequestLink } from "@vekrel/contracts";
 import {
   pullRequestListLines,
   resolveThreadPullRequestChains,
@@ -12,7 +12,7 @@ import { useState, type ComponentProps, type MouseEvent as ReactMouseEvent } fro
 import { findProjectOnChangeRequestHost, parseChangeRequestUrl } from "~/lib/openPullRequestLink";
 
 import { useProjects } from "~/state/entities";
-import { threadEnvironment } from "~/state/threads";
+import { threadMachine } from "~/state/threads";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { MorphIcon } from "~/components/MorphIcon";
@@ -21,13 +21,13 @@ import { linkedPullRequestSnapshotStatus, prStatusIndicator } from "../ThreadSta
 import { ThreadDetailsPrRow } from "./ThreadDetailsPrRow";
 
 function ThreadDetailsPrLinkRow({
-  environmentId,
+  machineId,
   link,
   onOpen,
   onActed,
   onStopWatching,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   link: ThreadPullRequestLink;
   onOpen: (event: ReactMouseEvent<HTMLElement>) => void;
   onActed?: (() => void) | undefined;
@@ -39,14 +39,14 @@ function ThreadDetailsPrLinkRow({
     parsed === null
       ? null
       : (findProjectOnChangeRequestHost(
-          projects.filter((candidate) => candidate.environmentId === environmentId),
+          projects.filter((candidate) => candidate.machineId === machineId),
           parsed,
         ) ?? null);
   const linked = linkedPullRequestSnapshotStatus(link);
   const pr = linked?.pr ?? null;
   return (
     <ThreadDetailsPrRow
-      environmentId={environmentId}
+      machineId={machineId}
       pr={pr}
       number={link.number}
       reference={link}
@@ -74,13 +74,13 @@ export function ThreadDetailsPrRows({
   onOpenLink: (event: ReactMouseEvent<HTMLElement>, url: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const watch = useAtomCommand(threadEnvironment.watchPullRequest, { reportFailure: true });
+  const watch = useAtomCommand(threadMachine.watchPullRequest, { reportFailure: true });
   const stopWatching = (link: ThreadPullRequestLink | null) =>
     link?.watch === undefined
       ? undefined
       : () =>
           void watch({
-            environmentId: threadRef.environmentId,
+            machineId: threadRef.machineId,
             input: {
               threadId: threadRef.threadId,
               host: link.host,
@@ -106,7 +106,7 @@ export function ThreadDetailsPrRows({
           {rest.map((link) => (
             <ThreadDetailsPrLinkRow
               key={threadPullRequestKeyOf(link)}
-              environmentId={row.environmentId}
+              machineId={row.machineId}
               link={link}
               onOpen={(event) => onOpenLink(event, link.url)}
               onActed={row.onActed}

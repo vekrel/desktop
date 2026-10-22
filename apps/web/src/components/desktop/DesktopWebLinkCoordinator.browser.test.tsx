@@ -1,4 +1,4 @@
-import { EnvironmentId, ProjectId } from "@vekrel/contracts";
+import { MachineId, ProjectId } from "@vekrel/contracts";
 import type { Atom } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -10,18 +10,18 @@ const state = vi.hoisted(() => ({
   openScratchProject: vi.fn(async () => null),
 }));
 
-// One connected primary environment that can read pull requests. Its project list and
+// One connected primary machine that can read pull requests. Its project list and
 // discovery flag start empty so a test can deliver links before they arrive.
 vi.mock(import("@tanstack/react-router"), async (original) => ({
   ...(await original()),
   useNavigate: (() => state.navigate) as never,
   useRouter: (() => ({ navigate: state.navigate, state: { matches: [] } })) as never,
 }));
-vi.mock(import("../../state/environments"), async (original) => ({
+vi.mock(import("../../state/machines"), async (original) => ({
   ...(await original()),
-  usePrimaryEnvironmentId: () => "local" as EnvironmentId,
-  usePrimaryEnvironment: (() => ({
-    environmentId: "local",
+  usePrimaryMachineId: () => "local" as MachineId,
+  usePrimaryMachine: (() => ({
+    machineId: "local",
     connection: { phase: "connected" },
     serverConfig: {},
   })) as never,
@@ -31,8 +31,8 @@ vi.mock(import("../../state/server"), async (original) => {
   const capabilities = { pullRequests: true, threadPullRequests: true };
   return {
     ...(await original()),
-    environmentServerConfigsAtom: Atom.make(
-      new Map([["local", { environment: { capabilities } }]]),
+    machineServerConfigsAtom: Atom.make(
+      new Map([["local", { machine: { capabilities } }]]),
     ) as never,
   };
 });
@@ -47,7 +47,7 @@ vi.mock(import("../../state/entities"), async (original) => ({
 vi.mock(import("../../hooks/useScratchProject"), async (original) => ({
   ...(await original()),
   useScratchProject: (() => ({
-    scratchEnvironmentId: () => "local",
+    scratchMachineId: () => "local",
     openScratchProject: state.openScratchProject,
   })) as never,
 }));
@@ -57,11 +57,11 @@ import { allReachableShellsLiveAtom } from "../../state/shell";
 import { DesktopWebLinkCoordinator } from "./DesktopWebLinkCoordinator";
 
 const discoverySettled = allReachableShellsLiveAtom as Atom.Writable<boolean>;
-const environmentId = EnvironmentId.make("local");
+const machineId = MachineId.make("local");
 const projectId = ProjectId.make("effect");
 const project = {
   id: projectId,
-  environmentId,
+  machineId,
   repositoryIdentity: {
     provider: "github",
     displayName: "Effect-TS/effect",
@@ -83,7 +83,7 @@ const pullRequestView = {
     number: 9339,
     selectedHost: "github.com",
     selectedProjectId: projectId,
-    selectedEnvironmentId: environmentId,
+    selectedMachineId: machineId,
   },
 };
 

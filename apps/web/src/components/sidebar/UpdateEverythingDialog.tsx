@@ -1,8 +1,8 @@
 import { useAtomValue } from "@effect/atom-react";
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import { Atom } from "effect/reactivity";
 
-import { environmentThreadShells } from "~/state/threads";
+import { machineThreadShells } from "~/state/threads";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -18,20 +18,20 @@ import type { RestartingMachine, SkippedMachine } from "./updateEverything.logic
 const isRunning = (status: string) =>
   status === "preparing" || status === "starting" || status === "running";
 
-const runningThreadCountAtom = Atom.family((environmentIds: string) =>
+const runningThreadCountAtom = Atom.family((machineIds: string) =>
   Atom.make((get) =>
-    environmentIds
+    machineIds
       .split("\n")
       .filter((id) => id !== "")
       .reduce(
         (count, id) =>
           count +
-          get(environmentThreadShells.environmentThreadsAtom(EnvironmentId.make(id))).filter(
+          get(machineThreadShells.machineThreadsAtom(MachineId.make(id))).filter(
             (thread) => isRunning(thread.status),
           ).length,
         0,
       ),
-  ).pipe(Atom.withLabel(`update-everything-running-threads:${environmentIds}`)),
+  ).pipe(Atom.withLabel(`update-everything-running-threads:${machineIds}`)),
 );
 
 interface UpdateEverythingDialogProps {
@@ -70,7 +70,7 @@ function UpdateEverythingDialogContent({
     runningThreadCountAtom(
       restarts
         .filter((machine) => !machine.continuesThreads)
-        .map((machine) => machine.environmentId)
+        .map((machine) => machine.machineId)
         .join("\n"),
     ),
   );
@@ -78,7 +78,7 @@ function UpdateEverythingDialogContent({
     runningThreadCountAtom(
       restarts
         .filter((machine) => machine.continuesThreads)
-        .map((machine) => machine.environmentId)
+        .map((machine) => machine.machineId)
         .join("\n"),
     ),
   );

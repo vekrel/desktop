@@ -1,10 +1,10 @@
-import { DEFAULT_SERVER_SETTINGS, EnvironmentId, ProjectId } from "@vekrel/contracts";
+import { DEFAULT_SERVER_SETTINGS, MachineId, ProjectId } from "@vekrel/contracts";
 import { resolveProjectSettings } from "@vekrel/shared/projectSettings";
 import { describe, expect, it } from "vite-plus/test";
 
 import { settingInheritanceLayers } from "./SettingInheritance";
 
-const environmentId = EnvironmentId.make("laptop");
+const machineId = MachineId.make("laptop");
 const projectId = ProjectId.make("project");
 
 describe("settingInheritanceLayers", () => {
@@ -12,7 +12,7 @@ describe("settingInheritanceLayers", () => {
     const file = { defaultThreadEnvMode: "worktree" as const };
     const fromFile = settingInheritanceLayers(
       {
-        environmentId,
+        machineId,
         label: "Laptop",
         projectId,
         ...resolveProjectSettings(DEFAULT_SERVER_SETTINGS, projectId, null, file),
@@ -29,7 +29,7 @@ describe("settingInheritanceLayers", () => {
     const settings = { ...DEFAULT_SERVER_SETTINGS, defaultThreadEnvMode: "local" as const };
     const fromEnvironment = settingInheritanceLayers(
       {
-        environmentId,
+        machineId,
         label: "Laptop",
         projectId,
         ...resolveProjectSettings(settings, projectId, null, file),

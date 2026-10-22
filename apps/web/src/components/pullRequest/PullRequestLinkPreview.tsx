@@ -1,6 +1,6 @@
 import type { PreviewCard as PreviewCardPrimitive } from "@base-ui/react/preview-card";
 import { isAtomCommandInterrupted } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentId, PullRequestRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef } from "@vekrel/contracts";
 import {
   cloneElement,
   useRef,
@@ -12,16 +12,16 @@ import {
 } from "react";
 
 import { RelativeTime } from "~/components/RelativeTime";
-import { pullRequestEnvironment } from "~/state/pullRequests";
+import { pullRequestMachine } from "~/state/pullRequests";
 import { useAtomQueryRunner } from "~/state/use-atom-query-runner";
-import { useEnvironmentQuery } from "~/state/query";
+import { useMachineQuery } from "~/state/query";
 
 import { PreviewCard, PreviewCardPopup, PreviewCardTrigger } from "../ui/preview-card";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { PullRequestActorAvatar, resolvePullRequestState } from "./pullRequestPresentation";
 
 interface PullRequestLinkPreviewTarget {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly input: PullRequestRef;
 }
 
@@ -49,15 +49,15 @@ export function PullRequestLinkPreview({
   const [open, setOpen] = useState(false);
   const previewActionsRef = useRef<PreviewCardPrimitive.Root.Actions | null>(null);
   const [resolvingClick, setResolvingClick] = useState(false);
-  const detailQuery = useEnvironmentQuery(
+  const detailQuery = useMachineQuery(
     open
-      ? pullRequestEnvironment.detail({
-          environmentId: target.environmentId,
+      ? pullRequestMachine.detail({
+          machineId: target.machineId,
           input: target.input,
         })
       : null,
   );
-  const readPreview = useAtomQueryRunner(pullRequestEnvironment.preview, {
+  const readPreview = useAtomQueryRunner(pullRequestMachine.preview, {
     reportFailure: false,
     reportDefect: false,
   });

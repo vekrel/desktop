@@ -1,5 +1,5 @@
 import { AuthProvidersManageScope } from "@vekrel/contracts";
-import { useEnvironmentScope } from "../../state/session";
+import { useMachineScope } from "../../state/session";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -8,7 +8,7 @@ import {
 import type {
   ChatGptHandoffInput,
   ChatGptTransferredProfile,
-  EnvironmentId,
+  MachineId,
   ProviderInstanceId,
   ServerProvider,
 } from "@vekrel/contracts";
@@ -28,12 +28,12 @@ import {
 
 import { ensureLocalApi } from "../../localApi";
 import {
-  useEnvironmentHttpBaseUrl,
-  usePrimaryEnvironmentId,
-  useEnvironment,
-} from "../../state/environments";
-import { useEnvironmentQuery } from "../../state/query";
-import { serverEnvironment } from "../../state/server";
+  useMachineHttpBaseUrl,
+  usePrimaryMachineId,
+  useMachine,
+} from "../../state/machines";
+import { useMachineQuery } from "../../state/query";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { ChatGptConnectionButton } from "./ChatGptConnectionButton";
@@ -50,7 +50,7 @@ import { getProviderSummary } from "./providerStatus";
 const noop = () => undefined;
 
 interface CodexSetupSectionProps {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly instanceId: ProviderInstanceId;
   readonly provider: ServerProvider | undefined;
   readonly mode: "managed" | "existing";
@@ -152,7 +152,7 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
       )
     ) : (
       <ManagedCodexSetup
-        key={`${props.environmentId}:${props.instanceId}`}
+        key={`${props.machineId}:${props.instanceId}`}
         {...props}
         autoStart={requested || props.autoStart === true}
         onAutoStartConsumed={() => {
@@ -165,26 +165,26 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
 }
 
 export function AddManagedCodexAccountDialog({
-  environmentId,
+  machineId,
   onClose,
   onAccountCreated,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly onClose: () => void;
   readonly onAccountCreated?:
     | ((instanceId: ProviderInstanceId, displayName: string) => void)
     | undefined;
 }) {
-  const canManageProviders = useEnvironmentScope(environmentId, AuthProvidersManageScope);
+  const canManageProviders = useMachineScope(machineId, AuthProvidersManageScope);
   return (
     <AddCodexAccountDialog
-      environmentId={environmentId}
+      machineId={machineId}
       onClose={onClose}
       onAccountCreated={onAccountCreated}
       renderSetup={(instanceId, provider) => (
         <ManagedCodexSetup
           key={instanceId}
-          environmentId={environmentId}
+          machineId={machineId}
           instanceId={instanceId}
           provider={provider}
           mode="managed"
@@ -202,7 +202,7 @@ export function AddManagedCodexAccountDialog({
 }
 
 function ManagedCodexSetup({
-  environmentId,
+  machineId,
   instanceId,
   provider,
   enabled,
@@ -219,15 +219,15 @@ function ManagedCodexSetup({
   readonly onAutoStartConsumed: () => void;
   readonly allowExistingCli?: boolean;
 }) {
-  const target = { environmentId, input: { instanceId } };
-  const authQuery = useEnvironmentQuery(serverEnvironment.providerAuthState(target));
-  const installQuery = useEnvironmentQuery(serverEnvironment.providerInstallState(target));
+  const target = { machineId, input: { instanceId } };
+  const authQuery = useMachineQuery(serverMachine.providerAuthState(target));
+  const installQuery = useMachineQuery(serverMachine.providerInstallState(target));
   const [handoff, setHandoff] = useState<{
-    environmentId: EnvironmentId;
+    machineId: MachineId;
     input: ChatGptHandoffInput;
   } | null>(null);
-  const handoffQuery = useEnvironmentQuery(
-    handoff ? serverEnvironment.chatGptHandoffState(handoff) : null,
+  const handoffQuery = useMachineQuery(
+    handoff ? serverMachine.chatGptHandoffState(handoff) : null,
   );
   const auth = handoffQuery.data?.phase === "auth" ? handoffQuery.data.state : authQuery.data;
   const [accountPickerOpen, setAccountPickerOpen] = useState(false);
@@ -239,35 +239,35 @@ function ManagedCodexSetup({
   const hasSavedAccount = auth?.methods?.some((method) => method.id.startsWith("chatgpt-profile:"));
   const url = auth?.interaction?.type === "browser" ? auth.interaction.url : auth?.authorizationUrl;
   const installation = installQuery.data;
-  const httpBaseUrl = useEnvironmentHttpBaseUrl(environmentId);
+  const httpBaseUrl = useMachineHttpBaseUrl(machineId);
   const local = httpBaseUrl !== null && isLoopbackHost(new URL(httpBaseUrl).hostname);
   const options = { reportFailure: false, reportDefect: false };
-  const startAuth = useAtomCommand(serverEnvironment.startProviderAuth, options);
-  const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, options);
-  const completeAuth = useAtomCommand(serverEnvironment.completeProviderAuth, options);
-  const cancelAuth = useAtomCommand(serverEnvironment.cancelProviderAuth, options);
-  const logoutAuth = useAtomCommand(serverEnvironment.logoutProviderAuth, options);
-  const startInstall = useAtomCommand(serverEnvironment.startProviderInstall, options);
-  const cancelInstall = useAtomCommand(serverEnvironment.cancelProviderInstall, options);
-  const reconnectProfile = useAtomCommand(serverEnvironment.chatGptReconnectProfile, options);
-  const importProfile = useAtomCommand(serverEnvironment.chatGptImportProfile, options);
+  const startAuth = useAtomCommand(serverMachine.startProviderAuth, options);
+  const refreshProviders = useAtomCommand(serverMachine.refreshProviders, options);
+  const completeAuth = useAtomCommand(serverMachine.completeProviderAuth, options);
+  const cancelAuth = useAtomCommand(serverMachine.cancelProviderAuth, options);
+  const logoutAuth = useAtomCommand(serverMachine.logoutProviderAuth, options);
+  const startInstall = useAtomCommand(serverMachine.startProviderInstall, options);
+  const cancelInstall = useAtomCommand(serverMachine.cancelProviderInstall, options);
+  const reconnectProfile = useAtomCommand(serverMachine.chatGptReconnectProfile, options);
+  const importProfile = useAtomCommand(serverMachine.chatGptImportProfile, options);
   const clientCallback =
     !handoff && (!local || window.desktopBridge?.receiveProviderAuthCallback !== undefined);
   const remoteWeb = clientCallback && !window.desktopBridge?.receiveProviderAuthCallback;
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const primaryEnvironment = useEnvironment(primaryEnvironmentId);
-  const primaryHttpBaseUrl = useEnvironmentHttpBaseUrl(primaryEnvironmentId);
-  const primaryAuthEnvironmentId =
+  const primaryMachineId = usePrimaryMachineId();
+  const primaryMachine = useMachine(primaryMachineId);
+  const primaryHttpBaseUrl = useMachineHttpBaseUrl(primaryMachineId);
+  const primaryAuthMachineId =
     !local &&
-    primaryEnvironmentId &&
-    primaryEnvironment?.connection.phase === "connected" &&
+    primaryMachineId &&
+    primaryMachine?.connection.phase === "connected" &&
     primaryHttpBaseUrl &&
     isLoopbackHost(new URL(primaryHttpBaseUrl).hostname) &&
     (window.desktopBridge !== undefined || isLoopbackHost(window.location.hostname))
-      ? primaryEnvironmentId
+      ? primaryMachineId
       : null;
   const returnUrl = new URL(window.location.href);
-  if (returnUrl.pathname === "/welcome") returnUrl.hash = `agents:${environmentId}`;
+  if (returnUrl.pathname === "/welcome") returnUrl.hash = `agents:${machineId}`;
   if (returnUrl.pathname === "/settings/providers")
     returnUrl.searchParams.set("instanceId", instanceId);
   const needsManualCallback = remoteWeb;
@@ -302,9 +302,9 @@ function ManagedCodexSetup({
   }
   useEffect(() => {
     if (awaitingProvider && auth?.phase === "succeeded") {
-      void refreshProviders({ environmentId, input: { instanceId } });
+      void refreshProviders({ machineId, input: { instanceId } });
     }
-  }, [awaitingProvider, auth?.phase, refreshProviders, environmentId, instanceId]);
+  }, [awaitingProvider, auth?.phase, refreshProviders, machineId, instanceId]);
   const startingAutomatically = autoStart && !autoStartHandled;
   const waitingForAuthState =
     awaitingProvider === "sign-in" && !authenticated && (auth === null || auth.phase === "idle");
@@ -358,7 +358,7 @@ function ManagedCodexSetup({
   const [transferFailed, setTransferFailed] = useState(false);
   const transferProfile = async (profile: ChatGptTransferredProfile) => {
     const succeeded = await run(() =>
-      importProfile({ environmentId, input: { instanceId, profile } }),
+      importProfile({ machineId, input: { instanceId, profile } }),
     );
     if (succeeded) {
       setAwaitingProvider("handoff");
@@ -385,7 +385,7 @@ function ManagedCodexSetup({
     setError(
       handoffQuery.data?.phase === "auth"
         ? (handoffQuery.data.state.message ?? "ChatGPT sign-in could not finish. Try again.")
-        : "ChatGPT sign-in on the primary environment was interrupted. Try again.",
+        : "ChatGPT sign-in on the primary machine was interrupted. Try again.",
     );
     setHandoff(null);
   }
@@ -395,7 +395,7 @@ function ManagedCodexSetup({
       setHandoff(null);
       return Promise.resolve();
     }
-    return run(() => cancelAuth({ environmentId, input: { instanceId, flowId: auth!.flowId! } }));
+    return run(() => cancelAuth({ machineId, input: { instanceId, flowId: auth!.flowId! } }));
   };
 
   const signIn = async (methodId = "chatgpt") => {
@@ -404,19 +404,19 @@ function ManagedCodexSetup({
     setTransferFailed(false);
     setRequestedMethodId(methodId);
     const returnUrl = new URL(window.location.href);
-    if (returnUrl.pathname === "/welcome") returnUrl.hash = `agents:${environmentId}`;
+    if (returnUrl.pathname === "/welcome") returnUrl.hash = `agents:${machineId}`;
     if (returnUrl.pathname === "/settings/providers")
       returnUrl.searchParams.set("instanceId", instanceId);
-    if (primaryAuthEnvironmentId) {
+    if (primaryAuthMachineId) {
       const attemptId = `${handoffId}:${++handoffSequence.current}`;
       const succeeded = await run(
-        () => reconnectProfile({ environmentId, input: { instanceId, methodId } }),
+        () => reconnectProfile({ machineId, input: { instanceId, methodId } }),
         (profile) =>
           setHandoff({
-            environmentId: primaryAuthEnvironmentId,
+            machineId: primaryAuthMachineId,
             input: {
               instanceId,
-              environmentId,
+              machineId,
               attemptId,
               returnUrl: returnUrl.toString(),
               profile,
@@ -430,7 +430,7 @@ function ManagedCodexSetup({
       !(await run(
         () =>
           startAuth({
-            environmentId,
+            machineId,
             input: {
               instanceId,
               methodId,
@@ -451,7 +451,7 @@ function ManagedCodexSetup({
       await signIn(methodId);
     } else {
       continueWithSignIn.current = methodId;
-      if (!(await run(() => startInstall({ environmentId, input: { instanceId } })))) {
+      if (!(await run(() => startInstall({ machineId, input: { instanceId } })))) {
         continueWithSignIn.current = null;
       }
     }
@@ -503,7 +503,7 @@ function ManagedCodexSetup({
         if (receivingCallback.current !== authorizationUrl) return;
         receivingCallback.current = null;
         await run(() =>
-          completeAuth({ environmentId, input: { instanceId, flowId, callbackUrl } }),
+          completeAuth({ machineId, input: { instanceId, flowId, callbackUrl } }),
         );
       } else {
         await ensureLocalApi().shell.openExternal(authorizationUrl);
@@ -586,7 +586,7 @@ function ManagedCodexSetup({
           {
             authorizationUrl: url,
             returnUrl: returnUrl.toString(),
-            environmentId,
+            machineId,
             instanceId,
             flowId: auth.flowId,
           },
@@ -637,7 +637,7 @@ function ManagedCodexSetup({
             const submittedFlowId = auth.flowId;
             void run(() =>
               completeAuth({
-                environmentId,
+                machineId,
                 input: { instanceId, flowId: submittedFlowId, callbackUrl: value },
               }),
             ).then((connected) => {
@@ -821,7 +821,7 @@ function ManagedCodexSetup({
                   else if (installation?.operationId)
                     void run(() =>
                       cancelInstall({
-                        environmentId,
+                        machineId,
                         input: { instanceId, operationId: installation.operationId! },
                       }),
                     );
@@ -898,7 +898,7 @@ function ManagedCodexSetup({
                   continueWithSignIn.current = null;
                   void run(() =>
                     cancelInstall({
-                      environmentId,
+                      machineId,
                       input: { instanceId, operationId: installation.operationId! },
                     }),
                   );
@@ -984,17 +984,17 @@ function ManagedCodexSetup({
 }
 
 export function CodexManagedRuntimeFields({
-  environmentId,
+  machineId,
   instanceId,
   provider,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly instanceId: ProviderInstanceId;
   readonly provider: ServerProvider | undefined;
 }) {
-  const installation = useEnvironmentQuery(
-    serverEnvironment.providerInstallState({
-      environmentId,
+  const installation = useMachineQuery(
+    serverMachine.providerInstallState({
+      machineId,
       input: { instanceId },
     }),
   );

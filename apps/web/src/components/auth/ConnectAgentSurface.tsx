@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { type ReactNode, useEffect, useState } from "react";
 
-import { PrimaryEnvironmentHttpClient } from "~/environments/primary/httpClient";
+import { PrimaryMachineHttpClient } from "~/machines/primary/httpClient";
 import { runPrimaryHttp } from "~/lib/runtime";
 import { cn } from "~/lib/utils";
 import { runtimeModeConfig } from "../chat/runtimeModeConfig";
@@ -45,7 +45,7 @@ type Loaded =
   | { readonly status: "invalid"; readonly message: string }
   | { readonly status: "ready"; readonly details: AuthMcpApprovalDetails };
 
-const UNREACHABLE = "Could not reach this environment. Try again.";
+const UNREACHABLE = "Could not reach this machine. Try again.";
 const isApprovalError = Schema.is(AuthMcpApprovalError);
 
 type Answer<A> =
@@ -55,11 +55,11 @@ type Answer<A> =
 
 function runApproval<A>(
   call: (
-    client: Context.Service.Shape<typeof PrimaryEnvironmentHttpClient>,
+    client: Context.Service.Shape<typeof PrimaryMachineHttpClient>,
   ) => Effect.Effect<A | { readonly redirectTo: string }, unknown>,
 ): Promise<Answer<A>> {
   return runPrimaryHttp(
-    PrimaryEnvironmentHttpClient.pipe(
+    PrimaryMachineHttpClient.pipe(
       Effect.flatMap(call),
       Effect.map((value): Answer<A> =>
         typeof value === "object" && value !== null && "redirectTo" in value
@@ -143,7 +143,7 @@ export function ConnectAgentSurface() {
       <AuthSurfaceShell>
         <ConnectAgentHeading
           title="Checking the sign-in request"
-          description="One moment while this environment verifies the agent's request."
+          description="One moment while this machine verifies the agent's request."
         />
         <Spinner className="mt-6" size="lg" tone="muted" />
       </AuthSurfaceShell>
@@ -172,7 +172,7 @@ export function ConnectAgentSurface() {
         description={
           <>
             This agent wants to use the threads in every project on{" "}
-            <span className="font-medium text-foreground">{details.environmentHost}</span>.
+            <span className="font-medium text-foreground">{details.machineHost}</span>.
           </>
         }
       />

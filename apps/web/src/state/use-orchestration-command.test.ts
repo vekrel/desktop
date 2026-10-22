@@ -1,8 +1,8 @@
 import type { AtomCommand } from "@vekrel/client-runtime/state/runtime";
 import {
   AuthOrchestrationOperateScope,
-  EnvironmentAuthorizationError,
-  EnvironmentId,
+  MachineAuthorizationError,
+  MachineId,
 } from "@vekrel/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
@@ -15,17 +15,17 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("react", () => ({ useCallback: (callback: unknown) => callback }));
-vi.mock("./session", () => ({ readEnvironmentScope: state.readScope }));
+vi.mock("./session", () => ({ readMachineScope: state.readScope }));
 vi.mock("./use-atom-command", () => ({ useAtomCommand: () => state.run }));
 
 import { useOrchestrationCommand } from "./use-orchestration-command";
 
-const first = EnvironmentId.make("primary");
-const second = EnvironmentId.make("secondary");
-type Target = { environmentId: EnvironmentId; input: { threadId: string } };
+const first = MachineId.make("primary");
+const second = MachineId.make("secondary");
+type Target = { machineId: MachineId; input: { threadId: string } };
 const command: AtomCommand<Target, string, Error> = { label: "thread mutation", run: state.run };
-const target = (environmentId: EnvironmentId): Target => ({
-  environmentId,
+const target = (machineId: MachineId): Target => ({
+  machineId,
   input: { threadId: "thread-1" },
 });
 
@@ -35,18 +35,18 @@ beforeEach(() => {
   state.readScope
     .mockReset()
     .mockImplementation(
-      (environmentId, scope) =>
-        scope === AuthOrchestrationOperateScope && state.allowed.has(environmentId),
+      (machineId, scope) =>
+        scope === AuthOrchestrationOperateScope && state.allowed.has(machineId),
     );
 });
 
-it("checks the command's environment instead of borrowing the primary grant", async () => {
+it("checks the command's machine instead of borrowing the primary grant", async () => {
   state.allowed.add(first);
   const mutate = useOrchestrationCommand(command, { reportFailure: false });
   const result = await mutate(target(second));
   assert(result._tag === "Failure");
   const error = Cause.squash(result.cause);
-  expect(error).toBeInstanceOf(EnvironmentAuthorizationError);
+  expect(error).toBeInstanceOf(MachineAuthorizationError);
   expect(error).toMatchObject({ requiredScope: AuthOrchestrationOperateScope });
   expect(state.run).not.toHaveBeenCalled();
 

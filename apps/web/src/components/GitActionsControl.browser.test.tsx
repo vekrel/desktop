@@ -1,7 +1,7 @@
 import {
   AuthOrchestrationOperateScope,
   AuthSourceControlWriteScope,
-  EnvironmentId,
+  MachineId,
   ThreadId,
 } from "@vekrel/contracts";
 import * as Cause from "effect/Cause";
@@ -26,21 +26,21 @@ const state = vi.hoisted(() => ({
   branch: "main",
   isDefaultRef: false,
   actions: [] as { scope: { cwd: string | null }; input: GitActionInput }[],
-  metadataRequests: [] as { environmentId: string; branch: string }[],
+  metadataRequests: [] as { machineId: string; branch: string }[],
   toasts: [] as Toast[],
   afterGitAction: undefined as (() => void) | undefined,
   workingTreeRoot: undefined as string | undefined,
   files: [{ path: "file.ts", insertions: 1, deletions: 0 }],
-  editorOpens: [] as { environmentId: string; input: { cwd: string; editor: string } }[],
+  editorOpens: [] as { machineId: string; input: { cwd: string; editor: string } }[],
 }));
 
 vi.mock(import("~/state/session"), async (original) => {
-  const hasScope = (environmentId: unknown, scope: string) =>
-    (environmentId === "environment" ? state.scopes : state.primaryScopes).has(scope);
+  const hasScope = (machineId: unknown, scope: string) =>
+    (machineId === "machine" ? state.scopes : state.primaryScopes).has(scope);
   return {
     ...(await original()),
-    useEnvironmentScope: hasScope as never,
-    readEnvironmentScope: hasScope as never,
+    useMachineScope: hasScope as never,
+    readMachineScope: hasScope as never,
   };
 });
 vi.mock(import("~/state/entities"), async (original) => ({
@@ -55,7 +55,7 @@ vi.mock(import("~/state/entities"), async (original) => ({
 vi.mock(import("~/state/query"), async (original) => ({
   ...(await original()),
   // Serves both the VCS status and the source-control discovery queries.
-  useEnvironmentQuery: (() => ({
+  useMachineQuery: (() => ({
     data: {
       sourceControlProviders: [],
       isRepo: true,
@@ -78,27 +78,27 @@ vi.mock(import("~/state/query"), async (original) => ({
   })) as never,
 }));
 vi.mock(import("~/state/use-atom-command"), async (original) => {
-  const { shellEnvironment } = await import("~/state/shell");
+  const { shellMachine } = await import("~/state/shell");
   return {
     ...(await original()),
     // Only the thread's branch metadata update and editor opens are observed here.
     useAtomCommand: ((command: unknown, options: unknown) =>
       options === "thread branch metadata update"
         ? async ({
-            environmentId,
+            machineId,
             input,
           }: {
-            environmentId: string;
+            machineId: string;
             input: { branch: string };
           }) => {
-            state.metadataRequests.push({ environmentId, branch: input.branch });
+            state.metadataRequests.push({ machineId, branch: input.branch });
             if (!state.scopes.has(AuthOrchestrationOperateScope))
               return AsyncResult.failure(Cause.fail(new Error("Task denied")));
             if (state.shell) state.shell = { branch: input.branch };
             if (state.detail) state.detail = { branch: input.branch };
             return AsyncResult.success(undefined);
           }
-        : command === shellEnvironment.openInEditor
+        : command === shellMachine.openInEditor
           ? async (request: (typeof state.editorOpens)[number]) => {
               state.editorOpens.push(request);
               return AsyncResult.success(undefined);
@@ -106,14 +106,14 @@ vi.mock(import("~/state/use-atom-command"), async (original) => {
           : async () => AsyncResult.success(undefined)) as never,
   };
 });
-// The preferred-editor flow needs one editor the environment reports as installed.
+// The preferred-editor flow needs one editor the machine reports as installed.
 vi.mock(import("~/state/server"), async (original) => {
   const actual = await original();
   const { Atom } = await import("effect/reactivity");
   const config = Atom.make(() => ({ availableEditors: ["cursor"] }));
   return {
     ...actual,
-    serverEnvironment: { ...actual.serverEnvironment, configValueAtom: (() => config) as never },
+    serverMachine: { ...actual.serverMachine, configValueAtom: (() => config) as never },
   };
 });
 vi.mock(import("~/lib/sourceControlActions"), async (original) => ({
@@ -173,7 +173,7 @@ function control(thread = "thread", cwd = "/repo") {
     <MemoGitActionsControl
       gitCwd={cwd}
       activeThreadRef={{
-        environmentId: EnvironmentId.make("environment"),
+        machineId: MachineId.make("machine"),
         threadId: ThreadId.make(thread),
       }}
     />

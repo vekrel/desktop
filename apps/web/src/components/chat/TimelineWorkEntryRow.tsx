@@ -7,10 +7,10 @@ import {
 } from "@vekrel/client-runtime/work-log/user-input";
 import {
   ORCHESTRATION_V2_WORKSPACE_PREPARATION_FAILURE_CODE,
-  type EnvironmentId,
+  type MachineId,
   ThreadId,
 } from "@vekrel/contracts";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { Link } from "@tanstack/react-router";
 import { notificationChildThreadId } from "@vekrel/client-runtime/state/thread-execution";
 import {
@@ -66,10 +66,10 @@ import {
   remarkThoughtPreview,
 } from "./TimelineWorkEntryRow.logic";
 
-export function useThreadReadTarget(entry: TimelineWorkEntry, environmentId: EnvironmentId) {
+export function useThreadReadTarget(entry: TimelineWorkEntry, machineId: MachineId) {
   const rawThreadId = threadReadTargetId(entry);
   const threadId = rawThreadId === null ? null : ThreadId.make(rawThreadId);
-  const shell = useThreadShell(threadId ? scopeThreadRef(environmentId, threadId) : null);
+  const shell = useThreadShell(threadId ? scopeThreadRef(machineId, threadId) : null);
   const title = threadReadTargetTitle(shell);
   return threadId && title ? { threadId, title } : null;
 }
@@ -81,11 +81,11 @@ export function threadReadLabel(label: string, target: ReturnType<typeof useThre
 
 export function ThreadReadLabel({
   label,
-  environmentId,
+  machineId,
   linked,
 }: {
   label: NonNullable<ReturnType<typeof threadReadLabel>>;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   linked: boolean;
 }) {
   return (
@@ -93,8 +93,8 @@ export function ThreadReadLabel({
       <span className="shrink-0">{label.prefix} “</span>
       {linked ? (
         <Link
-          to="/$environmentId/$threadId"
-          params={{ environmentId, threadId: label.threadId }}
+          to="/$machineId/$threadId"
+          params={{ machineId, threadId: label.threadId }}
           className="min-w-0 truncate rounded-sm text-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
           onClick={stopRowToggle}
           onKeyDown={stopRowToggle}
@@ -157,7 +157,7 @@ export const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: WorkEn
   }
   return (
     <SubagentNotificationLink
-      parentRef={scopeThreadRef(ctx.activeThreadEnvironmentId, item.threadId)}
+      parentRef={scopeThreadRef(ctx.activeThreadMachineId, item.threadId)}
       childThreadId={childThreadId}
       outcome={item.outcome}
       createdAt={props.workEntry.createdAt}
@@ -173,7 +173,7 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
   const ctx = use(TimelineRowCtx);
   const { threadRef, onImageExpand, timestampFormat } = ctx;
   const { retryableWorkspacePreparationRunIds, onRetryWorkspacePreparation } = ctx;
-  const threadTarget = useThreadReadTarget(workEntry, ctx.activeThreadEnvironmentId);
+  const threadTarget = useThreadReadTarget(workEntry, ctx.activeThreadMachineId);
   const createdThread =
     workEntry.projectedItem?.item.type === "thread_created"
       ? workEntry.projectedItem.item
@@ -424,7 +424,7 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
               ) : threadLabel ? (
                 <ThreadReadLabel
                   label={threadLabel}
-                  environmentId={ctx.activeThreadEnvironmentId}
+                  machineId={ctx.activeThreadMachineId}
                   linked
                 />
               ) : (
@@ -502,7 +502,7 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
       {expanded && viewedImage && threadRef ? (
         <WorkLogDetails kind="media">
           <ChatMarkdownAssetImage
-            environmentId={threadRef.environmentId}
+            machineId={threadRef.machineId}
             resource={viewedImage.resource}
             alt={viewedImage.alt}
             srcFragment={viewedImage.srcFragment}
@@ -527,7 +527,7 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
           {workEntry.projectedItem && plainOutput === undefined ? (
             <V2ItemInspector
               projectedItem={workEntry.projectedItem}
-              environmentId={ctx.activeThreadEnvironmentId}
+              machineId={ctx.activeThreadMachineId}
               cwd={ctx.markdownCwd}
               workspaceRoot={workspaceRoot}
               onOpenThread={ctx.onOpenThread}
@@ -543,7 +543,7 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
               {plainOutputFetches && workEntry.projectedItem ? (
                 <FetchedToolOutput
                   projectedItem={workEntry.projectedItem}
-                  environmentId={ctx.activeThreadEnvironmentId}
+                  machineId={ctx.activeThreadMachineId}
                   onImageExpand={onImageExpand}
                 />
               ) : null}
@@ -560,13 +560,13 @@ function QuestionAnswerHistory({
 }: {
   answer: import("@vekrel/contracts").UserInputAttachmentAnswerPayload;
 }) {
-  const { activeThreadEnvironmentId } = use(TimelineRowCtx);
+  const { activeThreadMachineId } = use(TimelineRowCtx);
   const attachments = Object.values(answer.attachmentsByQuestionId).flat();
   const resources = attachments.map((attachment) => ({
     _tag: "attachment" as const,
     attachmentId: attachment.id,
   }));
-  const urls = useAssetUrls(activeThreadEnvironmentId, resources);
+  const urls = useAssetUrls(activeThreadMachineId, resources);
   return (
     <div className="ms-7 mt-2 space-y-2" onClick={stopRowToggle}>
       {[

@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@vekrel/contracts";
+import { MachineId } from "@vekrel/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Atom, AsyncResult } from "effect/reactivity";
 import { appAtomRegistry } from "../rpc/atomRegistry";
@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   executeAtomQuery: vi.fn(),
   removeUpload: Symbol("remove-upload"),
   runAtomCommand: vi.fn(),
-  readEnvironmentScope: vi.fn(),
+  readMachineScope: vi.fn(),
   readPreparedConnection: vi.fn(),
 }));
 
@@ -34,22 +34,22 @@ vi.mock("../rpc/atomRegistry", async () => {
 });
 
 vi.mock("../connection/catalog", () => ({
-  environmentCatalog: { stateAtom: mocks.connectionStateAtom },
+  machineCatalog: { stateAtom: mocks.connectionStateAtom },
 }));
 
 vi.mock("../state/assets", () => ({
-  assetEnvironment: { createUrl: mocks.createAssetUrl },
+  assetMachine: { createUrl: mocks.createAssetUrl },
 }));
 
 vi.mock("../state/attachments", () => ({
-  attachmentEnvironment: {
+  attachmentMachine: {
     createUploadUrl: mocks.createUploadUrl,
     remove: mocks.removeUpload,
   },
 }));
 
 vi.mock("../state/session", () => ({
-  readEnvironmentScope: mocks.readEnvironmentScope,
+  readMachineScope: mocks.readMachineScope,
   readPreparedConnection: mocks.readPreparedConnection,
 }));
 
@@ -122,8 +122,8 @@ class TestXmlHttpRequest {
   }
 }
 
-const firstEnvironment = EnvironmentId.make("environment-1");
-const secondEnvironment = EnvironmentId.make("environment-2");
+const firstMachine = MachineId.make("machine-1");
+const secondMachine = MachineId.make("machine-2");
 
 function makeImage(id: string): ComposerImageAttachment {
   const file = new File([new Uint8Array([1, 2, 3])], `${id}.png`, { type: "image/png" });
@@ -152,13 +152,13 @@ function makeFile(id: string): ComposerFileAttachment {
   };
 }
 
-const connectionStates = Atom.family((_environmentId: EnvironmentId) =>
+const connectionStates = Atom.family((_machineId: MachineId) =>
   Atom.make(AsyncResult.success({ phase: "connected" })),
 );
 
-function setConnected(environmentId: EnvironmentId, connected: boolean) {
+function setConnected(machineId: MachineId, connected: boolean) {
   appAtomRegistry.set(
-    connectionStates(environmentId),
+    connectionStates(machineId),
     AsyncResult.success({ phase: connected ? "connected" : "backoff" }),
   );
 }
@@ -166,28 +166,28 @@ function setConnected(environmentId: EnvironmentId, connected: boolean) {
 describe("attachmentUploadQueue", () => {
   beforeEach(() => {
     mocks.connectionStateAtom.mockImplementation(connectionStates);
-    setConnected(firstEnvironment, true);
-    setConnected(secondEnvironment, true);
+    setConnected(firstMachine, true);
+    setConnected(secondMachine, true);
     TestXmlHttpRequest.requests = [];
     mocks.createAssetUrl.mockReset();
     mocks.createAssetUrl.mockImplementation((target: unknown) => target);
     mocks.executeAtomQuery.mockReset();
     mocks.executeAtomQuery.mockResolvedValue({ _tag: "Success", value: {} });
     mocks.runAtomCommand.mockReset();
-    mocks.readEnvironmentScope.mockReset().mockReturnValue(true);
+    mocks.readMachineScope.mockReset().mockReturnValue(true);
     mocks.readPreparedConnection.mockReset();
-    mocks.readPreparedConnection.mockReturnValue({ httpBaseUrl: "https://environment.test/" });
+    mocks.readPreparedConnection.mockReturnValue({ httpBaseUrl: "https://machine.test/" });
     mocks.runAtomCommand.mockImplementation(
       async (
         _registry: unknown,
         command: unknown,
         target: {
-          readonly environmentId: EnvironmentId;
+          readonly machineId: MachineId;
           readonly input: { readonly name?: string };
         },
       ) => {
         if (command === mocks.createUploadUrl) {
-          const attachmentId = `pending-${target.environmentId}-${target.input.name}`;
+          const attachmentId = `pending-${target.machineId}-${target.input.name}`;
           return {
             _tag: "Success",
             value: {
@@ -210,20 +210,20 @@ describe("attachmentUploadQueue", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps an attachment local until its own environment grants write access", async () => {
+  it("keeps an attachment local until its own machine grants write access", async () => {
     const image = makeImage("permission-gain");
-    mocks.readEnvironmentScope.mockImplementation(
-      (environmentId) => environmentId === firstEnvironment,
+    mocks.readMachineScope.mockImplementation(
+      (machineId) => machineId === firstMachine,
     );
 
-    startAttachmentUpload({ environmentId: secondEnvironment, image });
+    startAttachmentUpload({ machineId: secondMachine, image });
     expect(mocks.runAtomCommand).not.toHaveBeenCalled();
     expect(TestXmlHttpRequest.requests).toHaveLength(0);
     expect(readAttachmentUpload(image.id)).toBeUndefined();
     expect(image.file).not.toBeNull();
 
-    mocks.readEnvironmentScope.mockReturnValue(true);
-    startAttachmentUpload({ environmentId: secondEnvironment, image });
+    mocks.readMachineScope.mockReturnValue(true);
+    startAttachmentUpload({ machineId: secondMachine, image });
     await Promise.resolve();
     const settled = awaitAttachmentUploads([image.id]);
     TestXmlHttpRequest.requests[0]!.complete();
@@ -231,7 +231,7 @@ describe("attachmentUploadQueue", () => {
 
     expect(readAttachmentUpload(image.id)).toMatchObject({
       status: "ready",
-      environmentId: secondEnvironment,
+      machineId: secondMachine,
     });
   });
 
@@ -252,9 +252,9 @@ describe("attachmentUploadQueue", () => {
             });
         }),
     );
-    startAttachmentUpload({ environmentId: firstEnvironment, image });
+    startAttachmentUpload({ machineId: firstMachine, image });
     const settled = awaitAttachmentUploads([image.id]);
-    mocks.readEnvironmentScope.mockReturnValue(false);
+    mocks.readMachineScope.mockReturnValue(false);
     finishMint!();
     await settled;
 
@@ -264,34 +264,34 @@ describe("attachmentUploadQueue", () => {
       reason: "This connection cannot upload attachments.",
       attachmentId: "pending-revoked",
     });
-    retryAttachmentUpload({ environmentId: firstEnvironment, image });
+    retryAttachmentUpload({ machineId: firstMachine, image });
     expect(readAttachmentUpload(image.id)?.status).toBe("failed");
     releaseAttachmentUpload(image.id);
     expect(readAttachmentUpload(image.id)).toBeUndefined();
     expect(mocks.runAtomCommand).toHaveBeenCalledTimes(1);
   });
 
-  it("does not delete a persisted upload using another environment's grant", () => {
-    mocks.readEnvironmentScope.mockImplementation(
-      (environmentId) => environmentId === firstEnvironment,
+  it("does not delete a persisted upload using another machine's grant", () => {
+    mocks.readMachineScope.mockImplementation(
+      (machineId) => machineId === firstMachine,
     );
     releasePersistedAttachmentUpload({
       id: "local-file",
-      environmentId: secondEnvironment,
+      machineId: secondMachine,
       attachmentId: "persisted-file",
     });
     expect(mocks.runAtomCommand).not.toHaveBeenCalled();
 
-    mocks.readEnvironmentScope.mockReturnValue(true);
+    mocks.readMachineScope.mockReturnValue(true);
     releasePersistedAttachmentUpload({
       id: "local-file",
-      environmentId: secondEnvironment,
+      machineId: secondMachine,
       attachmentId: "persisted-file",
     });
     expect(mocks.runAtomCommand).toHaveBeenCalledWith(
       expect.anything(),
       mocks.removeUpload,
-      { environmentId: secondEnvironment, input: { attachmentId: "persisted-file" } },
+      { machineId: secondMachine, input: { attachmentId: "persisted-file" } },
       expect.anything(),
     );
   });
@@ -306,13 +306,13 @@ describe("attachmentUploadQueue", () => {
         windowTitle: "Tests",
       },
     };
-    startAttachmentUpload({ environmentId: firstEnvironment, image });
+    startAttachmentUpload({ machineId: firstMachine, image });
     await Promise.resolve();
 
     const request = TestXmlHttpRequest.requests[0]!;
     expect(request.method).toBe("POST");
     expect(request.url).toBe(
-      "https://environment.test/api/attachments/upload/pending-environment-1-image-1.png",
+      "https://machine.test/api/attachments/upload/pending-machine-1-image-1.png",
     );
     request.progress(1, 3);
     expect(readAttachmentUpload(image.id)).toMatchObject({ status: "uploading", progress: 1 / 3 });
@@ -321,10 +321,10 @@ describe("attachmentUploadQueue", () => {
     request.complete();
     await settled;
 
-    expect(getUploadedAttachments({ environmentId: firstEnvironment, images: [image] })).toEqual([
+    expect(getUploadedAttachments({ machineId: firstMachine, images: [image] })).toEqual([
       {
         type: "image",
-        id: "pending-environment-1-image-1.png",
+        id: "pending-machine-1-image-1.png",
         name: "image-1.png",
         mimeType: "image/png",
         sizeBytes: 3,
@@ -343,8 +343,8 @@ describe("attachmentUploadQueue", () => {
       expect.anything(),
       mocks.removeUpload,
       {
-        environmentId: firstEnvironment,
-        input: { attachmentId: "pending-environment-1-image-1.png" },
+        machineId: firstMachine,
+        input: { attachmentId: "pending-machine-1-image-1.png" },
       },
       expect.anything(),
     );
@@ -357,7 +357,7 @@ describe("attachmentUploadQueue", () => {
     draftStore.addFiles(draftId, [file]);
     try {
       startAttachmentUpload({
-        environmentId: firstEnvironment,
+        machineId: firstMachine,
         image: file,
         draftTarget: draftId,
       });
@@ -370,8 +370,8 @@ describe("attachmentUploadQueue", () => {
       expect(useComposerDraftStore.getState().getComposerDraft(draftId)?.files).toMatchObject([
         {
           id: file.id,
-          uploadedAttachmentId: "pending-environment-1-background.pdf",
-          uploadEnvironmentId: firstEnvironment,
+          uploadedAttachmentId: "pending-machine-1-background.pdf",
+          uploadMachineId: firstMachine,
         },
       ]);
     } finally {
@@ -385,7 +385,7 @@ describe("attachmentUploadQueue", () => {
       ...makeFile("expired"),
       file: null,
       uploadedAttachmentId: "pending-expired-pdf",
-      uploadEnvironmentId: firstEnvironment,
+      uploadMachineId: firstMachine,
     };
     mocks.executeAtomQuery.mockResolvedValueOnce({
       _tag: "Failure",
@@ -395,7 +395,7 @@ describe("attachmentUploadQueue", () => {
 
     try {
       startAttachmentUpload({
-        environmentId: firstEnvironment,
+        machineId: firstMachine,
         image: file,
         draftTarget: draftId,
       });
@@ -404,7 +404,7 @@ describe("attachmentUploadQueue", () => {
       const marker = useComposerDraftStore.getState().getComposerDraft(draftId)?.files[0];
       expect(readAttachmentUpload(file.id)).toBeUndefined();
       expect(marker?.uploadedAttachmentId).toBeUndefined();
-      expect(marker?.uploadEnvironmentId).toBeUndefined();
+      expect(marker?.uploadMachineId).toBeUndefined();
       expect(marker && composerFileNeedsReattach(marker)).toBe(true);
 
       const replacementBytes = new File([new Uint8Array([1, 2, 3])], file.name, {
@@ -424,7 +424,7 @@ describe("attachmentUploadQueue", () => {
       ]);
 
       startAttachmentUpload({
-        environmentId: firstEnvironment,
+        machineId: firstMachine,
         image: replacement,
         draftTarget: draftId,
       });
@@ -436,8 +436,8 @@ describe("attachmentUploadQueue", () => {
       expect(useComposerDraftStore.getState().getComposerDraft(draftId)?.files).toMatchObject([
         {
           id: replacement.id,
-          uploadedAttachmentId: "pending-environment-1-expired.pdf",
-          uploadEnvironmentId: firstEnvironment,
+          uploadedAttachmentId: "pending-machine-1-expired.pdf",
+          uploadMachineId: firstMachine,
         },
       ]);
       const removeCalls = mocks.runAtomCommand.mock.calls.filter(
@@ -454,7 +454,7 @@ describe("attachmentUploadQueue", () => {
       ...makeFile("checking"),
       file: null,
       uploadedAttachmentId: "pending-checking-pdf",
-      uploadEnvironmentId: firstEnvironment,
+      uploadMachineId: firstMachine,
     };
     let resolveVerification: (result: {
       readonly _tag: "Success";
@@ -466,7 +466,7 @@ describe("attachmentUploadQueue", () => {
       }),
     );
 
-    startAttachmentUpload({ environmentId: firstEnvironment, image: file });
+    startAttachmentUpload({ machineId: firstMachine, image: file });
     releaseDraftAttachment(file);
     resolveVerification({ _tag: "Success", value: {} });
 
@@ -474,7 +474,7 @@ describe("attachmentUploadQueue", () => {
       expect.anything(),
       mocks.removeUpload,
       {
-        environmentId: firstEnvironment,
+        machineId: firstMachine,
         input: { attachmentId: "pending-checking-pdf" },
       },
       expect.anything(),
@@ -487,7 +487,7 @@ describe("attachmentUploadQueue", () => {
       ...makeFile("flaky"),
       file: null,
       uploadedAttachmentId: "pending-flaky-pdf",
-      uploadEnvironmentId: firstEnvironment,
+      uploadMachineId: firstMachine,
     };
     mocks.executeAtomQuery.mockResolvedValueOnce({
       _tag: "Failure",
@@ -497,7 +497,7 @@ describe("attachmentUploadQueue", () => {
 
     try {
       startAttachmentUpload({
-        environmentId: firstEnvironment,
+        machineId: firstMachine,
         image: file,
         draftTarget: draftId,
       });
@@ -509,12 +509,12 @@ describe("attachmentUploadQueue", () => {
       expect(useComposerDraftStore.getState().getComposerDraft(draftId)?.files).toMatchObject([
         {
           uploadedAttachmentId: "pending-flaky-pdf",
-          uploadEnvironmentId: firstEnvironment,
+          uploadMachineId: firstMachine,
         },
       ]);
 
       retryAttachmentUpload({
-        environmentId: firstEnvironment,
+        machineId: firstMachine,
         image: file,
         draftTarget: draftId,
       });
@@ -522,13 +522,13 @@ describe("attachmentUploadQueue", () => {
 
       expect(readAttachmentUpload(file.id)).toEqual({
         status: "ready",
-        environmentId: firstEnvironment,
+        machineId: firstMachine,
         attachmentId: "pending-flaky-pdf",
       });
       expect(useComposerDraftStore.getState().getComposerDraft(draftId)?.files).toMatchObject([
         {
           uploadedAttachmentId: "pending-flaky-pdf",
-          uploadEnvironmentId: firstEnvironment,
+          uploadMachineId: firstMachine,
         },
       ]);
       const removeCalls = mocks.runAtomCommand.mock.calls.filter(
@@ -545,9 +545,9 @@ describe("attachmentUploadQueue", () => {
       ...makeFile("live"),
       file: null,
       uploadedAttachmentId: "pending-live-pdf",
-      uploadEnvironmentId: firstEnvironment,
+      uploadMachineId: firstMachine,
     };
-    startAttachmentUpload({ environmentId: firstEnvironment, image: file });
+    startAttachmentUpload({ machineId: firstMachine, image: file });
     await awaitAttachmentUploads([file.id]);
     expect(readAttachmentUpload(file.id)).toMatchObject({ status: "ready" });
 
@@ -562,7 +562,7 @@ describe("attachmentUploadQueue", () => {
         expect.anything(),
         mocks.removeUpload,
         {
-          environmentId: firstEnvironment,
+          machineId: firstMachine,
           input: { attachmentId: "pending-live-pdf" },
         },
         expect.anything(),
@@ -575,7 +575,7 @@ describe("attachmentUploadQueue", () => {
     const minted = {
       _tag: "Success" as const,
       value: {
-        attachmentId: "pending-environment-1-image-cancelled.png",
+        attachmentId: "pending-machine-1-image-cancelled.png",
         relativeUrl: "/api/attachments/upload/cancelled",
         expiresAt: 1,
       },
@@ -596,7 +596,7 @@ describe("attachmentUploadQueue", () => {
       return Promise.resolve({ _tag: "Success", value: undefined });
     });
 
-    startAttachmentUpload({ environmentId: firstEnvironment, image });
+    startAttachmentUpload({ machineId: firstMachine, image });
     releaseAttachmentUpload(image.id);
     resolveMint(minted);
     await deleted;
@@ -607,47 +607,47 @@ describe("attachmentUploadQueue", () => {
       expect.anything(),
       mocks.removeUpload,
       {
-        environmentId: firstEnvironment,
+        machineId: firstMachine,
         input: { attachmentId: minted.value.attachmentId },
       },
       expect.anything(),
     );
   });
 
-  it("restores the previous environment after a replacement upload fails", async () => {
+  it("restores the previous machine after a replacement upload fails", async () => {
     const image = makeImage("image-move");
-    startAttachmentUpload({ environmentId: firstEnvironment, image });
+    startAttachmentUpload({ machineId: firstMachine, image });
     await Promise.resolve();
     let settled = awaitAttachmentUploads([image.id]);
     TestXmlHttpRequest.requests[0]!.complete();
     await settled;
 
-    startAttachmentUpload({ environmentId: secondEnvironment, image });
+    startAttachmentUpload({ machineId: secondMachine, image });
     await Promise.resolve();
     settled = awaitAttachmentUploads([image.id]);
     TestXmlHttpRequest.requests[1]!.complete(500);
     await settled;
 
-    startAttachmentUpload({ environmentId: firstEnvironment, image });
+    startAttachmentUpload({ machineId: firstMachine, image });
     expect(readAttachmentUpload(image.id)).toMatchObject({
       status: "ready",
-      environmentId: firstEnvironment,
-      attachmentId: "pending-environment-1-image-move.png",
+      machineId: firstMachine,
+      attachmentId: "pending-machine-1-image-move.png",
     });
   });
 
-  it("does not let stalled uploads block another environment", async () => {
+  it("does not let stalled uploads block another machine", async () => {
     const images = ["image-a", "image-b", "image-c", "image-d"].map(makeImage);
     for (const image of images) {
-      startAttachmentUpload({ environmentId: firstEnvironment, image });
+      startAttachmentUpload({ machineId: firstMachine, image });
     }
-    const otherEnvironmentImage = makeImage("image-other");
-    startAttachmentUpload({ environmentId: secondEnvironment, image: otherEnvironmentImage });
+    const otherMachineImage = makeImage("image-other");
+    startAttachmentUpload({ machineId: secondMachine, image: otherMachineImage });
     await Promise.resolve();
 
     expect(TestXmlHttpRequest.requests).toHaveLength(4);
     const otherRequest = TestXmlHttpRequest.requests.find((request) =>
-      request.url?.includes("environment-2"),
+      request.url?.includes("machine-2"),
     );
     expect(otherRequest).toBeDefined();
 
@@ -656,7 +656,7 @@ describe("attachmentUploadQueue", () => {
     }
     await Promise.all([
       ...images.slice(0, 3).map((image) => awaitAttachmentUploads([image.id])),
-      awaitAttachmentUploads([otherEnvironmentImage.id]),
+      awaitAttachmentUploads([otherMachineImage.id]),
     ]);
     await Promise.resolve();
     TestXmlHttpRequest.requests[4]!.complete();

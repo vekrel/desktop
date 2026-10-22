@@ -1,7 +1,7 @@
-import { type EnvironmentId, UsageLimitSourceId } from "@vekrel/contracts";
+import { type MachineId, UsageLimitSourceId } from "@vekrel/contracts";
 import { useState } from "react";
 
-import { useUpdateEnvironmentSettings } from "../../hooks/useSettings";
+import { useUpdateMachineSettings } from "../../hooks/useSettings";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -39,15 +39,15 @@ function sourceIdFromUrl(url: string): UsageLimitSourceId {
 export function AddUsageLimitSourceDialog({
   open,
   onOpenChange,
-  environmentId,
-  environmentLabel,
+  machineId,
+  machineLabel,
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
-  readonly environmentId: EnvironmentId;
-  readonly environmentLabel: string;
+  readonly machineId: MachineId;
+  readonly machineLabel: string;
 }) {
-  const updateSettings = useUpdateEnvironmentSettings(environmentId);
+  const updateSettings = useUpdateMachineSettings(machineId);
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
   const [managementKey, setManagementKey] = useState("");
@@ -91,7 +91,7 @@ export function AddUsageLimitSourceDialog({
           <DialogTitle>Add a CLIProxyAPI hub</DialogTitle>
           <DialogDescription>
             Show the quota of every account the hub pools, next to the providers on{" "}
-            {environmentLabel}. The key stays on that server.
+            {machineLabel}. The key stays on that server.
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>

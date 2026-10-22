@@ -4,7 +4,7 @@ import {
   type AtomCommandResult,
 } from "@vekrel/client-runtime/state/runtime";
 import type {
-  EnvironmentId,
+  MachineId,
   ProviderAuthRespondInput,
   ProviderAuthResponse,
   ProviderInstanceId,
@@ -15,8 +15,8 @@ import { CopyIcon } from "lucide-react";
 
 import { writeTextToClipboard } from "../../hooks/useCopyToClipboard";
 import { ensureLocalApi } from "../../localApi";
-import { useEnvironmentQuery } from "../../state/query";
-import { serverEnvironment } from "../../state/server";
+import { useMachineQuery } from "../../state/query";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -28,26 +28,26 @@ import { RedactedSensitiveText } from "./RedactedSensitiveText";
 const ProviderAuthTerminal = lazy(() => import("./ProviderAuthTerminal"));
 
 export function ProviderAuthenticationSection({
-  environmentId,
-  environmentLabel,
+  machineId,
+  machineLabel,
   instanceId,
   provider,
   readOnly,
 }: {
-  readonly environmentId: EnvironmentId;
-  readonly environmentLabel: string;
+  readonly machineId: MachineId;
+  readonly machineLabel: string;
   readonly instanceId: ProviderInstanceId;
   readonly provider: ServerProvider;
   readonly readOnly: boolean;
 }) {
-  const target = { environmentId, input: { instanceId } };
-  const query = useEnvironmentQuery(serverEnvironment.providerAuthState(target));
+  const target = { machineId, input: { instanceId } };
+  const query = useMachineQuery(serverMachine.providerAuthState(target));
   const commands = { reportFailure: false, reportDefect: false };
-  const start = useAtomCommand(serverEnvironment.startProviderAuth, commands);
-  const respond = useAtomCommand(serverEnvironment.respondProviderAuth, commands);
-  const complete = useAtomCommand(serverEnvironment.completeProviderAuth, commands);
-  const cancel = useAtomCommand(serverEnvironment.cancelProviderAuth, commands);
-  const logout = useAtomCommand(serverEnvironment.logoutProviderAuth, commands);
+  const start = useAtomCommand(serverMachine.startProviderAuth, commands);
+  const respond = useAtomCommand(serverMachine.respondProviderAuth, commands);
+  const complete = useAtomCommand(serverMachine.completeProviderAuth, commands);
+  const cancel = useAtomCommand(serverMachine.cancelProviderAuth, commands);
+  const logout = useAtomCommand(serverMachine.logoutProviderAuth, commands);
   const [methodId, setMethodId] = useState("");
   const [draft, setDraft] = useState({ id: "", values: {} as Record<string, string> });
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +89,7 @@ export function ProviderAuthenticationSection({
         ? "Discovering sign-in methods…"
         : needsExternalSetup
           ? "No in-app sign-in advertised. Follow the provider's docs to finish setup."
-          : `Sign in on ${environmentLabel}.`;
+          : `Sign in on ${machineLabel}.`;
   const statusMessage = auth?.phase === "failed" ? auth.message : null;
   const disabled = readOnly || pending || query.error !== null || isDiscovering;
   const draftId = `${auth?.flowId ?? ""}:${interaction?.id ?? ""}`;
@@ -126,7 +126,7 @@ export function ProviderAuthenticationSection({
     if (!auth?.flowId || !interaction) return false;
     return run(() =>
       respond({
-        environmentId,
+        machineId,
         input: { instanceId, flowId: auth.flowId!, interactionId: interaction.id, response },
       }),
     );
@@ -136,7 +136,7 @@ export function ProviderAuthenticationSection({
     if (!url || readOnly) return;
     const requiresConsent = interaction?.type === "browser" && interaction.requiresConsent;
     // Browsers block tabs opened after an await, so the web build reserves one
-    // while the environment records consent.
+    // while the machine records consent.
     const pending = requiresConsent && !window.desktopBridge ? window.open("", "_blank") : null;
     if (pending) pending.opener = null;
     try {
@@ -264,7 +264,7 @@ export function ProviderAuthenticationSection({
                 disabled={disabled}
                 onClick={() =>
                   void run(() =>
-                    cancel({ environmentId, input: { instanceId, flowId: auth.flowId! } }),
+                    cancel({ machineId, input: { instanceId, flowId: auth.flowId! } }),
                   )
                 }
               >
@@ -278,7 +278,7 @@ export function ProviderAuthenticationSection({
                 onClick={() =>
                   void run(() =>
                     start({
-                      environmentId,
+                      machineId,
                       input: {
                         instanceId,
                         ...(methodId && auth?.methods?.some((method) => method.id === methodId)
@@ -304,7 +304,7 @@ export function ProviderAuthenticationSection({
                 onClick={() => {
                   void ensureLocalApi()
                     .dialogs.confirm(
-                      `Sign out of ${provider.displayName ?? provider.driver} on ${environmentLabel}? This stops running threads that share this sign-in. Thread history is kept.`,
+                      `Sign out of ${provider.displayName ?? provider.driver} on ${machineLabel}? This stops running threads that share this sign-in. Thread history is kept.`,
                     )
                     .then((confirmed) => {
                       if (confirmed) void run(() => logout(target));
@@ -365,7 +365,7 @@ export function ProviderAuthenticationSection({
                     void (async () => {
                       while (terminalQueue.current.length > 0) {
                         const input = terminalQueue.current.shift()!;
-                        const result = await respond({ environmentId, input });
+                        const result = await respond({ machineId, input });
                         if (result._tag !== "Success") {
                           terminalQueue.current = [];
                           if (!isAtomCommandInterrupted(result))
@@ -429,7 +429,7 @@ export function ProviderAuthenticationSection({
                 if (!auth?.flowId || !values.callback?.trim()) return;
                 void run(() =>
                   complete({
-                    environmentId,
+                    machineId,
                     input: { instanceId, flowId: auth.flowId!, callbackUrl: values.callback! },
                   }),
                 ).then((sent) => {

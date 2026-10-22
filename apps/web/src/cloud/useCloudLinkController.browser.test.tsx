@@ -1,8 +1,8 @@
 import {
   AuthRelayReadScope,
   AuthRelayWriteScope,
-  EnvironmentId,
-  type EnvironmentCloudLinkStateResult,
+  MachineId,
+  type MachineCloudLinkStateResult,
 } from "@vekrel/contracts";
 import type { RelayManagedEndpointProviderKind } from "@vekrel/contracts/relay";
 import { AsyncResult } from "effect/reactivity";
@@ -13,8 +13,8 @@ import { act, render } from "../../test/render";
 
 const testState = vi.hoisted(() => ({
   scopes: new Set<string>(),
-  snapshot: null as EnvironmentCloudLinkStateResult | null,
-  renderedSnapshot: null as EnvironmentCloudLinkStateResult | null,
+  snapshot: null as MachineCloudLinkStateResult | null,
+  renderedSnapshot: null as MachineCloudLinkStateResult | null,
   relayProviderKind: null as RelayManagedEndpointProviderKind | null,
   getToken: vi.fn<() => Promise<string | null>>(),
   link: vi.fn(),
@@ -28,13 +28,13 @@ const testState = vi.hoisted(() => ({
 vi.mock(import("@effect/atom-react"), async (original) => ({
   ...(await original()),
   useAtomValue: (() => ({
-    environments: new Map(
+    machines: new Map(
       testState.relayProviderKind === null
         ? []
         : [
             [
               "primary",
-              { environment: { endpoint: { providerKind: testState.relayProviderKind } } },
+              { machine: { endpoint: { providerKind: testState.relayProviderKind } } },
             ],
           ],
     ),
@@ -52,25 +52,25 @@ vi.mock(import("../state/relay"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    relayEnvironmentDiscovery: {
-      ...actual.relayEnvironmentDiscovery,
+    relayMachineDiscovery: {
+      ...actual.relayMachineDiscovery,
       refresh: testState.refreshDiscovery,
     } as never,
   };
 });
 vi.mock(import("../state/session"), async (original) => ({
   ...(await original()),
-  readEnvironmentScope: (_environmentId, scope) => testState.scopes.has(scope),
+  readMachineScope: (_machineId, scope) => testState.scopes.has(scope),
 }));
 vi.mock(import("../state/use-atom-command"), async (original) => ({
   ...(await original()),
   useAtomCommand: ((command: unknown) => command) as never,
 }));
-vi.mock(import("./linkEnvironmentAtoms"), async (original) => ({
+vi.mock(import("./linkMachineAtoms"), async (original) => ({
   ...(await original()),
-  linkPrimaryEnvironment: testState.link as never,
-  unlinkPrimaryEnvironment: testState.unlink as never,
-  updatePrimaryEnvironmentPreferences: testState.preferences as never,
+  linkPrimaryMachine: testState.link as never,
+  unlinkPrimaryMachine: testState.unlink as never,
+  updatePrimaryMachinePreferences: testState.preferences as never,
 }));
 vi.mock(import("./primaryCloudLinkState"), async (original) => ({
   ...(await original()),
@@ -83,7 +83,7 @@ vi.mock(import("./primaryCloudLinkState"), async (original) => ({
     refresh: testState.refreshLink,
   })) as never,
 }));
-// The Clerk JWT template is build-time config the test environment does not set.
+// The Clerk JWT template is build-time config the test machine does not set.
 vi.mock(import("./publicConfig"), async (original) => ({
   ...(await original()),
   resolveRelayClerkTokenOptions: () => ({}) as never,
@@ -92,12 +92,12 @@ vi.mock(import("./publicConfig"), async (original) => ({
 import { useCloudLinkController, type CloudLinkDesiredState } from "./useCloudLinkController";
 
 const target = {
-  environmentId: EnvironmentId.make("primary"),
+  machineId: MachineId.make("primary"),
   label: "Primary",
   httpBaseUrl: "http://localhost:3773",
   wsBaseUrl: "ws://localhost:3773/ws",
 };
-const linkedState: EnvironmentCloudLinkStateResult = {
+const linkedState: MachineCloudLinkStateResult = {
   linked: true,
   cloudUserId: "account-1",
   relayUrl: "https://relay.example.com",
@@ -179,7 +179,7 @@ describe("useCloudLinkController", () => {
     },
   );
 
-  it("does not interpret unavailable link state as an unlinked environment", async () => {
+  it("does not interpret unavailable link state as an unlinked machine", async () => {
     using _setup = setup();
     testState.snapshot = null;
     await using screen = await mountController();

@@ -1,11 +1,11 @@
 import {
   AuthTerminalOperateScope,
-  type EnvironmentId,
+  type MachineId,
   type ResolvedKeybindingsConfig,
   type ScopedThreadRef,
   type ThreadId,
 } from "@vekrel/contracts";
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
 import { projectScriptCwd, projectScriptRuntimeEnv } from "@vekrel/shared/projectScripts";
 import { resolveTerminalSessionLabel } from "@vekrel/shared/terminalLabels";
 import { memo, useEffect, useState } from "react";
@@ -19,7 +19,7 @@ import {
   type RightPanelSurface,
 } from "../rightPanelStore";
 import { useProject, useQuietThreadShell } from "../state/entities";
-import { useEnvironmentScope } from "../state/session";
+import { useMachineScope } from "../state/session";
 import { useKnownTerminalSessions } from "../state/terminalSessions";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import { useThreadTerminalActions } from "./terminal/useThreadTerminalActions";
@@ -78,7 +78,7 @@ interface TerminalLaunchLocationWithEnv {
 }
 
 interface PersistentThreadTerminalDrawerProps {
-  threadRef: { environmentId: EnvironmentId; threadId: ThreadId };
+  threadRef: { machineId: MachineId; threadId: ThreadId };
   threadId: ThreadId;
   active: boolean;
   composerHeight: number;
@@ -106,14 +106,14 @@ export const PersistentThreadTerminalDrawer = memo(function PersistentThreadTerm
   keybindings,
   onAddTerminalContext,
 }: PersistentThreadTerminalDrawerProps) {
-  const canOperateTerminal = useEnvironmentScope(threadRef.environmentId, AuthTerminalOperateScope);
+  const canOperateTerminal = useMachineScope(threadRef.machineId, AuthTerminalOperateScope);
   const terminalActions = useThreadTerminalActions(threadRef);
   const serverThread = useQuietThreadShell(threadRef);
   const draftThread = useComposerDraftStore((store) => store.getDraftThreadByRef(threadRef));
   const projectRef = serverThread
-    ? scopeProjectRef(serverThread.environmentId, serverThread.projectId)
+    ? scopeProjectRef(serverThread.machineId, serverThread.projectId)
     : draftThread
-      ? scopeProjectRef(draftThread.environmentId, draftThread.projectId)
+      ? scopeProjectRef(draftThread.machineId, draftThread.projectId)
       : null;
   const project = useProject(projectRef);
   const terminalUiState = useTerminalUiStateStore((state) =>
@@ -121,7 +121,7 @@ export const PersistentThreadTerminalDrawer = memo(function PersistentThreadTerm
   );
   const visible = active && terminalUiState.terminalOpen;
   const knownTerminalSessions = useKnownTerminalSessions({
-    environmentId: threadRef.environmentId,
+    machineId: threadRef.machineId,
     threadId,
   });
   const panelSurfaces = useRightPanelStore(
@@ -337,13 +337,13 @@ export const PersistentThreadTerminalPanel = memo(function PersistentThreadTermi
   const serverThread = useQuietThreadShell(threadRef);
   const draftThread = useComposerDraftStore((store) => store.getDraftThreadByRef(threadRef));
   const projectRef = serverThread
-    ? scopeProjectRef(serverThread.environmentId, serverThread.projectId)
+    ? scopeProjectRef(serverThread.machineId, serverThread.projectId)
     : draftThread
-      ? scopeProjectRef(draftThread.environmentId, draftThread.projectId)
+      ? scopeProjectRef(draftThread.machineId, draftThread.projectId)
       : null;
   const project = useProject(projectRef);
   const knownTerminalSessions = useKnownTerminalSessions({
-    environmentId: threadRef.environmentId,
+    machineId: threadRef.machineId,
     threadId: threadRef.threadId,
   });
   const threadWorktreePath = serverThread?.worktreePath ?? draftThread?.worktreePath ?? null;

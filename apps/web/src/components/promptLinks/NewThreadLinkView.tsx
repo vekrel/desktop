@@ -1,4 +1,4 @@
-import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { getCloneDestinationPath } from "@vekrel/client-runtime/operations/projects";
 import {
   findPromptLinkProject,
@@ -9,7 +9,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 import {
   type NewThreadLink,
   type PromptLinkRepository,
@@ -26,10 +26,10 @@ import { useScratchProject } from "~/hooks/useScratchProject";
 import { newProjectId } from "~/lib/utils";
 import { useProjects, useThreadShells, waitForProject } from "~/state/entities";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
-import { useEnvironments, usePrimaryEnvironmentId } from "~/state/environments";
-import { environmentPresentations } from "~/state/presentation";
+import { useMachines, usePrimaryMachineId } from "~/state/machines";
+import { machinePresentations } from "~/state/presentation";
 import { allReachableShellsLiveAtom } from "~/state/shell";
-import { sourceControlEnvironment } from "~/state/sourceControl";
+import { sourceControlMachine } from "~/state/sourceControl";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { usePullRequestHandoffs } from "../pullRequest/usePullRequestActions";
@@ -48,12 +48,12 @@ type LinkState =
   | { readonly status: "missing-repository"; readonly repository: PromptLinkRepository }
   | {
       readonly status: "pull-request-checkout";
-      readonly project: EnvironmentProject;
+      readonly project: MachineProject;
     };
 
 type LinkLaunch =
   | { readonly kind: "thread"; readonly thread: ReturnType<typeof useThreadShells>[number] }
-  | { readonly kind: "draft"; readonly project: EnvironmentProject }
+  | { readonly kind: "draft"; readonly project: MachineProject }
   | { readonly kind: "scratch" }
   | { readonly kind: "settled" };
 
@@ -65,11 +65,11 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
   const ready = useAtomValue(allReachableShellsLiveAtom);
   const projects = useProjects();
   const threads = useThreadShells();
-  const { environments } = useEnvironments();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const { machines } = useMachines();
+  const primaryMachineId = usePrimaryMachineId();
   const handleNewThread = useNewThreadHandler();
-  const { scratchEnvironmentId, openScratchProject } = useScratchProject();
-  const startProjectClone = useAtomCommand(sourceControlEnvironment.startProjectClone, {
+  const { scratchMachineId, openScratchProject } = useScratchProject();
+  const startProjectClone = useAtomCommand(sourceControlMachine.startProjectClone, {
     reportFailure: false,
   });
   const [state, setState] = useState<LinkState>(() =>
@@ -86,16 +86,16 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
       "updated_at",
     );
 
-  const lastActiveEnvironmentId = () => {
+  const lastActiveMachineId = () => {
     let latest: (typeof threads)[number] | undefined;
     for (const thread of threads) {
       if (latest === undefined || thread.updatedAt > latest.updatedAt) latest = thread;
     }
-    return latest?.environmentId ?? primaryEnvironmentId;
+    return latest?.machineId ?? primaryMachineId;
   };
 
-  const openDraft = async (project: EnvironmentProject, extraPrompt?: string) => {
-    const opened = await handleNewThread(scopeProjectRef(project.environmentId, project.id), {
+  const openDraft = async (project: MachineProject, extraPrompt?: string) => {
+    const opened = await handleNewThread(scopeProjectRef(project.machineId, project.id), {
       replace: true,
     }).catch(() => null);
     if (opened === null) {
@@ -107,8 +107,8 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
     if (link.kind === "new" && link.provider !== null) {
       const providers =
         appAtomRegistry
-          .get(environmentPresentations.providersByEnvironmentAtom)
-          .get(project.environmentId) ?? [];
+          .get(machinePresentations.providersByMachineAtom)
+          .get(project.machineId) ?? [];
       const resolved = resolvePromptLinkModelSelection(providers, {
         provider: link.provider,
         model: link.model,
@@ -137,9 +137,9 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
   };
 
   const openScratchDraft = async () => {
-    const environmentId =
-      scratchEnvironmentId(lastActiveEnvironmentId()) ?? scratchEnvironmentId(null);
-    const project = environmentId === null ? null : await openScratchProject(environmentId);
+    const machineId =
+      scratchMachineId(lastActiveMachineId()) ?? scratchMachineId(null);
+    const project = machineId === null ? null : await openScratchProject(machineId);
     if (project === null) {
       setState({
         status: "failed",
@@ -159,13 +159,13 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
   };
 
   const cloneRepository = async (repository: PromptLinkRepository) => {
-    const environmentId = lastActiveEnvironmentId();
-    const environment = environments.find((entry) => entry.environmentId === environmentId);
-    const newProjectsRoot = environment?.serverConfig?.newProjectsRoot ?? null;
+    const machineId = lastActiveMachineId();
+    const machine = machines.find((entry) => entry.machineId === machineId);
+    const newProjectsRoot = machine?.serverConfig?.newProjectsRoot ?? null;
     if (
-      environmentId === null ||
+      machineId === null ||
       newProjectsRoot === null ||
-      environment?.serverConfig?.environment.capabilities.projectCloneTracking !== true
+      machine?.serverConfig?.machine.capabilities.projectCloneTracking !== true
     ) {
       setState({
         status: "failed",
@@ -177,7 +177,7 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
     setState({ status: "opening" });
     const projectId = newProjectId();
     const result = await startProjectClone({
-      environmentId,
+      machineId,
       input: {
         projectId,
         title: repository.name,
@@ -200,7 +200,7 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
       setState({ status: "missing-repository", repository });
       return;
     }
-    const project = await waitForProject(scopeProjectRef(environmentId, projectId), 5_000).catch(
+    const project = await waitForProject(scopeProjectRef(machineId, projectId), 5_000).catch(
       () => null,
     );
     if (project === null) {
@@ -247,11 +247,11 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
     openedLinkKeys.add(locationKey);
     switch (next.kind) {
       case "thread": {
-        const threadRef = scopeThreadRef(next.thread.environmentId, next.thread.id);
+        const threadRef = scopeThreadRef(next.thread.machineId, next.thread.id);
         if (link.prompt !== null) placeLinkedPrompt(threadRef, link.prompt);
         void navigate({
-          to: "/$environmentId/$threadId",
-          params: { environmentId: next.thread.environmentId, threadId: next.thread.id },
+          to: "/$machineId/$threadId",
+          params: { machineId: next.thread.machineId, threadId: next.thread.id },
           replace: true,
         });
         return;
@@ -328,10 +328,10 @@ function PullRequestLinkCheckout({
   project,
 }: {
   readonly link: Extract<NewThreadLink, { kind: "pull-request" }>;
-  readonly project: EnvironmentProject;
+  readonly project: MachineProject;
 }) {
   const { handoff, startHandoff } = usePullRequestHandoffs({
-    environmentId: project.environmentId,
+    machineId: project.machineId,
     detail: {
       projectId: project.id,
       workspaceRoot: project.workspaceRoot,

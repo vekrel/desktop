@@ -1,4 +1,4 @@
-import type { EnvironmentId, PullRequestRef, PullRequestReviewGuideStop } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef, PullRequestReviewGuideStop } from "@vekrel/contracts";
 import { SparklesIcon, TriangleAlertIcon } from "lucide-react";
 import { useEffect, useEffectEvent } from "react";
 
@@ -20,7 +20,7 @@ import {
 } from "./pullRequestReviewStore";
 
 export function PullRequestGuideTab({
-  environmentId,
+  machineId,
   reference,
   title,
   workspaceRoot,
@@ -32,7 +32,7 @@ export function PullRequestGuideTab({
   onOpenFile,
   onTourShown,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   reference: PullRequestRef;
   title: string | null;
   workspaceRoot: string;
@@ -47,11 +47,11 @@ export function PullRequestGuideTab({
   onTourShown?: (() => void) | undefined;
 }) {
   const { query, data, running, canWrite, write } = useReviewGuideWriter({
-    environmentId,
+    machineId,
     reference,
     title,
   });
-  const runKey = guideRunKey(environmentId, reference);
+  const runKey = guideRunKey(machineId, reference);
   const reviewKey = pullRequestReviewKey(reference);
   const pending = usePendingReviewComments(reference);
   const addComment = usePullRequestReviewStore((store) => store.addComment);
@@ -140,9 +140,9 @@ export function PullRequestGuideTab({
     ) : null;
 
   return (
-    <GuideProseContext value={{ environmentId, cwd: workspaceRoot }}>
+    <GuideProseContext value={{ machineId, cwd: workspaceRoot }}>
       <GuideTour
-        environmentId={environmentId}
+        machineId={machineId}
         reference={reference}
         guide={guide}
         banner={banner}

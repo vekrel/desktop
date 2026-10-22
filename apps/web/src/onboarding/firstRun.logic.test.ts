@@ -141,23 +141,23 @@ describe("transitionFirstRunGateState", () => {
   );
 });
 
-const primaryEnvironmentId = "primary-environment";
+const primaryMachineId = "primary-machine";
 const bootstrapProject = {
   id: "bootstrap-project",
-  environmentId: primaryEnvironmentId,
+  machineId: primaryMachineId,
   workspaceRoot: "/projects/current",
 };
 const bootstrapThread = {
   id: "bootstrap-thread",
   projectId: bootstrapProject.id,
-  environmentId: primaryEnvironmentId,
+  machineId: primaryMachineId,
   latestRun: null,
   latestUserMessageAt: null,
   runtime: null,
 };
 
 const freshBootstrap = {
-  primaryEnvironmentId,
+  primaryMachineId,
   serverCwd: "/projects/current",
   bootstrapProjectId: bootstrapProject.id,
   bootstrapThreadId: bootstrapThread.id,
@@ -171,7 +171,7 @@ describe("isFreshFirstRunWorkspace", () => {
   it("accepts only the unused project and thread created from the server cwd", () => {
     expect(
       isFreshFirstRunWorkspace({
-        primaryEnvironmentId,
+        primaryMachineId,
         serverCwd: "/projects/current/",
         bootstrapProjectId: bootstrapProject.id,
         bootstrapThreadId: bootstrapThread.id,
@@ -186,7 +186,7 @@ describe("isFreshFirstRunWorkspace", () => {
   it("rejects an existing unused cwd project and thread reused by startup", () => {
     expect(
       isFreshFirstRunWorkspace({
-        primaryEnvironmentId,
+        primaryMachineId,
         serverCwd: "/projects/current",
         bootstrapProjectId: bootstrapProject.id,
         bootstrapThreadId: bootstrapThread.id,
@@ -201,7 +201,7 @@ describe("isFreshFirstRunWorkspace", () => {
   it("rejects a nonempty workspace when an older server omits creation provenance", () => {
     expect(
       isFreshFirstRunWorkspace({
-        primaryEnvironmentId,
+        primaryMachineId,
         serverCwd: "/projects/current",
         bootstrapProjectId: bootstrapProject.id,
         bootstrapThreadId: bootstrapThread.id,
@@ -214,7 +214,7 @@ describe("isFreshFirstRunWorkspace", () => {
   it("normalizes Windows project paths before checking the bootstrap workspace", () => {
     expect(
       isFreshFirstRunWorkspace({
-        primaryEnvironmentId,
+        primaryMachineId,
         serverCwd: "C:\\Projects\\Current\\",
         bootstrapProjectId: bootstrapProject.id,
         bootstrapThreadId: bootstrapThread.id,

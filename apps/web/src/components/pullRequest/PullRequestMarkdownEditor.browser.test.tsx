@@ -1,5 +1,5 @@
 import { act, render, type Screen } from "../../../test/render";
-import { AuthSourceControlWriteScope, EnvironmentId } from "@vekrel/contracts";
+import { AuthSourceControlWriteScope, MachineId } from "@vekrel/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 
@@ -10,25 +10,25 @@ const permissions = vi.hoisted(() => ({
 
 vi.mock(import("~/state/session"), async (original) => {
   const { useSyncExternalStore } = await import("react");
-  const canWrite = (environmentId: string | null, scope: string) =>
-    scope === AuthSourceControlWriteScope && permissions.allowed.has(environmentId ?? "");
+  const canWrite = (machineId: string | null, scope: string) =>
+    scope === AuthSourceControlWriteScope && permissions.allowed.has(machineId ?? "");
   return {
     ...(await original()),
-    readEnvironmentScope: canWrite,
-    useEnvironmentScope: (environmentId, scope) =>
+    readMachineScope: canWrite,
+    useMachineScope: (machineId, scope) =>
       useSyncExternalStore(
         (listener) => {
           permissions.listeners.add(listener);
           return () => permissions.listeners.delete(listener);
         },
-        () => canWrite(environmentId, scope),
+        () => canWrite(machineId, scope),
       ),
   };
 });
 
 import { PullRequestMarkdownEditor } from "./PullRequestMarkdownEditor";
 
-const secondary = EnvironmentId.make("secondary");
+const secondary = MachineId.make("secondary");
 const onSave = vi.fn<(next: string) => void>();
 const onCancel = vi.fn<() => void>();
 
@@ -44,7 +44,7 @@ async function openEditor(options?: { value?: string; allowEmpty?: boolean }) {
     <PullRequestMarkdownEditor
       value={options?.value ?? "Original description"}
       cwd="/repo"
-      environmentId={secondary}
+      machineId={secondary}
       label="Pull request description"
       saving={false}
       allowEmpty={options?.allowEmpty ?? false}

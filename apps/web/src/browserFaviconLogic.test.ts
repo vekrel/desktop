@@ -43,7 +43,7 @@ describe("browser favicon logic", () => {
     );
   });
 
-  it("retains an exact environment-host alias for offline lookup", () => {
+  it("retains an exact machine-host alias for offline lookup", () => {
     const expected = {
       aliases: ["192.168.64.2"],
       key: "env:project http://localhost:3000",

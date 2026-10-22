@@ -81,7 +81,7 @@ function AssistantForkButton({
   const ctx = use(TimelineRowCtx);
   const [busy, setBusy] = useState(false);
   const support = useV2ItemSupport({
-    environmentId: ctx.activeThreadEnvironmentId,
+    machineId: ctx.activeThreadMachineId,
     sourceThreadId: projectedItem.sourceThreadId,
     sourceItemId: projectedItem.sourceItemId,
   });
@@ -225,7 +225,7 @@ export function ProposedPlanTimelineRow({
     <div className="min-w-0 px-1 py-0.5">
       <ProposedPlanCard
         planMarkdown={row.proposedPlan.planMarkdown}
-        environmentId={ctx.activeThreadEnvironmentId}
+        machineId={ctx.activeThreadMachineId}
         threadRef={ctx.threadRef ?? undefined}
         cwd={ctx.markdownCwd}
         workspaceRoot={ctx.workspaceRoot}
@@ -248,7 +248,7 @@ export function HtmlRenderTimelineRow({
     <div className="min-w-0 px-1">
       <HtmlRenderFrame
         key={row.htmlRender.attachmentId}
-        environmentId={ctx.activeThreadEnvironmentId}
+        machineId={ctx.activeThreadMachineId}
         htmlRender={row.htmlRender}
         threadRef={ctx.threadRef ?? undefined}
         onFullscreenChange={onFullscreenChange}
@@ -265,7 +265,7 @@ export function McpAppTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "
     <div className="min-w-0 px-1">
       <McpAppFrame
         key={row.mcpApp.attachmentId}
-        environmentId={ctx.activeThreadEnvironmentId}
+        machineId={ctx.activeThreadMachineId}
         threadId={row.sourceThreadId}
         conversationThreadId={ctx.threadRef?.threadId ?? row.sourceThreadId}
         itemId={row.itemId}
@@ -332,10 +332,10 @@ function AssistantChangedFilesSectionInner({
   const thread = useThreadShell(ctx.threadRef);
   const activeProject = useProject(
     thread && thread.projectId
-      ? { environmentId: thread.environmentId, projectId: thread.projectId }
+      ? { machineId: thread.machineId, projectId: thread.projectId }
       : null,
   );
-  const onFileContextMenu = useFileContextMenuHandler(ctx.activeThreadEnvironmentId);
+  const onFileContextMenu = useFileContextMenuHandler(ctx.activeThreadMachineId);
 
   return (
     <ChangedFilesCard
@@ -350,7 +350,7 @@ function AssistantChangedFilesSectionInner({
       onFileContextMenu={(filePath, event) =>
         onFileContextMenu(
           {
-            environmentId: ctx.activeThreadEnvironmentId,
+            machineId: ctx.activeThreadMachineId,
             filePath,
             workspaceRoot: ctx.workspaceRoot,
             repositoryRoot:

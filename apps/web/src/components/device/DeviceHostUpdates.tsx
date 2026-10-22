@@ -1,17 +1,17 @@
-import type { DeviceServiceState, EnvironmentId } from "@vekrel/contracts";
+import type { DeviceServiceState, MachineId } from "@vekrel/contracts";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { deviceEnvironment } from "~/state/device";
+import { deviceMachine } from "~/state/device";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 export function DeviceHostUpdates({
   state,
-  environmentId,
+  machineId,
 }: {
   state: DeviceServiceState;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
 }) {
-  const retry = useAtomCommand(deviceEnvironment.list);
+  const retry = useAtomCommand(deviceMachine.list);
   const [pending, setPending] = useState<string | null>(null);
   if (state.hostStatus === "disabled") return null;
   return (
@@ -50,7 +50,7 @@ export function DeviceHostUpdates({
                 disabled={pending !== null}
                 onClick={() => {
                   setPending(host.id);
-                  void retry({ environmentId, input: { retryHostId: host.id } }).finally(() =>
+                  void retry({ machineId, input: { retryHostId: host.id } }).finally(() =>
                     setPending(null),
                   );
                 }}

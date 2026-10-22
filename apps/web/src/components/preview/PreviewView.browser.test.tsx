@@ -3,7 +3,7 @@ import {
   DEFAULT_BROWSER_PROFILE_ID,
   DEFAULT_PREVIEW_APPEARANCE,
   DEFAULT_PREVIEW_ZOOM_FACTOR,
-  EnvironmentId,
+  MachineId,
   FILL_PREVIEW_VIEWPORT,
   ThreadId,
 } from "@vekrel/contracts";
@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(async (_tabId: string, _url: string): Promise<void> => undefined),
   rememberPreviewUrl: vi.fn(),
   readPreparedConnection: vi.fn(() => ({ httpBaseUrl: "http://172.25.85.75:3773" })),
-  readEnvironmentScope: vi.fn((_environmentId?: unknown, _scope?: unknown) => true),
+  readMachineScope: vi.fn((_machineId?: unknown, _scope?: unknown) => true),
   setAnnotationSendEnabled: vi.fn(async (_tabId: string, _enabled: boolean): Promise<void> => {}),
   cancelPickElement: vi.fn(async (_tabId: string) => undefined),
   openPictureInPicture: vi.fn(async (_tabId: string): Promise<void> => undefined),
@@ -81,8 +81,8 @@ vi.mock(import("~/browserHistoryStore"), async (original) => ({
 vi.mock(import("~/state/session"), async (original) => ({
   ...(await original()),
   readPreparedConnection: mocks.readPreparedConnection as never,
-  readEnvironmentScope: mocks.readEnvironmentScope,
-  useEnvironmentScope: mocks.readEnvironmentScope,
+  readMachineScope: mocks.readMachineScope,
+  useMachineScope: mocks.readMachineScope,
 }));
 vi.mock(import("~/browser/browserDefaults"), async (original) => ({
   ...(await original()),
@@ -125,11 +125,11 @@ vi.mock(import("~/previewStateStore"), async (original) => ({
         },
   })) as never,
 }));
-vi.mock(import("~/state/environments"), async (original) => ({
+vi.mock(import("~/state/machines"), async (original) => ({
   ...(await original()),
-  useEnvironment: (() => ({ label: "WSL" })) as never,
-  useEnvironmentHttpBaseUrl: () => "http://172.25.85.75:3773",
-  usePrimaryEnvironmentId: () => null,
+  useMachine: (() => ({ label: "WSL" })) as never,
+  useMachineHttpBaseUrl: () => "http://172.25.85.75:3773",
+  usePrimaryMachineId: () => null,
 }));
 vi.mock(import("~/browser/browserRecording"), async (original) => ({
   ...(await original()),
@@ -163,7 +163,7 @@ import { usePreviewMiniPlayerStore } from "~/previewMiniPlayerStore";
 import { PreviewView } from "./PreviewView";
 
 const TEST_THREAD_REF = {
-  environmentId: EnvironmentId.make("environment-1"),
+  machineId: MachineId.make("machine-1"),
   threadId: ThreadId.make("thread-1"),
 } as const;
 const TEST_RUNTIME_TAB_ID = previewRuntimeTabId(TEST_THREAD_REF, null, "tab-1");
@@ -198,7 +198,7 @@ function annotation(id: string, screenshot: unknown = null) {
 // resetting them.
 function setup() {
   vi.clearAllMocks();
-  mocks.readEnvironmentScope.mockReset().mockReturnValue(true);
+  mocks.readMachineScope.mockReset().mockReturnValue(true);
   mocks.setAnnotationSendEnabled.mockReset().mockResolvedValue(undefined);
   mocks.pickElement.mockReset();
   mocks.pictureInPicture = false;
@@ -218,7 +218,7 @@ function setup() {
 }
 
 describe("PreviewView", () => {
-  it("retains the annotation locally when its own environment loses access during capture", async () => {
+  it("retains the annotation locally when its own machine loses access during capture", async () => {
     setup();
     const picked = annotation("annotation-revoked");
     const onSendAnnotation = vi.fn();
@@ -234,8 +234,8 @@ describe("PreviewView", () => {
     await vi.waitFor(() => expect(submitPick).toBeDefined());
     expect(mocks.setAnnotationSendEnabled).toHaveBeenLastCalledWith(TEST_RUNTIME_TAB_ID, true);
 
-    mocks.readEnvironmentScope.mockImplementation(
-      (environmentId?: unknown) => environmentId !== TEST_THREAD_REF.environmentId,
+    mocks.readMachineScope.mockImplementation(
+      (machineId?: unknown) => machineId !== TEST_THREAD_REF.machineId,
     );
     await screen.rerender(view(onSendAnnotation));
     expect(mocks.setAnnotationSendEnabled).toHaveBeenLastCalledWith(TEST_RUNTIME_TAB_ID, false);
@@ -245,7 +245,7 @@ describe("PreviewView", () => {
     );
     expect(onSendAnnotation).not.toHaveBeenCalled();
 
-    mocks.readEnvironmentScope.mockReturnValue(true);
+    mocks.readMachineScope.mockReturnValue(true);
     mocks.pickElement.mockResolvedValue({ annotation: picked, submission: "send" });
     await screen.rerender(view(onSendAnnotation));
     await userEvent.click(page.getByRole("button", { name: "Annotate preview" }));

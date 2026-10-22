@@ -6,7 +6,7 @@ import { Atom } from "effect/reactivity";
 import {
   ProviderDriverKind,
   USAGE_CONTRACT_VERSION,
-  type EnvironmentId,
+  type MachineId,
   type UsageProviderKind,
   type UsageSummaryInput,
 } from "@vekrel/contracts";
@@ -16,12 +16,12 @@ import { settlePromise } from "@vekrel/client-runtime/state/runtime";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import * as Cause from "effect/Cause";
 import {
-  cursorKeychainAccessEnvironments,
+  cursorKeychainAccessMachines,
   refreshUsageLimits,
 } from "@vekrel/client-runtime/state/usage";
 import {
   updatingProvidersLabel,
-  usageEnvironmentProgress,
+  usageMachineProgress,
   usageLoadingState,
 } from "@vekrel/client-runtime/state/usage-progress";
 
@@ -38,12 +38,12 @@ import { cn } from "../../lib/utils";
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { resolveHour12 } from "../../timestampFormat";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
-import { environmentPresentations } from "../../state/presentation";
-import { primaryServerKeybindingsAtom, serverEnvironment } from "../../state/server";
+import { machinePresentations } from "../../state/presentation";
+import { primaryServerKeybindingsAtom, serverMachine } from "../../state/server";
 import { isCommandPaletteOpen } from "../../commandPaletteBus";
 import { isModelPickerOpen } from "../../modelPickerVisibility";
 import { shortcutLabelForCommand } from "../../keybindings";
-import { useUsage, type EnvironmentUsageStatus } from "../../state/usage";
+import { useUsage, type MachineUsageStatus } from "../../state/usage";
 import { useAtomCommand } from "../../state/use-atom-command";
 import {
   enumerateDays,
@@ -121,14 +121,14 @@ const providerLabel = (provider: UsageProviderKind) => PROVIDER_PRESENTATION[pro
 
 function usageLoading(
   showingKept: boolean,
-  selectedEnvironments: Parameters<typeof usageLoadingState>[0],
+  selectedMachines: Parameters<typeof usageLoadingState>[0],
   refreshingUsage: boolean,
   hiddenProviders: ReadonlySet<UsageProviderKind>,
 ) {
   if (showingKept) {
     return { partial: true, everyProvider: true, providers: new Set<UsageProviderKind>() };
   }
-  const state = usageLoadingState(selectedEnvironments, refreshingUsage);
+  const state = usageLoadingState(selectedMachines, refreshingUsage);
   const providers = new Set([...state.providers].filter((p) => !hiddenProviders.has(p)));
   return {
     partial: state.everyProvider || providers.size > 0,
@@ -205,37 +205,37 @@ export function UsagePage() {
   const [limitsNow, setLimitsNow] = useState(() => Date.now());
   const refreshingRef = useRef(false);
   const [priceDialog, setPriceDialog] = useState<{ readonly model?: string } | null>(null);
-  const [selectedEnvironmentIds, setSelectedEnvironmentIds] =
-    useState<ReadonlySet<EnvironmentId> | null>(null);
+  const [selectedMachineIds, setSelectedMachineIds] =
+    useState<ReadonlySet<MachineId> | null>(null);
   const hiddenProviders = new Set(preferences.hiddenProviders);
   const { days: windowDays, window } = windowSelection;
   const isPast24Hours = windowDays === 1;
   const {
     merged: answeredUsage,
-    environments,
-    selectedEnvironments,
+    machines,
+    selectedMachines,
     shown,
     isPartial,
     refresh,
-  } = useUsage(window, selectedEnvironmentIds, hiddenProviders);
+  } = useUsage(window, selectedMachineIds, hiddenProviders);
   const merged = shown?.merged ?? answeredUsage;
   const shownWindow = shown?.window ?? window;
   const shownHourly = shownWindow.resolution === "hour";
   const refreshingUsage = isRefreshing && !showingLimits;
   const showingKept = shown !== null && shown.window !== window;
-  const presentations = useAtomValue(environmentPresentations.presentationsAtom);
+  const presentations = useAtomValue(machinePresentations.presentationsAtom);
   const presentationsWithProviders = useAtomValue(
-    environmentPresentations.presentationsWithProvidersAtom,
+    machinePresentations.presentationsWithProvidersAtom,
   );
-  const cursorAccessEnvironments = hiddenProviders.has("cursor")
+  const cursorAccessMachines = hiddenProviders.has("cursor")
     ? []
-    : cursorKeychainAccessEnvironments(selectedEnvironments);
-  const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
+    : cursorKeychainAccessMachines(selectedMachines);
+  const refreshProviders = useAtomCommand(serverMachine.refreshProviders, {
     reportFailure: false,
   });
 
-  const canReadDiagnostics = selectedEnvironments.some(
-    (environment) => environment.canReadDiagnostics,
+  const canReadDiagnostics = selectedMachines.some(
+    (machine) => machine.canReadDiagnostics,
   );
 
   const updatePreferences = (patch: Partial<UsagePagePreferences>) => {
@@ -259,12 +259,12 @@ export function UsagePage() {
     // Settled so the timestamp still advances when a refresh throws.
     settlePromise(() =>
       Promise.all(
-        Array.from(presentations, ([environmentId, presentation]) => {
-          if (selectedEnvironmentIds !== null && !selectedEnvironmentIds.has(environmentId)) return;
+        Array.from(presentations, ([machineId, presentation]) => {
+          if (selectedMachineIds !== null && !selectedMachineIds.has(machineId)) return;
           if (presentation.connection.phase === "connected" && presentation.serverConfig !== null) {
             return refreshUsageLimits(
-              environmentId,
-              () => refreshProviders({ environmentId, input: {} }),
+              machineId,
+              () => refreshProviders({ machineId, input: {} }),
               automatic,
               afterPending,
             );
@@ -329,22 +329,22 @@ export function UsagePage() {
       setIsRefreshing(false);
     });
   };
-  const connectedLimitsEnvironments = [...presentations]
+  const connectedLimitsMachines = [...presentations]
     .filter(
-      ([environmentId, presentation]) =>
+      ([machineId, presentation]) =>
         presentation.connection.phase === "connected" &&
         presentation.serverConfig !== null &&
-        (selectedEnvironmentIds === null || selectedEnvironmentIds.has(environmentId)),
+        (selectedMachineIds === null || selectedMachineIds.has(machineId)),
     )
-    .map(([environmentId]) => environmentId)
+    .map(([machineId]) => machineId)
     .sort()
     .join(",");
   const autoRefreshLimits = useEffectEvent(() => {
     void refreshLimits(true);
   });
   useEffect(() => {
-    if (showingLimits && connectedLimitsEnvironments) autoRefreshLimits();
-  }, [showingLimits, connectedLimitsEnvironments]);
+    if (showingLimits && connectedLimitsMachines) autoRefreshLimits();
+  }, [showingLimits, connectedLimitsMachines]);
 
   const days = enumerateDays(shownWindow.sinceDay, shownWindow.untilDay);
   const hours =
@@ -355,7 +355,7 @@ export function UsagePage() {
     !hiddenProviders.has("codex") &&
     [...presentationsWithProviders].some(
       ([id, presentation]) =>
-        (selectedEnvironmentIds === null || selectedEnvironmentIds.has(id)) &&
+        (selectedMachineIds === null || selectedMachineIds.has(id)) &&
         (presentation.serverConfig?.providers ?? []).some(usesChatGptSharing),
     );
 
@@ -371,11 +371,11 @@ export function UsagePage() {
         </WorkspaceBreadcrumbItem>
         <WorkspaceBreadcrumbSeparator />
         <WorkspaceBreadcrumbItem className="min-w-10 shrink">
-          <UsageEnvironmentFilter
-            environments={environments}
-            selectedEnvironments={selectedEnvironments}
-            selectedEnvironmentIds={selectedEnvironmentIds}
-            onSelectionChange={setSelectedEnvironmentIds}
+          <UsageMachineFilter
+            machines={machines}
+            selectedMachines={selectedMachines}
+            selectedMachineIds={selectedMachineIds}
+            onSelectionChange={setSelectedMachineIds}
             showUsageStatus={!showingLimits}
             refreshing={refreshingUsage}
             isPartial={isPartial}
@@ -513,21 +513,21 @@ export function UsagePage() {
 
         <ScrollArea className="min-h-0 flex-1">
           <WorkspacePageContainer width="wide">
-            {selectedEnvironments.length === 0 ? (
+            {selectedMachines.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {environments.length === 0
-                  ? `Connect an environment to see ${showingLimits ? "limits" : "usage"}.`
-                  : `Select an environment to see ${showingLimits ? "limits" : "usage"}.`}
+                {machines.length === 0
+                  ? `Connect a machine to see ${showingLimits ? "limits" : "usage"}.`
+                  : `Select a machine to see ${showingLimits ? "limits" : "usage"}.`}
               </p>
             ) : showingLimits ? (
               <UsageLimitsSection
-                selectedEnvironmentIds={selectedEnvironmentIds}
+                selectedMachineIds={selectedMachineIds}
                 hiddenProviders={hiddenProviders}
                 now={limitsNow}
                 cursorPrompt={
-                  cursorAccessEnvironments.length > 0 ? (
+                  cursorAccessMachines.length > 0 ? (
                     <CursorEnableLimits
-                      environments={cursorAccessEnvironments}
+                      machines={cursorAccessMachines}
                       onEnabled={() => {
                         void refresh();
                         void refreshLimits(false, true);
@@ -540,10 +540,10 @@ export function UsagePage() {
               <UsageSkeleton />
             ) : !canReadDiagnostics ? (
               <div className="space-y-2 py-12 text-center text-sm text-muted-foreground">
-                {selectedEnvironments.map((environment) => (
-                  <p key={environment.environmentId}>
-                    {selectedEnvironments.length > 1 ? `${environment.label}: ` : null}
-                    {environment.error}
+                {selectedMachines.map((machine) => (
+                  <p key={machine.machineId}>
+                    {selectedMachines.length > 1 ? `${machine.label}: ` : null}
+                    {machine.error}
                   </p>
                 ))}
               </div>
@@ -556,10 +556,10 @@ export function UsagePage() {
                 hours={hours}
                 showingKept={showingKept}
                 metric={metric === "tokens" ? "tokens" : "cost"}
-                selectedEnvironments={selectedEnvironments}
+                selectedMachines={selectedMachines}
                 hiddenProviders={hiddenProviders}
                 refreshingUsage={refreshingUsage}
-                cursorAccessEnvironments={cursorAccessEnvironments}
+                cursorAccessMachines={cursorAccessMachines}
                 showChatGptSharing={showChatGptSharing}
                 onCursorEnabled={() => {
                   void refresh();
@@ -574,7 +574,7 @@ export function UsagePage() {
       {showingLimits ? null : (
         <UsageModelDialogHost
           models={merged.models}
-          environments={selectedEnvironments}
+          machines={selectedMachines}
           metric={metric === "tokens" ? "tokens" : "cost"}
           chartWindow={{
             days,
@@ -589,8 +589,8 @@ export function UsagePage() {
       )}
       {priceDialog ? (
         <UsagePriceOverrides
-          usage={environments}
-          initialSelectedEnvironmentIds={selectedEnvironmentIds}
+          usage={machines}
+          initialSelectedMachineIds={selectedMachineIds}
           initialModel={priceDialog.model}
           onOpenChange={(open) => {
             if (!open) setPriceDialog(null);
@@ -609,10 +609,10 @@ function UsageOverview({
   hours,
   showingKept,
   metric,
-  selectedEnvironments,
+  selectedMachines,
   hiddenProviders,
   refreshingUsage,
-  cursorAccessEnvironments,
+  cursorAccessMachines,
   showChatGptSharing,
   onCursorEnabled,
   onSelectModel,
@@ -624,17 +624,17 @@ function UsageOverview({
   readonly hours: readonly string[];
   readonly showingKept: boolean;
   readonly metric: "tokens" | "cost";
-  readonly selectedEnvironments: readonly EnvironmentUsageStatus[];
+  readonly selectedMachines: readonly MachineUsageStatus[];
   readonly hiddenProviders: ReadonlySet<UsageProviderKind>;
   readonly refreshingUsage: boolean;
-  readonly cursorAccessEnvironments: readonly EnvironmentUsageStatus[];
+  readonly cursorAccessMachines: readonly MachineUsageStatus[];
   readonly showChatGptSharing: boolean;
   readonly onCursorEnabled: () => void;
   readonly onSelectModel: (key: string) => void;
 }) {
   const [breakdown, setBreakdown] = useState<"model" | "time">("model");
   const shownHourly = shownWindow.resolution === "hour";
-  const loading = usageLoading(showingKept, selectedEnvironments, refreshingUsage, hiddenProviders);
+  const loading = usageLoading(showingKept, selectedMachines, refreshingUsage, hiddenProviders);
   // A primitive copy: reading `loading.partial` in the JSX would keep `loading` alive
   // across every derivation below and fold them into one cache scope.
   const loadingPartial = loading.partial === true;
@@ -653,9 +653,9 @@ function UsageOverview({
   );
   const sourceMessages = [
     ...new Set(
-      selectedEnvironments.flatMap(
-        (environment) =>
-          environment.summary?.sources.flatMap((source) =>
+      selectedMachines.flatMap(
+        (machine) =>
+          machine.summary?.sources.flatMap((source) =>
             source.message &&
             !source.action &&
             !hiddenProviders.has(source.fingerprint.provider) &&
@@ -683,12 +683,12 @@ function UsageOverview({
     Math.max(activeProviders.indexOf("codex"), activeProviders.indexOf("claude")) + 1;
   const summaryRows: ReadonlyArray<
     | { readonly kind: "usage"; readonly provider: UsageProviderKind }
-    | { readonly kind: "enable"; readonly environment: EnvironmentUsageStatus }
+    | { readonly kind: "enable"; readonly machine: MachineUsageStatus }
   > = [
     ...activeProviders
       .slice(0, cursorInsertAt)
       .map((provider) => ({ kind: "usage" as const, provider })),
-    ...cursorAccessEnvironments.map((environment) => ({ kind: "enable" as const, environment })),
+    ...cursorAccessMachines.map((machine) => ({ kind: "enable" as const, machine })),
     ...activeProviders
       .slice(cursorInsertAt)
       .map((provider) => ({ kind: "usage" as const, provider })),
@@ -748,10 +748,10 @@ function UsageOverview({
             if (row.kind === "enable") {
               return (
                 <CursorEnableRow
-                  key={`enable:${row.environment.environmentId}`}
-                  environmentId={row.environment.environmentId}
-                  label={row.environment.label}
-                  showEnvironment={selectedEnvironments.length > 1}
+                  key={`enable:${row.machine.machineId}`}
+                  machineId={row.machine.machineId}
+                  label={row.machine.label}
+                  showMachine={selectedMachines.length > 1}
                   onEnabled={onCursorEnabled}
                 />
               );
@@ -1085,26 +1085,26 @@ function UsageOverview({
 const CURSOR_KEYCHAIN_COPY = "Requires access to your Cursor login in macOS Keychain.";
 
 function CursorEnableButton({
-  environmentId,
+  machineId,
   label,
   onEnabled,
   tooltip,
   buttonText = "Enable",
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly label: string;
   readonly onEnabled: () => void;
   readonly tooltip: boolean;
   readonly buttonText?: string;
 }) {
-  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
+  const updateSettings = useAtomCommand(serverMachine.updateSettings, {
     label: "enable Cursor account usage",
   });
   const [pending, setPending] = useState(false);
   const enable = async () => {
     setPending(true);
     const result = await updateSettings({
-      environmentId,
+      machineId,
       input: { patch: { cursorKeychainUsageEnabled: true } },
     });
     if (result._tag === "Success") onEnabled();
@@ -1141,14 +1141,14 @@ function CursorEnableButton({
 }
 
 function CursorEnableRow({
-  environmentId,
+  machineId,
   label,
-  showEnvironment,
+  showMachine,
   onEnabled,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly label: string;
-  readonly showEnvironment: boolean;
+  readonly showMachine: boolean;
   readonly onEnabled: () => void;
 }) {
   return (
@@ -1160,10 +1160,10 @@ function CursorEnableRow({
           style={{ backgroundColor: PROVIDER_PRESENTATION.cursor.color }}
         />
         <ProviderMark provider="cursor" className="size-4" />
-        <span className="truncate">Cursor{showEnvironment ? ` · ${label}` : ""}</span>
+        <span className="truncate">Cursor{showMachine ? ` · ${label}` : ""}</span>
       </span>
       <CursorEnableButton
-        environmentId={environmentId}
+        machineId={machineId}
         label={label}
         onEnabled={onEnabled}
         tooltip
@@ -1173,10 +1173,10 @@ function CursorEnableRow({
 }
 
 function CursorEnableLimits({
-  environments,
+  machines,
   onEnabled,
 }: {
-  readonly environments: readonly EnvironmentUsageStatus[];
+  readonly machines: readonly MachineUsageStatus[];
   readonly onEnabled: () => void;
 }) {
   return (
@@ -1194,12 +1194,12 @@ function CursorEnableLimits({
       <div className="flex flex-col items-start gap-3 rounded-lg border border-border/60 p-4">
         <p className="text-xs text-muted-foreground">{CURSOR_KEYCHAIN_COPY}</p>
         <div className="flex flex-wrap gap-2">
-          {environments.map((environment) => (
+          {machines.map((machine) => (
             <CursorEnableButton
-              key={environment.environmentId}
-              environmentId={environment.environmentId}
-              label={environment.label}
-              buttonText={environments.length > 1 ? `Enable on ${environment.label}` : "Enable"}
+              key={machine.machineId}
+              machineId={machine.machineId}
+              label={machine.label}
+              buttonText={machines.length > 1 ? `Enable on ${machine.label}` : "Enable"}
               onEnabled={onEnabled}
               tooltip={false}
             />
@@ -1253,21 +1253,21 @@ function Metric({
 }
 
 function UsageCoverageNotice({
-  environments,
+  machines,
   duplicateSources,
   contractMismatches,
 }: {
-  readonly environments: readonly EnvironmentUsageStatus[];
+  readonly machines: readonly MachineUsageStatus[];
   readonly duplicateSources: readonly string[];
   readonly contractMismatches: MergedUsage["contractMismatches"];
 }) {
-  const failed = environments.filter((environment) => environment.error !== null);
-  const mismatchByEnvironment = new Map(
-    contractMismatches.map((mismatch) => [mismatch.environmentId, mismatch]),
+  const failed = machines.filter((machine) => machine.error !== null);
+  const mismatchByMachine = new Map(
+    contractMismatches.map((mismatch) => [mismatch.machineId, mismatch]),
   );
-  const incompatible = environments.flatMap((environment) => {
-    const mismatch = mismatchByEnvironment.get(environment.environmentId);
-    return mismatch === undefined ? [] : [{ environment, mismatch }];
+  const incompatible = machines.flatMap((machine) => {
+    const mismatch = mismatchByMachine.get(machine.machineId);
+    return mismatch === undefined ? [] : [{ machine, mismatch }];
   });
   if (failed.length === 0 && incompatible.length === 0 && duplicateSources.length === 0) {
     return null;
@@ -1275,19 +1275,19 @@ function UsageCoverageNotice({
 
   return (
     <div className="flex flex-col gap-1 border-t border-border px-2 py-2 text-xs text-muted-foreground">
-      {failed.map((environment) => (
-        <span key={environment.label}>
-          {environment.label}: {environment.error}
+      {failed.map((machine) => (
+        <span key={machine.label}>
+          {machine.label}: {machine.error}
         </span>
       ))}
-      {incompatible.map(({ environment, mismatch }) => (
-        <span key={environment.environmentId}>
-          {formatUsageContractMismatch(environment.label, mismatch)}
+      {incompatible.map(({ machine, mismatch }) => (
+        <span key={machine.machineId}>
+          {formatUsageContractMismatch(machine.label, mismatch)}
         </span>
       ))}
       {duplicateSources.length > 0 ? (
         <span>
-          Counted once across environments sharing a transcript directory:{" "}
+          Counted once across machines sharing a transcript directory:{" "}
           {duplicateSources.join(", ")}
         </span>
       ) : null}
@@ -1295,10 +1295,10 @@ function UsageCoverageNotice({
   );
 }
 
-function UsageEnvironmentFilter({
-  environments,
-  selectedEnvironments,
-  selectedEnvironmentIds,
+function UsageMachineFilter({
+  machines,
+  selectedMachines,
+  selectedMachineIds,
   onSelectionChange,
   showUsageStatus,
   refreshing,
@@ -1307,10 +1307,10 @@ function UsageEnvironmentFilter({
   contractMismatches,
   onOpenModelPrices,
 }: {
-  readonly environments: readonly EnvironmentUsageStatus[];
-  readonly selectedEnvironments: readonly EnvironmentUsageStatus[];
-  readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
-  readonly onSelectionChange: (ids: ReadonlySet<EnvironmentId> | null) => void;
+  readonly machines: readonly MachineUsageStatus[];
+  readonly selectedMachines: readonly MachineUsageStatus[];
+  readonly selectedMachineIds: ReadonlySet<MachineId> | null;
+  readonly onSelectionChange: (ids: ReadonlySet<MachineId> | null) => void;
   readonly showUsageStatus: boolean;
   readonly refreshing: boolean;
   readonly isPartial: boolean;
@@ -1318,29 +1318,29 @@ function UsageEnvironmentFilter({
   readonly contractMismatches: MergedUsage["contractMismatches"];
   readonly onOpenModelPrices: () => void;
 }) {
-  const allSelected = selectedEnvironmentIds === null;
+  const allSelected = selectedMachineIds === null;
   const label = allSelected
-    ? "All environments"
-    : selectedEnvironments.length === 1
-      ? selectedEnvironments[0]!.label
-      : `${selectedEnvironments.length} environments`;
+    ? "All machines"
+    : selectedMachines.length === 1
+      ? selectedMachines[0]!.label
+      : `${selectedMachines.length} machines`;
   const hasIssue =
-    selectedEnvironments.some((environment) => environment.error !== null) ||
+    selectedMachines.some((machine) => machine.error !== null) ||
     contractMismatches.length > 0;
 
   return (
     <Menu>
-      <MenuTrigger render={<InlineButton />} className="group/usage-environment min-w-0 max-w-full">
+      <MenuTrigger render={<InlineButton />} className="group/usage-machine min-w-0 max-w-full">
         <WorkspaceBreadcrumbText>{label}</WorkspaceBreadcrumbText>
         <span className="flex size-3.5 shrink-0 items-center justify-center text-muted-foreground">
           {showUsageStatus && hasIssue ? (
             <CircleAlertIcon
               className="size-3.5 text-warning-foreground"
-              aria-label="Some environments could not report usage"
+              aria-label="Some machines could not report usage"
             />
           ) : (
             <ChevronDownIcon
-              className="size-3.5 opacity-0 transition-opacity group-hover/usage-environment:opacity-100 group-focus-visible/usage-environment:opacity-100 group-data-popup-open/usage-environment:opacity-100"
+              className="size-3.5 opacity-0 transition-opacity group-hover/usage-machine:opacity-100 group-focus-visible/usage-machine:opacity-100 group-data-popup-open/usage-machine:opacity-100"
               aria-hidden
             />
           )}
@@ -1352,24 +1352,24 @@ function UsageEnvironmentFilter({
           closeOnClick={false}
           onCheckedChange={(checked) => onSelectionChange(checked ? null : new Set())}
         >
-          All environments
+          All machines
         </MenuCheckboxItem>
         <MenuSeparator />
-        {environments.map((environment) => {
+        {machines.map((machine) => {
           const checked =
-            selectedEnvironmentIds === null ||
-            selectedEnvironmentIds.has(environment.environmentId);
-          const progress = usageEnvironmentProgress(environment, refreshing);
+            selectedMachineIds === null ||
+            selectedMachineIds.has(machine.machineId);
+          const progress = usageMachineProgress(machine, refreshing);
           const status =
-            environment.error !== null
+            machine.error !== null
               ? "Unavailable"
-              : environment.summary !== null &&
+              : machine.summary !== null &&
                   !isCompatibleUsageContractVersion(
-                    environment.summary.contractVersion,
+                    machine.summary.contractVersion,
                     USAGE_CONTRACT_VERSION,
                   )
                 ? "Update required"
-                : !environment.isConnected
+                : !machine.isConnected
                   ? "Connecting…"
                   : progress.phase === "loading"
                     ? "Scanning…"
@@ -1380,23 +1380,23 @@ function UsageEnvironmentFilter({
                         : "Ready";
           return (
             <MenuCheckboxItem
-              key={environment.environmentId}
+              key={machine.machineId}
               checked={checked}
               closeOnClick={false}
               onCheckedChange={(nextChecked) => {
-                const next = new Set(selectedEnvironments.map((entry) => entry.environmentId));
-                if (nextChecked) next.add(environment.environmentId);
-                else next.delete(environment.environmentId);
-                onSelectionChange(next.size === environments.length ? null : next);
+                const next = new Set(selectedMachines.map((entry) => entry.machineId));
+                if (nextChecked) next.add(machine.machineId);
+                else next.delete(machine.machineId);
+                onSelectionChange(next.size === machines.length ? null : next);
               }}
             >
               <span className="flex min-w-0 items-center gap-3">
-                <span className="min-w-0 flex-1 truncate">{environment.label}</span>
+                <span className="min-w-0 flex-1 truncate">{machine.label}</span>
                 {showUsageStatus ? (
                   <span
                     className={cn(
                       "shrink-0 text-xs text-muted-foreground",
-                      environment.error !== null && "text-destructive",
+                      machine.error !== null && "text-destructive",
                     )}
                   >
                     {status}
@@ -1406,17 +1406,17 @@ function UsageEnvironmentFilter({
             </MenuCheckboxItem>
           );
         })}
-        {environments.length === 0 ? (
-          <p className="px-2 py-2 text-xs text-muted-foreground">No environments connected.</p>
+        {machines.length === 0 ? (
+          <p className="px-2 py-2 text-xs text-muted-foreground">No machines connected.</p>
         ) : null}
         {showUsageStatus && isPartial ? (
           <p className="px-2 py-2 text-xs text-muted-foreground">
-            Totals are partial while selected environments scan.
+            Totals are partial while selected machines scan.
           </p>
         ) : null}
         {showUsageStatus ? (
           <UsageCoverageNotice
-            environments={selectedEnvironments}
+            machines={selectedMachines}
             duplicateSources={duplicateSources}
             contractMismatches={contractMismatches}
           />

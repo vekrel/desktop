@@ -1,68 +1,68 @@
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
-import type { EnvironmentPresentation } from "../../state/environments";
+import type { MachinePresentation } from "../../state/machines";
 import type { ResolvedSettingsScope, SettingsScopeSearch } from "./settingsScope";
 
-type ScopeEnvironment = Pick<EnvironmentPresentation, "environmentId" | "label" | "displayUrl">;
+type ScopeMachine = Pick<MachinePresentation, "machineId" | "label" | "displayUrl">;
 
-export function settingsScopeEnvironmentAddress(environment: ScopeEnvironment) {
-  if (!environment.displayUrl) return environment.environmentId;
+export function settingsScopeMachineAddress(machine: ScopeMachine) {
+  if (!machine.displayUrl) return machine.machineId;
   try {
-    return new URL(environment.displayUrl).host || environment.displayUrl;
+    return new URL(machine.displayUrl).host || machine.displayUrl;
   } catch {
-    return environment.displayUrl;
+    return machine.displayUrl;
   }
 }
 
-export function settingsScopeEnvironmentLabels(
-  environment: ScopeEnvironment,
-  environments?: readonly ScopeEnvironment[],
+export function settingsScopeMachineLabels(
+  machine: ScopeMachine,
+  machines?: readonly ScopeMachine[],
 ) {
-  const duplicates = environments?.filter(
+  const duplicates = machines?.filter(
     (other) =>
-      other.environmentId !== environment.environmentId && other.label === environment.label,
+      other.machineId !== machine.machineId && other.label === machine.label,
   );
-  const address = settingsScopeEnvironmentAddress(environment);
-  const secondary = duplicates?.some((other) => settingsScopeEnvironmentAddress(other) === address)
-    ? environment.displayUrl || environment.environmentId
+  const address = settingsScopeMachineAddress(machine);
+  const secondary = duplicates?.some((other) => settingsScopeMachineAddress(other) === address)
+    ? machine.displayUrl || machine.machineId
     : address;
   return {
-    primary: environment.label,
-    secondary: environments === undefined || duplicates?.length ? secondary : "",
+    primary: machine.label,
+    secondary: machines === undefined || duplicates?.length ? secondary : "",
   };
 }
 
-export function settingsScopeEnvironmentLabel(
-  environment: ScopeEnvironment,
-  environments: readonly ScopeEnvironment[],
+export function settingsScopeMachineLabel(
+  machine: ScopeMachine,
+  machines: readonly ScopeMachine[],
 ) {
-  const { primary, secondary } = settingsScopeEnvironmentLabels(environment, environments);
+  const { primary, secondary } = settingsScopeMachineLabels(machine, machines);
   return secondary ? `${primary} · ${secondary}` : primary;
 }
 
 export function settingsScopeProjectMachines(
   group: SidebarProjectSnapshot,
-  environments: readonly ScopeEnvironment[],
+  allMachines: readonly ScopeMachine[],
   includeAddresses = false,
 ) {
   const machines = group.memberProjects.map((member) => {
-    const environment = environments.find((entry) => entry.environmentId === member.environmentId);
-    if (!environment) return member.environmentLabel ?? member.environmentId;
-    const { primary, secondary } = settingsScopeEnvironmentLabels(environment, environments);
+    const machine = allMachines.find((entry) => entry.machineId === member.machineId);
+    if (!machine) return member.machineLabel ?? member.machineId;
+    const { primary, secondary } = settingsScopeMachineLabels(machine, allMachines);
     const address =
-      secondary || (includeAddresses ? settingsScopeEnvironmentAddress(environment) : "");
+      secondary || (includeAddresses ? settingsScopeMachineAddress(machine) : "");
     return includeAddresses || address ? `${primary} · ${address}` : primary;
   });
   return Array.from(new Set(machines));
 }
 
-export const ALL_ENVIRONMENTS_VALUE = "all";
+export const ALL_MACHINES_VALUE = "all";
 export const ALL_PROJECTS_VALUE = "all";
 
-export function environmentAxisValue(
+export function machineAxisValue(
   search: SettingsScopeSearch,
-  resolvedEnvironmentId?: string | null,
+  resolvedMachineId?: string | null,
 ): string {
-  return search.machine ?? resolvedEnvironmentId ?? ALL_ENVIRONMENTS_VALUE;
+  return search.machine ?? resolvedMachineId ?? ALL_MACHINES_VALUE;
 }
 
 export function projectAxisValue(search: SettingsScopeSearch): string {
@@ -76,17 +76,17 @@ export function projectScopeMenuGroups(
   const { machine } = search;
   if (machine === undefined) return groups;
   return groups.filter((group) =>
-    group.memberProjects.some((member) => member.environmentId === machine),
+    group.memberProjects.some((member) => member.machineId === machine),
   );
 }
 
-export function selectEnvironmentAxis(
+export function selectMachineAxis(
   search: SettingsScopeSearch,
   value: string,
 ): SettingsScopeSearch {
   const next: SettingsScopeSearch = {};
   if (search.project) next.project = search.project;
-  if (value !== ALL_ENVIRONMENTS_VALUE) next.machine = value;
+  if (value !== ALL_MACHINES_VALUE) next.machine = value;
   return next;
 }
 
@@ -97,23 +97,23 @@ export function selectProjectAxis(search: SettingsScopeSearch, value: string): S
   return next;
 }
 
-export function selectSingleEnvironmentScope(
+export function selectSingleMachineScope(
   search: SettingsScopeSearch,
   scope: ResolvedSettingsScope,
-  environments: readonly {
-    readonly environmentId: EnvironmentPresentation["environmentId"];
-    readonly connection: Pick<EnvironmentPresentation["connection"], "phase">;
+  machines: readonly {
+    readonly machineId: MachinePresentation["machineId"];
+    readonly connection: Pick<MachinePresentation["connection"], "phase">;
   }[],
-  primaryEnvironmentId: string | null,
+  primaryMachineId: string | null,
 ): SettingsScopeSearch {
   if (search.machine || scope.kind === "unavailable") return search;
-  const selectedIds = new Set(scope.environmentIds);
-  const candidates = environments.filter((environment) =>
-    selectedIds.has(environment.environmentId),
+  const selectedIds = new Set(scope.machineIds);
+  const candidates = machines.filter((machine) =>
+    selectedIds.has(machine.machineId),
   );
   const selected =
-    candidates.find((environment) => environment.environmentId === primaryEnvironmentId) ??
-    candidates.find((environment) => environment.connection.phase === "connected") ??
+    candidates.find((machine) => machine.machineId === primaryMachineId) ??
+    candidates.find((machine) => machine.connection.phase === "connected") ??
     candidates[0];
-  return selected ? { ...search, machine: selected.environmentId } : search;
+  return selected ? { ...search, machine: selected.machineId } : search;
 }

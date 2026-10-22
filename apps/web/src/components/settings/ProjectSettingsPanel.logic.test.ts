@@ -1,39 +1,39 @@
 import { describe, expect, it } from "vite-plus/test";
-import { EnvironmentId, ProjectId } from "@vekrel/contracts";
+import { MachineId, ProjectId } from "@vekrel/contracts";
 import { planProjectRemoval } from "@vekrel/client-runtime/state/projects";
 
 describe("project removal confirmation", () => {
   const local = {
     id: ProjectId.make("shared-id"),
-    environmentId: EnvironmentId.make("local"),
+    machineId: MachineId.make("local"),
     title: "Repo",
     workspaceRoot: "/work/repo",
-    environmentLabel: "Local",
+    machineLabel: "Local",
   };
   const remote = {
     ...local,
-    environmentId: EnvironmentId.make("remote"),
-    environmentLabel: "Remote",
+    machineId: MachineId.make("remote"),
+    machineLabel: "Remote",
   };
 
-  it("limits a checkout's thread count to its environment and project", () => {
+  it("limits a checkout's thread count to its machine and project", () => {
     const plan = planProjectRemoval({
       members: [local],
       groupMemberCount: 2,
       hasOtherMembers: false,
       displayName: "Repo",
       threads: [
-        { environmentId: local.environmentId, projectId: local.id },
-        { environmentId: remote.environmentId, projectId: remote.id },
+        { machineId: local.machineId, projectId: local.id },
+        { machineId: remote.machineId, projectId: remote.id },
       ],
     });
     expect(plan.projectThreads).toHaveLength(1);
     expect(plan.confirmationMessage).toBe(
-      'Remove checkout "Repo" and delete its 1 thread?\nPath: /work/repo\nEnvironment: Local\nThis permanently clears conversation history for those threads and any archived threads.\nOther entries in this grouped project are unaffected.\nThis action cannot be undone.',
+      'Remove checkout "Repo" and delete its 1 thread?\nPath: /work/repo\nMachine: Local\nThis permanently clears conversation history for those threads and any archived threads.\nOther entries in this grouped project are unaffected.\nThis action cannot be undone.',
     );
   });
 
-  it("keeps an environment-filtered group scoped to its selected checkout", () => {
+  it("keeps a machine-filtered group scoped to its selected checkout", () => {
     const plan = planProjectRemoval({
       members: [remote],
       groupMemberCount: 1,
@@ -42,7 +42,7 @@ describe("project removal confirmation", () => {
       threads: [],
     });
     expect(plan.targetKind).toBe("checkout");
-    expect(plan.confirmationMessage).toContain("Environment: Remote");
+    expect(plan.confirmationMessage).toContain("Machine: Remote");
     expect(plan.confirmationMessage).toContain(
       "Other entries in this grouped project are unaffected.",
     );

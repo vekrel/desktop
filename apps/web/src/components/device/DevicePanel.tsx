@@ -16,8 +16,8 @@ import { Dialog } from "~/components/ui/dialog";
 import { WizardPopup } from "~/components/ui/wizard";
 import { Spinner } from "~/components/ui/spinner";
 import { cn } from "~/lib/utils";
-import { deviceEnvironment, useDeviceState } from "~/state/device";
-import { formatEnvironmentQueryError } from "~/state/query";
+import { deviceMachine, useDeviceState } from "~/state/device";
+import { formatMachineQueryError } from "~/state/query";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { DeviceLoadingView } from "./DeviceLoadingView";
 import { DeviceSetup, deviceHubReadiness, isAndroidDiscoveryUncertain } from "./DeviceSetup";
@@ -37,14 +37,14 @@ export function DevicePanel(props: {
   readonly visible: boolean;
   readonly onDismissSetup: () => void;
 }) {
-  const { environmentId, threadId } = props.threadRef;
-  const { state, loaded } = useDeviceState(environmentId);
-  const list = useAtomCommand(deviceEnvironment.list, { reportFailure: false });
-  const open = useAtomCommand(deviceEnvironment.open);
-  const close = useAtomCommand(deviceEnvironment.close);
+  const { machineId, threadId } = props.threadRef;
+  const { state, loaded } = useDeviceState(machineId);
+  const list = useAtomCommand(deviceMachine.list, { reportFailure: false });
+  const open = useAtomCommand(deviceMachine.open);
+  const close = useAtomCommand(deviceMachine.close);
   // The panel stays mounted across thread switches, so an in-flight open or
   // power-off is tagged with the thread it belongs to and only shown there.
-  const scope = `${environmentId}\u0000${threadId}`;
+  const scope = `${machineId}\u0000${threadId}`;
   const [operation, setOperation] = useState<{
     readonly scope: string;
     readonly pending: DeviceSummary | null;
@@ -59,8 +59,8 @@ export function DevicePanel(props: {
   // Opening setup never grants permission to install or start helpers.
   useEffect(() => {
     if (!props.visible || !loaded || hostDisabled) return;
-    void list({ environmentId, input: {} });
-  }, [environmentId, list, loaded, props.visible, hostDisabled]);
+    void list({ machineId, input: {} });
+  }, [machineId, list, loaded, props.visible, hostDisabled]);
 
   const sessions = state.sessions.filter((session) => session.threadId === threadId);
   const activeSession = props.surface.target
@@ -93,7 +93,7 @@ export function DevicePanel(props: {
     if (!device) return;
     const settleOperation = startOperation(device);
     const result = await open({
-      environmentId,
+      machineId,
       input: {
         threadId,
         hostId: device.hostId,
@@ -101,7 +101,7 @@ export function DevicePanel(props: {
         platform: device.platform,
       },
     });
-    if (result._tag === "Failure") settleOperation(formatEnvironmentQueryError(result.cause));
+    if (result._tag === "Failure") settleOperation(formatMachineQueryError(result.cause));
     else {
       // The server opened the device for the starting thread, so its tab opens there.
       useRightPanelStore.getState().openDevice(props.threadRef, {
@@ -134,7 +134,7 @@ export function DevicePanel(props: {
     if (!activeSession) return;
     const settleOperation = startOperation(null);
     void close({
-      environmentId,
+      machineId,
       input: {
         threadId,
         hostId: activeSession.hostId,
@@ -142,7 +142,7 @@ export function DevicePanel(props: {
         shutdown: powerOff,
       },
     }).then((result) => {
-      if (result._tag === "Failure") settleOperation(formatEnvironmentQueryError(result.cause));
+      if (result._tag === "Failure") settleOperation(formatMachineQueryError(result.cause));
       else useRightPanelStore.getState().closeSurface(props.threadRef, props.surface.id);
     });
   };
@@ -173,7 +173,7 @@ export function DevicePanel(props: {
         }}
       >
         <WizardPopup>
-          <DeviceSetup environmentId={environmentId} state={state} />
+          <DeviceSetup machineId={machineId} state={state} />
         </WizardPopup>
       </Dialog>
     );
@@ -191,13 +191,13 @@ export function DevicePanel(props: {
           <div hidden={!!activeDevice}>
             {diagnostics.map((diagnostic) => (
               <DeviceDiscoveryWarning
-                key={`${environmentId}\u0000${diagnostic.hostId}\u0000${diagnostic.detail}`}
+                key={`${machineId}\u0000${diagnostic.hostId}\u0000${diagnostic.detail}`}
                 label={diagnostic.label}
                 detail={diagnostic.detail}
               />
             ))}
           </div>
-          <DeviceHostUpdates state={state} environmentId={environmentId} />
+          <DeviceHostUpdates state={state} machineId={machineId} />
           {bootingDevices.length > 0 ? (
             <div role="status" className="border-b px-3 py-2 text-xs text-muted-foreground">
               Starting {bootingDevices.map((device) => device.name).join(", ")}… This can take a
@@ -213,8 +213,8 @@ export function DevicePanel(props: {
         <div className="@container relative flex min-h-0 flex-1">
           {activeDevice && activeSession ? (
             <DeviceWorkspace
-              key={`${environmentId}\u0000${deviceKey(activeDevice)}`}
-              environmentId={environmentId}
+              key={`${machineId}\u0000${deviceKey(activeDevice)}`}
+              machineId={machineId}
               device={activeDevice}
               hostLabel={
                 state.hosts.find((host) => host.id === activeDevice.hostId)?.label ?? "Device host"
@@ -263,7 +263,7 @@ export function DevicePanel(props: {
                     >
                       {state.hostStatus === "failed"
                         ? (state.hostStatusDetail ?? "The device hub failed to start.")
-                        : "No simulators or emulators were found on this environment."}
+                        : "No simulators or emulators were found on this machine."}
                     </p>
                   </>
                 ) : null}
@@ -329,7 +329,7 @@ export function DevicePanel(props: {
                     className={grouped.length > 0 ? "self-start" : "self-center"}
                     variant="outline"
                     size="sm"
-                    onClick={() => void list({ environmentId, input: {} })}
+                    onClick={() => void list({ machineId, input: {} })}
                   >
                     Refresh devices
                   </Button>

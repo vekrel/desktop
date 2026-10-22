@@ -2,11 +2,11 @@ import { useAtomValue } from "@effect/atom-react";
 import { sourceControlClients } from "@vekrel/client-runtime/source-control-clients";
 import {
   createLinkedPullRequestSummaryAtomFamily,
-  createPullRequestEnvironmentAtoms,
+  createPullRequestMachineAtoms,
   createPullRequestStackAtomFamily,
 } from "@vekrel/client-runtime/state/pull-requests";
 import type {
-  EnvironmentId,
+  MachineId,
   ProjectId,
   PullRequestListInput,
   PullRequestListStatsInput,
@@ -27,16 +27,16 @@ import { connectionAtomRuntime } from "../connection/runtime";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import {
   mergePullRequestLists,
-  type EnvironmentPullRequestStat,
+  type MachinePullRequestStat,
   type MergedPullRequestList,
 } from "../components/pullRequest/pullRequestList.logic";
-import { formatEnvironmentQueryError } from "./query";
-import { environmentThreadShells } from "./threads";
+import { formatMachineQueryError } from "./query";
+import { machineThreadShells } from "./threads";
 
-export const pullRequestEnvironment = createPullRequestEnvironmentAtoms(connectionAtomRuntime);
+export const pullRequestMachine = createPullRequestMachineAtoms(connectionAtomRuntime);
 export const linkedPullRequestDetailAtom = createLinkedPullRequestSummaryAtomFamily(
   connectionAtomRuntime,
-  pullRequestEnvironment.refreshes,
+  pullRequestMachine.refreshes,
 );
 
 export interface ObservedPullRequestSummary {
@@ -93,9 +93,9 @@ export function pullRequestListEntryToSummary(entry: PullRequestListEntry): Pull
 
 // A project has one remote, so its id already pins the host. Leaving the host out lets a list
 // row, a hostless legacy reference and a URL-derived thread reference share one entry.
-function pullRequestSummaryKey(environmentId: EnvironmentId, reference: PullRequestRef): string {
+function pullRequestSummaryKey(machineId: MachineId, reference: PullRequestRef): string {
   return JSON.stringify([
-    environmentId,
+    machineId,
     reference.projectId,
     reference.repository.toLowerCase(),
     reference.number,
@@ -168,21 +168,21 @@ export function threadPullRequestLinkToSummary(
 }
 
 function savedPullRequestKey(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   reference: Pick<PullRequestRef, "host" | "repository" | "number">,
 ): string {
   return reference.host === undefined
     ? ""
-    : `${environmentId}:${threadPullRequestKeyOf({ ...reference, host: reference.host })}`;
+    : `${machineId}:${threadPullRequestKeyOf({ ...reference, host: reference.host })}`;
 }
 
 const savedPullRequestSummariesAtom = Atom.make((get) => {
   const summaries = new Map<string, PullRequestSummary>();
-  for (const thread of get(environmentThreadShells.threadShellsAtom)) {
+  for (const thread of get(machineThreadShells.threadShellsAtom)) {
     for (const link of visibleThreadPullRequests(thread.pullRequests)) {
       const summary = threadPullRequestLinkToSummary(link, thread.projectId);
       if (summary === null) continue;
-      const key = savedPullRequestKey(thread.environmentId, link);
+      const key = savedPullRequestKey(thread.machineId, link);
       summaries.set(key, newestPullRequestSummary(summaries.get(key) ?? null, summary) ?? summary);
     }
   }
@@ -197,22 +197,22 @@ const savedPullRequestSummaryAtom = Atom.family((key: string) =>
 );
 
 export function useSharedPullRequestSummary(
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   reference: PullRequestRef | null,
   current: PullRequestSummary | null,
   observedAt: number | null = null,
 ): PullRequestSummary | null {
   const key =
-    environmentId === null || reference === null
+    machineId === null || reference === null
       ? "none"
-      : pullRequestSummaryKey(environmentId, reference);
+      : pullRequestSummaryKey(machineId, reference);
   const atom = observedPullRequestSummaryAtom(key);
   const observed = useAtomValue(atom);
   const saved = useAtomValue(
     savedPullRequestSummaryAtom(
-      environmentId === null || reference === null
+      machineId === null || reference === null
         ? ""
-        : savedPullRequestKey(environmentId, reference),
+        : savedPullRequestKey(machineId, reference),
     ),
   );
   // Keyed structurally so a fresh reference object for the same pull request is a no-op.
@@ -229,67 +229,67 @@ export function useSharedPullRequestSummary(
 }
 export const pullRequestStackAtom = createPullRequestStackAtomFamily(
   connectionAtomRuntime,
-  pullRequestEnvironment.refreshes,
+  pullRequestMachine.refreshes,
 );
 
-export interface EnvironmentQueryTarget<Input> {
-  readonly environmentId: EnvironmentId;
+export interface MachineQueryTarget<Input> {
+  readonly machineId: MachineId;
   readonly input: Input;
 }
 
-interface MergedEnvironmentQueryView<A> {
-  readonly values: ReadonlyArray<readonly [EnvironmentId, A]>;
+interface MergedMachineQueryView<A> {
+  readonly values: ReadonlyArray<readonly [MachineId, A]>;
   readonly error: string | null;
   readonly isPending: boolean;
-  readonly observations: ReadonlyArray<readonly [EnvironmentId, A, number]>;
+  readonly observations: ReadonlyArray<readonly [MachineId, A, number]>;
 }
 
 /**
  * React cannot subscribe to a list of atoms whose length changes, so the fan-out happens inside
- * one derived atom keyed by the targets — the same shape the cross-environment thread search uses.
- * An environment that fails contributes nothing rather than blanking the page: the pull request
+ * one derived atom keyed by the targets — the same shape the cross-machine thread search uses.
+ * A machine that fails contributes nothing rather than blanking the page: the pull request
  * list is a union, and one unreachable machine should not hide the others' rows.
  */
-function createMergedEnvironmentQuery<Input, A>(
+function createMergedMachineQuery<Input, A>(
   label: string,
   atomFor: (
-    target: EnvironmentQueryTarget<Input>,
+    target: MachineQueryTarget<Input>,
   ) => Atom.Atom<AsyncResult.AsyncResult<A, unknown>>,
 ) {
   const family = Atom.family((key: string) =>
-    Atom.make((get): MergedEnvironmentQueryView<A> => {
-      const targets = JSON.parse(key) as ReadonlyArray<EnvironmentQueryTarget<Input>>;
-      const values: Array<readonly [EnvironmentId, A]> = [];
-      const observations: Array<readonly [EnvironmentId, A, number]> = [];
+    Atom.make((get): MergedMachineQueryView<A> => {
+      const targets = JSON.parse(key) as ReadonlyArray<MachineQueryTarget<Input>>;
+      const values: Array<readonly [MachineId, A]> = [];
+      const observations: Array<readonly [MachineId, A, number]> = [];
       let error: string | null = null;
       let isPending = false;
       for (const target of targets) {
         const result = get(atomFor(target));
         isPending ||= result.waiting;
         if (result._tag === "Failure" && error === null) {
-          error = formatEnvironmentQueryError(result.cause);
+          error = formatMachineQueryError(result.cause);
         }
         const value = Option.getOrNull(AsyncResult.value(result));
-        if (value !== null) values.push([target.environmentId, value]);
+        if (value !== null) values.push([target.machineId, value]);
         if (result._tag === "Success") {
-          observations.push([target.environmentId, result.value, result.timestamp]);
+          observations.push([target.machineId, result.value, result.timestamp]);
         }
       }
       return { values, error, isPending, observations };
     }).pipe(Atom.withLabel(`${label}:${key}`)),
   );
-  const empty = Atom.make<MergedEnvironmentQueryView<A>>({
+  const empty = Atom.make<MergedMachineQueryView<A>>({
     values: [],
     observations: [],
     error: null,
     isPending: false,
   }).pipe(Atom.withLabel(`${label}:empty`));
-  return function useMergedQuery(targets: ReadonlyArray<EnvironmentQueryTarget<Input>>) {
+  return function useMergedQuery(targets: ReadonlyArray<MachineQueryTarget<Input>>) {
     const key = JSON.stringify(targets);
     const view = useAtomValue(targets.length === 0 ? empty : family(key));
-    const refresh = (override?: ReadonlyArray<EnvironmentQueryTarget<Input>>) => {
+    const refresh = (override?: ReadonlyArray<MachineQueryTarget<Input>>) => {
       const refreshTargets =
-        override ?? (JSON.parse(key) as ReadonlyArray<EnvironmentQueryTarget<Input>>);
+        override ?? (JSON.parse(key) as ReadonlyArray<MachineQueryTarget<Input>>);
       for (const atom of new Set(refreshTargets.map(atomFor))) {
         appAtomRegistry.refresh(atom);
       }
@@ -298,32 +298,32 @@ function createMergedEnvironmentQuery<Input, A>(
   };
 }
 
-const usePullRequestListsQuery = createMergedEnvironmentQuery(
+const usePullRequestListsQuery = createMergedMachineQuery(
   "web-pull-requests:list",
-  pullRequestEnvironment.list,
+  pullRequestMachine.list,
 );
 
-const usePullRequestStatsQuery = createMergedEnvironmentQuery(
+const usePullRequestStatsQuery = createMergedMachineQuery(
   "web-pull-requests:list-stats",
-  pullRequestEnvironment.listStats,
+  pullRequestMachine.listStats,
 );
 
-const usePullRequestTurnRefreshQuery = createMergedEnvironmentQuery(
+const usePullRequestTurnRefreshQuery = createMergedMachineQuery(
   "web-pull-requests:turn-refreshes",
-  ({ environmentId }: EnvironmentQueryTarget<Readonly<Record<string, never>>>) =>
-    pullRequestEnvironment.refreshes({ environmentId, input: {} }),
+  ({ machineId }: MachineQueryTarget<Readonly<Record<string, never>>>) =>
+    pullRequestMachine.refreshes({ machineId, input: {} }),
 );
 
 export function usePullRequestTurnRefreshes(
-  environmentIds: ReadonlyArray<EnvironmentId>,
-): ReadonlyArray<readonly [EnvironmentId, number]> {
+  machineIds: ReadonlyArray<MachineId>,
+): ReadonlyArray<readonly [MachineId, number]> {
   return usePullRequestTurnRefreshQuery(
-    environmentIds.map((environmentId) => ({ environmentId, input: {} })),
+    machineIds.map((machineId) => ({ machineId, input: {} })),
   ).values;
 }
 
-export function usePullRequestTurnRefresh(environmentId: EnvironmentId): number | null {
-  const result = useAtomValue(pullRequestEnvironment.refreshes({ environmentId, input: {} }));
+export function usePullRequestTurnRefresh(machineId: MachineId): number | null {
+  const result = useAtomValue(pullRequestMachine.refreshes({ machineId, input: {} }));
   return Option.getOrNull(AsyncResult.value(result));
 }
 
@@ -331,18 +331,18 @@ export interface MergedPullRequestListView {
   readonly data: MergedPullRequestList | null;
   readonly error: string | null;
   readonly isPending: boolean;
-  readonly refresh: (targets?: ReadonlyArray<EnvironmentQueryTarget<PullRequestListInput>>) => void;
+  readonly refresh: (targets?: ReadonlyArray<MachineQueryTarget<PullRequestListInput>>) => void;
 }
 
 export function usePullRequestList(
-  targets: ReadonlyArray<EnvironmentQueryTarget<PullRequestListInput>>,
+  targets: ReadonlyArray<MachineQueryTarget<PullRequestListInput>>,
 ): MergedPullRequestListView {
   const query = usePullRequestListsQuery(targets);
   useLayoutEffect(() => {
-    for (const [environmentId, answer, observedAt] of query.observations) {
+    for (const [machineId, answer, observedAt] of query.observations) {
       for (const entry of answer.entries) {
         observePullRequestSummary(
-          pullRequestSummaryKey(environmentId, {
+          pullRequestSummaryKey(machineId, {
             projectId: entry.projectId,
             host: entry.host,
             repository: entry.repository,
@@ -359,20 +359,20 @@ export function usePullRequestList(
 }
 
 export function usePullRequestListStats(
-  targets: ReadonlyArray<EnvironmentQueryTarget<PullRequestListStatsInput>>,
+  targets: ReadonlyArray<MachineQueryTarget<PullRequestListStatsInput>>,
 ): {
-  readonly stats: ReadonlyArray<EnvironmentPullRequestStat> | null;
+  readonly stats: ReadonlyArray<MachinePullRequestStat> | null;
   readonly isPending: boolean;
   readonly refresh: (
-    targets?: ReadonlyArray<EnvironmentQueryTarget<PullRequestListStatsInput>>,
+    targets?: ReadonlyArray<MachineQueryTarget<PullRequestListStatsInput>>,
   ) => void;
 } {
   const query = usePullRequestStatsQuery(targets);
   const stats =
     query.values.length === 0
       ? null
-      : query.values.flatMap(([environmentId, result]) =>
-          result.stats.map((stat) => ({ ...stat, environmentId })),
+      : query.values.flatMap(([machineId, result]) =>
+          result.stats.map((stat) => ({ ...stat, machineId })),
         );
   return { stats, isPending: query.isPending, refresh: query.refresh };
 }

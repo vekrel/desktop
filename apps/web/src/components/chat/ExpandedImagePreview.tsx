@@ -5,7 +5,7 @@ import { type ChatFileAttachment, type ChatImageAttachment, isVideoAttachment } 
 import type {
   AssetCreateUrlResult,
   AssetResource,
-  EnvironmentId,
+  MachineId,
   ScopedThreadRef,
 } from "@vekrel/contracts";
 import { videoMimeType } from "@vekrel/shared/video";
@@ -46,7 +46,7 @@ export async function resolveMarkdownMediaPreview(input: {
   httpBaseUrl?: string | undefined;
   onOpenFile?: ((relativePath: string) => void) | undefined;
   createAssetUrl: (input: {
-    environmentId: EnvironmentId;
+    machineId: MachineId;
     input: { resource: AssetResource };
   }) => Promise<AtomCommandResult<AssetCreateUrlResult, unknown>>;
 }): Promise<ExpandedImagePreview | null> {
@@ -65,16 +65,16 @@ export async function resolveMarkdownMediaPreview(input: {
     src = resolveProtocolRelativeMediaUrl(media.uri);
   } else {
     if (media.access === "unavailable" || !input.threadRef || !input.httpBaseUrl) {
-      throw new Error("Reconnect to this environment and open the media again.");
+      throw new Error("Reconnect to this machine and open the media again.");
     }
-    asset = { environmentId: input.threadRef.environmentId, resource: media.resource };
+    asset = { machineId: input.threadRef.machineId, resource: media.resource };
     const result = await input.createAssetUrl({
-      environmentId: asset.environmentId,
+      machineId: asset.machineId,
       input: { resource: asset.resource },
     });
     if (result._tag === "Failure") throw squashAtomCommandFailure(result);
     const assetUrl = resolveAssetUrl(input.httpBaseUrl, result.value.relativeUrl);
-    if (assetUrl === null) throw new Error("The environment returned an invalid media URL.");
+    if (assetUrl === null) throw new Error("The machine returned an invalid media URL.");
     src = assetUrl + media.srcFragment;
   }
   return {
@@ -104,11 +104,11 @@ export async function resolveMarkdownMediaPreview(input: {
 }
 
 export function buildAttachmentVideoAsset(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   attachment: Pick<ChatFileAttachment, "id" | "name" | "mimeType">,
 ): NonNullable<MediaActionSource["asset"]> {
   return {
-    environmentId,
+    machineId,
     resource: {
       _tag: "attachment" as const,
       attachmentId: attachment.id,
@@ -119,7 +119,7 @@ export function buildAttachmentVideoAsset(
 }
 
 export function buildAttachmentVideoPreview(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   attachment: ChatFileAttachment,
 ): ExpandedImagePreview | null {
   if (!isVideoAttachment(attachment)) return null;
@@ -127,7 +127,7 @@ export function buildAttachmentVideoPreview(
   const asset =
     attachment.downloadable === false
       ? undefined
-      : buildAttachmentVideoAsset(environmentId, attachment);
+      : buildAttachmentVideoAsset(machineId, attachment);
   if (src === null && asset === undefined) return null;
   return {
     images: [
@@ -150,7 +150,7 @@ export function buildAttachmentVideoPreview(
 export function expandedImageKey(preview: ExpandedImagePreview): string {
   const item = preview.images[preview.index];
   const asset = item?.actionsSource?.asset;
-  return `${item?.src ?? (asset ? JSON.stringify([asset.environmentId, asset.resource]) : "image")}:${preview.index}`;
+  return `${item?.src ?? (asset ? JSON.stringify([asset.machineId, asset.resource]) : "image")}:${preview.index}`;
 }
 
 export function attachVideoThumbnail(video: HTMLVideoElement, file: File): () => void {

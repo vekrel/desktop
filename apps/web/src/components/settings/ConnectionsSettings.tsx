@@ -5,7 +5,7 @@ import { useState } from "react";
 import {
   AuthAccessReadScope,
   AuthAccessWriteScope,
-  AuthEnvironmentMaintainScope,
+  AuthMachineMaintainScope,
   AuthRelayReadScope,
   AuthRelayWriteScope,
   type AuthClientSession,
@@ -14,8 +14,8 @@ import {
   type AdvertisedEndpoint,
   type DesktopServerExposureState,
   type DesktopWslState,
-  type EnvironmentId,
-  resolveEnvironmentMachineKind,
+  type MachineId,
+  resolveMachineKind,
 } from "@vekrel/contracts";
 import {
   isAtomCommandInterrupted,
@@ -24,7 +24,7 @@ import {
 } from "@vekrel/client-runtime/state/runtime";
 import * as Cause from "effect/Cause";
 
-import { isLocalEnvironmentDisabled } from "../../localEnvironment";
+import { isLocalMachineDisabled } from "../../localMachine";
 import {
   applyWslEnableSelection,
   isWslSettingsRowVisible,
@@ -32,9 +32,9 @@ import {
   resolveLocalVersionStatusLabel,
 } from "./ConnectionsSettings.logic";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsLayout";
-import { LocalEnvironmentSetting } from "./LocalEnvironmentSetting";
+import { LocalMachineSetting } from "./LocalMachineSetting";
 import { searchableSetting } from "./settingsSearch";
-import { EnvironmentIconMenu } from "./EnvironmentIconPicker";
+import { MachineIconMenu } from "./MachineIconPicker";
 import { FoldedSettingsSection } from "./FoldedSettingsSection";
 import { LoadBalancingSettings } from "./LoadBalancingSettings";
 import { GitHubRoutingSettings } from "./GitHubRoutingSettings";
@@ -66,14 +66,14 @@ import { Switch } from "../ui/switch";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { Button } from "../ui/button";
-import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import { MachineIcon } from "../MachineIcon";
 import {
   revokeOtherServerClientSessions,
   revokeServerClientSession,
   revokeServerPairingLink,
   usePrimarySessionState,
   type ServerClientSessionRecord,
-} from "~/environments/primary";
+} from "~/machines/primary";
 import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
 import { useUiStateStore } from "~/uiStateStore";
 import {
@@ -83,11 +83,11 @@ import {
   supportsServerUpdateThreadContinuation,
 } from "~/versionSkew";
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";
-import { RemoveT3ConnectEnvironmentDialog } from "../clerk/RemoveT3ConnectEnvironmentDialog";
-import { authEnvironment } from "~/state/auth";
-import { environmentCatalog } from "~/connection/catalog";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
-import { useEnvironmentQuery } from "~/state/query";
+import { RemoveT3ConnectMachineDialog } from "../clerk/RemoveT3ConnectMachineDialog";
+import { authMachine } from "~/state/auth";
+import { machineCatalog } from "~/connection/catalog";
+import { readMachineScope, useMachineScope } from "~/state/session";
+import { useMachineQuery } from "~/state/query";
 import {
   desktopNetworkAccessStateAtom,
   refreshDesktopNetworkAccessState,
@@ -95,14 +95,14 @@ import {
 import { desktopWslStateAtom, refreshDesktopWslState } from "~/state/desktopWslState";
 import { useDesktopUpdateState } from "~/state/desktopUpdate";
 import {
-  type EnvironmentPresentation,
-  useEnvironments,
-  usePrimaryEnvironment,
-} from "~/state/environments";
+  type MachinePresentation,
+  useMachines,
+  usePrimaryMachine,
+} from "~/state/machines";
 import { requestConfirmDialog } from "~/confirmDialog";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { environmentIdsKey } from "~/state/environmentAtomList";
-import { environmentUpdateStatesAtom, serverEnvironment } from "~/state/server";
+import { machineIdsKey } from "~/state/machineAtomList";
+import { machineUpdateStatesAtom, serverMachine } from "~/state/server";
 import {
   ServerUpdateAction,
   ServerUpdateProgress,
@@ -129,10 +129,10 @@ import {
 } from "./AuthorizedClientsSettings";
 import {
   CloudLinkRow,
-  CloudRemoteEnvironmentRows,
+  CloudRemoteMachineRows,
   SavedBackendListRow,
-} from "./SavedEnvironmentRows";
-import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
+} from "./SavedMachineRows";
+import { AddMachineDialog } from "./AddMachineDialog";
 
 const DEFAULT_TAILSCALE_SERVE_PORT = 443;
 const EMPTY_ADVERTISED_ENDPOINTS: ReadonlyArray<AdvertisedEndpoint> = [];
@@ -155,44 +155,44 @@ function LocalVersionStatusLabel() {
 
 export function ConnectionsSettings() {
   const desktopBridge = window.desktopBridge;
-  const { environments } = useEnvironments();
-  const primaryEnvironment = usePrimaryEnvironment();
-  const removeEnvironment = useAtomCommand(environmentCatalog.remove, { reportFailure: false });
-  const setEnvironmentEnabled = useAtomCommand(environmentCatalog.setEnabled, {
+  const { machines } = useMachines();
+  const primaryMachine = usePrimaryMachine();
+  const removeMachine = useAtomCommand(machineCatalog.remove, { reportFailure: false });
+  const setMachineEnabled = useAtomCommand(machineCatalog.setEnabled, {
     reportFailure: false,
   });
-  const primaryEnvironmentId = primaryEnvironment?.environmentId ?? null;
+  const primaryMachineId = primaryMachine?.machineId ?? null;
   const primarySessionState = usePrimarySessionState();
   const currentSessionScopes = primarySessionState.data?.authenticated
     ? (primarySessionState.data.permissions ?? primarySessionState.data.scopes ?? null)
     : null;
   const currentAuthPolicy = desktopBridge ? null : (primarySessionState.data?.auth.policy ?? null);
-  const savedEnvironments = environments.filter(
-    (environment) => environment.entry.target._tag !== "PrimaryConnectionTarget",
+  const savedMachines = machines.filter(
+    (machine) => machine.entry.target._tag !== "PrimaryConnectionTarget",
   );
-  const listedEnvironments = savedEnvironments.filter(
-    (environment) => !isDesktopLocalConnectionTarget(environment.entry.target),
+  const listedMachines = savedMachines.filter(
+    (machine) => !isDesktopLocalConnectionTarget(machine.entry.target),
   );
   const savedUpdateStates = useAtomValue(
-    environmentUpdateStatesAtom(
-      environmentIdsKey(savedEnvironments.map(({ environmentId }) => environmentId)),
+    machineUpdateStatesAtom(
+      machineIdsKey(savedMachines.map(({ machineId }) => machineId)),
     ),
   );
-  const savedServerUpdateStates = savedEnvironments.map((environment, index) => ({
-    environment,
+  const savedServerUpdateStates = savedMachines.map((machine, index) => ({
+    machine,
     updateStatus: savedUpdateStates[index]!.status,
   }));
   const savedServerUpdateTargets = savedServerUpdateStates.flatMap(
-    ({ environment, updateStatus }): ServerUpdateTarget[] => {
-      const mismatch = resolveServerConfigVersionMismatch(environment.serverConfig);
-      const selfUpdate = resolveServerSelfUpdateCapability(environment.serverConfig);
-      const desktopAppUpdate = supportsDesktopAppUpdate(environment.serverConfig);
+    ({ machine, updateStatus }): ServerUpdateTarget[] => {
+      const mismatch = resolveServerConfigVersionMismatch(machine.serverConfig);
+      const selfUpdate = resolveServerSelfUpdateCapability(machine.serverConfig);
+      const desktopAppUpdate = supportsDesktopAppUpdate(machine.serverConfig);
       if (
         !mismatch ||
         updateStatus === "running" ||
-        !environment.entry.enabled ||
-        environment.connection.phase !== "connected" ||
-        isDesktopLocalConnectionTarget(environment.entry.target) ||
+        !machine.entry.enabled ||
+        machine.connection.phase !== "connected" ||
+        isDesktopLocalConnectionTarget(machine.entry.target) ||
         selfUpdate === null ||
         (selfUpdate === "desktop-managed" && !desktopAppUpdate)
       ) {
@@ -200,23 +200,23 @@ export function ConnectionsSettings() {
       }
       return [
         {
-          environmentId: environment.environmentId,
-          serverLabel: environment.label,
+          machineId: machine.machineId,
+          serverLabel: machine.label,
           selfUpdate,
-          installation: environment.serverConfig?.environment.capabilities.serverInstallation,
+          installation: machine.serverConfig?.machine.capabilities.serverInstallation,
           desktopAppUpdate,
-          threadContinuation: supportsServerUpdateThreadContinuation(environment.serverConfig),
+          threadContinuation: supportsServerUpdateThreadContinuation(machine.serverConfig),
           continueThreadsAfterServerUpdate:
-            environment.serverConfig?.settings.continueThreadsAfterServerUpdate ?? false,
+            machine.serverConfig?.settings.continueThreadsAfterServerUpdate ?? false,
           targetVersion: mismatch.clientVersion,
         },
       ];
     },
   );
-  const loadBalancingEnvironments = [
-    ...(primaryEnvironment ? [primaryEnvironment] : []),
-    ...savedEnvironments.filter((environment) => environment.entry.enabled),
-  ].filter((environment) => environment.connection.phase !== "unsupported");
+  const loadBalancingMachines = [
+    ...(primaryMachine ? [primaryMachine] : []),
+    ...savedMachines.filter((machine) => machine.entry.enabled),
+  ].filter((machine) => machine.connection.phase !== "unsupported");
   const [desktopServerExposureMutationError, setDesktopServerExposureMutationError] = useState<
     string | null
   >(null);
@@ -237,7 +237,7 @@ export function ConnectionsSettings() {
   >(null);
   const [isRevokingOtherDesktopClients, setIsRevokingOtherDesktopClients] = useState(false);
   const [addBackendDialogOpen, setAddBackendDialogOpen] = useState(false);
-  const [routeTarget, setRouteTarget] = useState<EnvironmentPresentation | null>(null);
+  const [routeTarget, setRouteTarget] = useState<MachinePresentation | null>(null);
   const [savedBackendError, setSavedBackendError] = useState<string | null>(null);
   const handleAddBackendDialogOpenChange = (open: boolean) => {
     setAddBackendDialogOpen(open);
@@ -247,8 +247,8 @@ export function ConnectionsSettings() {
       setSavedBackendError(null);
     }
   };
-  const [removingSavedEnvironmentId, setRemovingSavedEnvironmentId] =
-    useState<EnvironmentId | null>(null);
+  const [removingSavedMachineId, setRemovingSavedMachineId] =
+    useState<MachineId | null>(null);
   const [isUpdatingDesktopServerExposure, setIsUpdatingDesktopServerExposure] = useState(false);
   const [isUpdatingTailscaleServe, setIsUpdatingTailscaleServe] = useState(false);
   const [isUpdatingWslBackend, setIsUpdatingWslBackend] = useState(false);
@@ -269,10 +269,10 @@ export function ConnectionsSettings() {
   const [pendingDesktopServerExposureMode, setPendingDesktopServerExposureMode] = useState<
     DesktopServerExposureState["mode"] | null
   >(null);
-  const primaryServerConfig = primaryEnvironment?.serverConfig ?? null;
+  const primaryServerConfig = primaryMachine?.serverConfig ?? null;
   const primaryVersionMismatch = resolveServerConfigVersionMismatch(primaryServerConfig);
   const primaryServerUpdateState = useAtomValue(
-    serverEnvironment.updateStateAtom(primaryEnvironmentId),
+    serverMachine.updateStateAtom(primaryMachineId),
   );
   const [isAdvertisedEndpointListExpanded, setIsAdvertisedEndpointListExpanded] = useState(false);
   const defaultAdvertisedEndpointKey = useUiStateStore(
@@ -281,24 +281,24 @@ export function ConnectionsSettings() {
   const setDefaultAdvertisedEndpointKey = useUiStateStore(
     (state) => state.setDefaultAdvertisedEndpointKey,
   );
-  const canReadAccess = useEnvironmentScope(primaryEnvironmentId, AuthAccessReadScope);
-  const canWriteAccess = useEnvironmentScope(primaryEnvironmentId, AuthAccessWriteScope);
-  const canReadRelay = useEnvironmentScope(primaryEnvironmentId, AuthRelayReadScope);
-  const canMaintain = useEnvironmentScope(primaryEnvironmentId, AuthEnvironmentMaintainScope);
-  const canManageRelay = useEnvironmentScope(primaryEnvironmentId, AuthRelayWriteScope);
-  const canManageLocalBackend = !isLocalEnvironmentDisabled() && canMaintain;
-  const authAccessChanges = useEnvironmentQuery(
-    canReadAccess && primaryEnvironmentId !== null
-      ? authEnvironment.accessChanges({
-          environmentId: primaryEnvironmentId,
+  const canReadAccess = useMachineScope(primaryMachineId, AuthAccessReadScope);
+  const canWriteAccess = useMachineScope(primaryMachineId, AuthAccessWriteScope);
+  const canReadRelay = useMachineScope(primaryMachineId, AuthRelayReadScope);
+  const canMaintain = useMachineScope(primaryMachineId, AuthMachineMaintainScope);
+  const canManageRelay = useMachineScope(primaryMachineId, AuthRelayWriteScope);
+  const canManageLocalBackend = !isLocalMachineDisabled() && canMaintain;
+  const authAccessChanges = useMachineQuery(
+    canReadAccess && primaryMachineId !== null
+      ? authMachine.accessChanges({
+          machineId: primaryMachineId,
           input: null,
         })
       : null,
   );
-  const desktopNetworkAccess = useEnvironmentQuery(
+  const desktopNetworkAccess = useMachineQuery(
     canManageLocalBackend && desktopBridge ? desktopNetworkAccessStateAtom : null,
   );
-  const desktopWsl = useEnvironmentQuery(
+  const desktopWsl = useMachineQuery(
     canManageLocalBackend && desktopBridge ? desktopWslStateAtom : null,
   );
   const desktopWslState = desktopWsl.data;
@@ -360,8 +360,8 @@ export function ConnectionsSettings() {
   const handleDesktopServerExposureChange = async (checked: boolean) => {
     if (
       !desktopBridge ||
-      primaryEnvironmentId === null ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthEnvironmentMaintainScope)
+      primaryMachineId === null ||
+      !readMachineScope(primaryMachineId, AuthMachineMaintainScope)
     )
       return;
     setIsUpdatingDesktopServerExposure(true);
@@ -395,8 +395,8 @@ export function ConnectionsSettings() {
   const handleConfirmTailscaleServeSetup = async () => {
     if (
       !desktopBridge ||
-      primaryEnvironmentId === null ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthEnvironmentMaintainScope)
+      primaryMachineId === null ||
+      !readMachineScope(primaryMachineId, AuthMachineMaintainScope)
     )
       return;
     if (!isTailscaleServePortValid) return;
@@ -436,8 +436,8 @@ export function ConnectionsSettings() {
   const handleConfirmTailscaleServeDisable = async () => {
     if (
       !desktopBridge ||
-      primaryEnvironmentId === null ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthEnvironmentMaintainScope)
+      primaryMachineId === null ||
+      !readMachineScope(primaryMachineId, AuthMachineMaintainScope)
     )
       return;
     setIsUpdatingTailscaleServe(true);
@@ -471,8 +471,8 @@ export function ConnectionsSettings() {
 
   const handleRevokeDesktopPairingLink = async (id: string) => {
     if (
-      primaryEnvironmentId === null ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthAccessWriteScope)
+      primaryMachineId === null ||
+      !readMachineScope(primaryMachineId, AuthAccessWriteScope)
     )
       return;
     setRevokingDesktopPairingLinkId(id);
@@ -499,8 +499,8 @@ export function ConnectionsSettings() {
     sessionId: ServerClientSessionRecord["sessionId"],
   ) => {
     if (
-      primaryEnvironmentId === null ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthAccessWriteScope)
+      primaryMachineId === null ||
+      !readMachineScope(primaryMachineId, AuthAccessWriteScope)
     )
       return;
     setRevokingDesktopClientSessionId(sessionId);
@@ -525,8 +525,8 @@ export function ConnectionsSettings() {
 
   const handleRevokeOtherDesktopClients = async () => {
     if (
-      primaryEnvironmentId === null ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthAccessWriteScope)
+      primaryMachineId === null ||
+      !readMachineScope(primaryMachineId, AuthAccessWriteScope)
     )
       return;
     setIsRevokingOtherDesktopClients(true);
@@ -554,9 +554,9 @@ export function ConnectionsSettings() {
     setIsRevokingOtherDesktopClients(false);
   };
 
-  const handleSetSavedBackendEnabled = async (environmentId: EnvironmentId, enabled: boolean) => {
+  const handleSetSavedBackendEnabled = async (machineId: MachineId, enabled: boolean) => {
     setSavedBackendError(null);
-    const result = await setEnvironmentEnabled({ environmentId, enabled });
+    const result = await setMachineEnabled({ machineId, enabled });
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
       const error = squashAtomCommandFailure(result);
       const message =
@@ -574,12 +574,12 @@ export function ConnectionsSettings() {
     }
   };
 
-  const removeSavedBackend = async (environment: EnvironmentPresentation) => {
-    const environmentId = environment.environmentId;
-    setRemovingSavedEnvironmentId(environmentId);
+  const removeSavedBackend = async (machine: MachinePresentation) => {
+    const machineId = machine.machineId;
+    setRemovingSavedMachineId(machineId);
     setSavedBackendError(null);
-    const result = await removeEnvironment(environmentId);
-    setRemovingSavedEnvironmentId(null);
+    const result = await removeMachine(machineId);
+    setRemovingSavedMachineId(null);
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
       const error = squashAtomCommandFailure(result);
       const message = error instanceof Error ? error.message : "Failed to remove backend.";
@@ -594,20 +594,20 @@ export function ConnectionsSettings() {
     }
   };
 
-  // T3 Connect environments get their own dialog: removing one here leaves its
+  // T3 Connect machines get their own dialog: removing one here leaves its
   // account registration, so it points to where that can be deregistered.
   const [pendingT3ConnectRemoval, setPendingT3ConnectRemoval] =
-    useState<EnvironmentPresentation | null>(null);
-  const handleRemoveSavedBackend = async (environment: EnvironmentPresentation) => {
-    if (environment.relayManaged && hasCloudPublicConfig()) {
-      setPendingT3ConnectRemoval(environment);
+    useState<MachinePresentation | null>(null);
+  const handleRemoveSavedBackend = async (machine: MachinePresentation) => {
+    if (machine.relayManaged && hasCloudPublicConfig()) {
+      setPendingT3ConnectRemoval(machine);
       return;
     }
     const confirmed = await requestConfirmDialog(
-      `Remove ${environment.label} from this device?\nThis forgets its pairing, credentials, and cached threads here. Switch it off instead to keep it saved.`,
+      `Remove ${machine.label} from this device?\nThis forgets its pairing, credentials, and cached threads here. Switch it off instead to keep it saved.`,
       { variant: "destructive" },
     );
-    if (confirmed === true) await removeSavedBackend(environment);
+    if (confirmed === true) await removeSavedBackend(machine);
   };
 
   const visibleDesktopPairingLinks = desktopPairingLinks;
@@ -666,8 +666,8 @@ export function ConnectionsSettings() {
   const applyWslSettingChange = async (apply: () => Promise<DesktopWslState>) => {
     if (
       !desktopBridge ||
-      primaryEnvironmentId === null ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthEnvironmentMaintainScope)
+      primaryMachineId === null ||
+      !readMachineScope(primaryMachineId, AuthMachineMaintainScope)
     )
       return;
     setIsUpdatingWslBackend(true);
@@ -697,8 +697,8 @@ export function ConnectionsSettings() {
     refreshDesktopWslState();
   };
 
-  const hasWslRegistrationToLose = environments.some((environment) =>
-    isDesktopLocalConnectionTarget(environment.entry.target),
+  const hasWslRegistrationToLose = machines.some((machine) =>
+    isDesktopLocalConnectionTarget(machine.entry.target),
   );
 
   const handleSelectWslMode = (value: string) => {
@@ -1031,26 +1031,26 @@ export function ConnectionsSettings() {
 
   const primarySettings = (
     <>
-      {primaryEnvironmentId !== null ? (
+      {primaryMachineId !== null ? (
         <>
           <SettingsSection
-            {...searchableSetting("connections-environment")}
+            {...searchableSetting("connections-machine")}
             title={
-              primaryEnvironment?.label ?? (desktopBridge ? "This machine" : "Primary environment")
+              primaryMachine?.label ?? (desktopBridge ? "This machine" : "Primary machine")
             }
             icon={
-              <EnvironmentMachineIcon
+              <MachineIcon
                 aria-hidden
                 kind={
                   primaryServerConfig
-                    ? resolveEnvironmentMachineKind(primaryServerConfig)
+                    ? resolveMachineKind(primaryServerConfig)
                     : "desktop"
                 }
                 className="size-4"
               />
             }
             headerAction={
-              primaryEnvironmentId !== null ? (
+              primaryMachineId !== null ? (
                 <Menu>
                   <MenuTrigger
                     render={
@@ -1065,8 +1065,8 @@ export function ConnectionsSettings() {
                     <EllipsisIcon className="size-3.5" />
                   </MenuTrigger>
                   <MenuPopup align="end">
-                    <EnvironmentIconMenu
-                      environmentId={primaryEnvironmentId}
+                    <MachineIconMenu
+                      machineId={primaryMachineId}
                       serverConfig={primaryServerConfig}
                     />
                   </MenuPopup>
@@ -1074,7 +1074,7 @@ export function ConnectionsSettings() {
               ) : null
             }
           >
-            <LocalEnvironmentSetting />
+            <LocalMachineSetting />
             {canManageLocalBackend ? (
               <SettingsRow
                 title="Version"
@@ -1083,8 +1083,8 @@ export function ConnectionsSettings() {
                     <ServerUpdateProgress state={primaryServerUpdateState} />
                   ) : (
                     [
-                      primaryServerConfig?.environment.serverVersion ?? null,
-                      primaryEnvironment?.displayUrl ?? null,
+                      primaryServerConfig?.machine.serverVersion ?? null,
+                      primaryMachine?.displayUrl ?? null,
                     ]
                       .filter((value): value is string => value !== null)
                       .join(" · ") || "Loading…"
@@ -1092,17 +1092,17 @@ export function ConnectionsSettings() {
                 }
                 control={
                   primaryVersionMismatch &&
-                  primaryEnvironmentId !== null &&
+                  primaryMachineId !== null &&
                   primaryServerUpdateState.status !== "running" ? (
                     <ServerUpdateAction
                       size="sm"
-                      environmentId={primaryEnvironmentId}
+                      machineId={primaryMachineId}
                       serverLabel={
-                        primaryEnvironment ? `${primaryEnvironment.label} server` : "server"
+                        primaryMachine ? `${primaryMachine.label} server` : "server"
                       }
                       selfUpdate={resolveServerSelfUpdateCapability(primaryServerConfig)}
                       installation={
-                        primaryServerConfig?.environment.capabilities.serverInstallation
+                        primaryServerConfig?.machine.capabilities.serverInstallation
                       }
                       desktopAppUpdate={supportsDesktopAppUpdate(primaryServerConfig)}
                       threadContinuation={supportsServerUpdateThreadContinuation(
@@ -1139,7 +1139,7 @@ export function ConnectionsSettings() {
                 ) : null}
               </>
             ) : null}
-            {primaryEnvironment ? (
+            {primaryMachine ? (
               <details className="group px-3 sm:px-4">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
                   Permissions
@@ -1149,8 +1149,8 @@ export function ConnectionsSettings() {
                   />
                 </summary>
                 <SessionPermissions
-                  environmentId={primaryEnvironment.environmentId}
-                  connected={primaryEnvironment.connection.phase === "connected"}
+                  machineId={primaryMachine.machineId}
+                  connected={primaryMachine.connection.phase === "connected"}
                 />
               </details>
             ) : null}
@@ -1466,12 +1466,12 @@ export function ConnectionsSettings() {
           </Dialog>
         </>
       ) : (
-        <SettingsSection {...searchableSetting("connections-environment")}>
+        <SettingsSection {...searchableSetting("connections-machine")}>
           <SettingsRow
-            title="No environment selected"
-            description="Connect an environment to view its settings and access."
+            title="No machine selected"
+            description="Connect a machine to view its settings and access."
           />
-          <LocalEnvironmentSetting />
+          <LocalMachineSetting />
           {canReadRelay || canManageRelay ? (
             <CloudLinkRow canReadRelay={canReadRelay} canManageRelay={canManageRelay} />
           ) : null}
@@ -1484,29 +1484,29 @@ export function ConnectionsSettings() {
     <SettingsPageContainer>
       {primarySettings}
       <SettingsSection
-        {...searchableSetting("remote-environments")}
-        title="Environments"
+        {...searchableSetting("remote-machines")}
+        title="Machines"
         headerAction={
           <div className="flex items-center gap-1">
             {savedServerUpdateTargets.length > 0 ? (
               <ServerUpdatesAction targets={savedServerUpdateTargets} variant="ghost-muted" />
             ) : null}
-            <AddEnvironmentDialog
+            <AddMachineDialog
               open={addBackendDialogOpen}
               routeTarget={routeTarget}
               error={savedBackendError}
-              savedEnvironments={savedEnvironments}
+              savedMachines={savedMachines}
               onOpenChange={handleAddBackendDialogOpenChange}
               onErrorChange={setSavedBackendError}
             />
           </div>
         }
       >
-        {listedEnvironments.map((environment) => (
+        {listedMachines.map((machine) => (
           <SavedBackendListRow
-            key={environment.environmentId}
-            environment={environment}
-            removingEnvironmentId={removingSavedEnvironmentId}
+            key={machine.machineId}
+            machine={machine}
+            removingMachineId={removingSavedMachineId}
             onSetEnabled={handleSetSavedBackendEnabled}
             onRemove={handleRemoveSavedBackend}
             onAddRoute={(target) => {
@@ -1516,14 +1516,14 @@ export function ConnectionsSettings() {
             }}
           />
         ))}
-        <CloudRemoteEnvironmentRows
-          primaryEnvironmentId={primaryEnvironmentId}
-          savedEnvironments={savedEnvironments}
+        <CloudRemoteMachineRows
+          primaryMachineId={primaryMachineId}
+          savedMachines={savedMachines}
         />
       </SettingsSection>
       {hasCloudPublicConfig() ? (
-        <RemoveT3ConnectEnvironmentDialog
-          environmentLabel={pendingT3ConnectRemoval?.label ?? null}
+        <RemoveT3ConnectMachineDialog
+          machineLabel={pendingT3ConnectRemoval?.label ?? null}
           onCancel={() => setPendingT3ConnectRemoval(null)}
           onConfirm={() => {
             if (!pendingT3ConnectRemoval) return;
@@ -1532,8 +1532,8 @@ export function ConnectionsSettings() {
           }}
         />
       ) : null}
-      <LoadBalancingSettings environments={loadBalancingEnvironments} />
-      <GitHubRoutingSettings environments={loadBalancingEnvironments} />
+      <LoadBalancingSettings machines={loadBalancingMachines} />
+      <GitHubRoutingSettings machines={loadBalancingMachines} />
     </SettingsPageContainer>
   );
 }

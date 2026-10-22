@@ -1,5 +1,5 @@
 import type {
-  EnvironmentId,
+  MachineId,
   ServerConfig,
   ServerInstallation,
   ServerSelfUpdateCapability,
@@ -78,27 +78,27 @@ export function resolveVersionMismatch(
 }
 
 export function resolveServerConfigVersionMismatch(
-  serverConfig: Pick<ServerConfig, "environment"> | null | undefined,
+  serverConfig: Pick<ServerConfig, "machine"> | null | undefined,
 ): VersionMismatch | null {
-  return resolveVersionMismatch(serverConfig?.environment.serverVersion);
+  return resolveVersionMismatch(serverConfig?.machine.serverVersion);
 }
 
 export function resolveServerSelfUpdateCapability(
-  serverConfig: Pick<ServerConfig, "environment"> | null | undefined,
+  serverConfig: Pick<ServerConfig, "machine"> | null | undefined,
 ): ServerSelfUpdateCapability | null {
-  return serverConfig?.environment.capabilities.serverSelfUpdate ?? null;
+  return serverConfig?.machine.capabilities.serverSelfUpdate ?? null;
 }
 
 export function supportsDesktopAppUpdate(
-  serverConfig: Pick<ServerConfig, "environment"> | null | undefined,
+  serverConfig: Pick<ServerConfig, "machine"> | null | undefined,
 ): boolean {
-  return serverConfig?.environment.capabilities.desktopAppUpdate === true;
+  return serverConfig?.machine.capabilities.desktopAppUpdate === true;
 }
 
 export function supportsServerUpdateThreadContinuation(
-  serverConfig: Pick<ServerConfig, "environment"> | null | undefined,
+  serverConfig: Pick<ServerConfig, "machine"> | null | undefined,
 ): boolean {
-  return serverConfig?.environment.capabilities.serverUpdateThreadContinuation === true;
+  return serverConfig?.machine.capabilities.serverUpdateThreadContinuation === true;
 }
 
 export function manualServerUpdateCommand(
@@ -119,10 +119,10 @@ export function serverUpdateGuidance(capability: ServerSelfUpdateCapability): st
 }
 
 export function buildVersionMismatchDismissalKey(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   mismatch: Pick<VersionMismatch, "clientVersion" | "serverVersion">,
 ): string {
-  return `${environmentId}:${mismatch.clientVersion}:${mismatch.serverVersion}`;
+  return `${machineId}:${mismatch.clientVersion}:${mismatch.serverVersion}`;
 }
 
 function readVersionMismatchDismissals(): VersionMismatchDismissals {

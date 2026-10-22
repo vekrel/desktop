@@ -1,6 +1,6 @@
 import {
   AuthFilesystemReadScope,
-  EnvironmentId,
+  MachineId,
   ThreadId,
   type AuthSessionState,
 } from "@vekrel/contracts";
@@ -38,22 +38,22 @@ vi.mock("../../hooks/useCopyToClipboard", () => ({ writeTextToClipboard: state.c
 vi.mock("../../localApi", () => ({
   readLocalApi: () => ({ contextMenu: { show: state.showMenu } }),
 }));
-vi.mock("../../state/assets", () => ({ assetEnvironment: { createUrl: {} } }));
+vi.mock("../../state/assets", () => ({ assetMachine: { createUrl: {} } }));
 vi.mock("../../state/use-atom-query-runner", () => ({ useAtomQueryRunner: () => state.mint }));
 vi.mock("../../state/session", () => ({
-  environmentSession: { sessionStateAtom: (environmentId: string) => environmentId },
+  machineSession: { sessionStateAtom: (machineId: string) => machineId },
   readPreparedConnection: () => ({ httpBaseUrl: "https://host.test" }),
 }));
 vi.mock("../../state/query", () => ({
-  useEnvironmentQuery: (environmentId: string) => ({
-    data: state.sessions.get(environmentId) ?? null,
+  useMachineQuery: (machineId: string) => ({
+    data: state.sessions.get(machineId) ?? null,
     error: null,
   }),
 }));
 vi.mock("../../rpc/atomRegistry", () => ({
   appAtomRegistry: {
-    get: (environmentId: string) => {
-      const session = state.sessions.get(environmentId);
+    get: (machineId: string) => {
+      const session = state.sessions.get(machineId);
       return session === undefined ? AsyncResult.initial() : AsyncResult.success(session);
     },
   },
@@ -77,7 +77,7 @@ vi.mock("../ui/toast", () => ({
 
 import { MediaActions, useMediaActions, type MediaActionSource } from "./MediaActions";
 
-const environmentId = EnvironmentId.make("media-environment");
+const machineId = MachineId.make("media-machine");
 const threadId = ThreadId.make("media-thread");
 const granted: Pick<AuthSessionState, "authenticated" | "scopes"> = {
   authenticated: true,
@@ -93,7 +93,7 @@ function hostSource(_tag: "workspace-file" | "media-file" = "media-file"): Media
     kind: "image",
     name: "image.png",
     src: null,
-    asset: { environmentId, resource: { _tag, threadId, path: "/repo/image.png" } },
+    asset: { machineId, resource: { _tag, threadId, path: "/repo/image.png" } },
     reference: { kind: "file", path: "/repo/image.png", relativePath: "image.png" },
     onOpenFile: state.openFile,
   };
@@ -120,7 +120,7 @@ function openMenu(source: MediaActionSource) {
 
 beforeEach(() => {
   state.sessions.clear();
-  state.sessions.set(environmentId, denied);
+  state.sessions.set(machineId, denied);
   state.mint
     .mockReset()
     .mockResolvedValue(AsyncResult.success({ relativeUrl: "/api/assets/image.png", expiresAt: 1 }));
@@ -166,7 +166,7 @@ it.each(["workspace-file", "media-file"] as const)(
 it.each(["save", "copy-image", "open-file"])(
   "rechecks access when %s is selected from an already open native menu",
   async (action) => {
-    state.sessions.set(environmentId, granted);
+    state.sessions.set(machineId, granted);
     const choice = deferred<string>();
     const completed = deferred<void>();
     state.showMenu.mockReturnValue(choice.promise);
@@ -174,7 +174,7 @@ it.each(["save", "copy-image", "open-file"])(
     state.openFile.mockImplementation(() => completed.resolve());
     openMenu(hostSource());
 
-    state.sessions.set(environmentId, denied);
+    state.sessions.set(machineId, denied);
     choice.resolve(action);
     await completed.promise;
 

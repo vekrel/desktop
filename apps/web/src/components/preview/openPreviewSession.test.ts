@@ -21,7 +21,7 @@ import {
 import { openPreviewSession } from "./openPreviewSession";
 
 const threadRef = {
-  environmentId: "local" as ScopedThreadRef["environmentId"],
+  machineId: "local" as ScopedThreadRef["machineId"],
   threadId: "thread-1" as ScopedThreadRef["threadId"],
 };
 
@@ -78,7 +78,7 @@ describe("openPreviewSession", () => {
 
       await expect(open(input)).resolves.toMatchObject({ _tag: "Success" });
       expect(openPreview).toHaveBeenCalledExactlyOnceWith({
-        environmentId: threadRef.environmentId,
+        machineId: threadRef.machineId,
         input: {
           threadId: threadRef.threadId,
           url: input.url,

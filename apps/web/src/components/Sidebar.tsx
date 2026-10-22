@@ -1,5 +1,5 @@
-import { type EnvironmentId, type ScopedProjectRef } from "@vekrel/contracts";
-import type { EnvironmentServerConfig } from "@vekrel/client-runtime/connection";
+import { type MachineId, type ScopedProjectRef } from "@vekrel/contracts";
+import type { MachineServerConfig } from "@vekrel/client-runtime/connection";
 import { ThreadContextDragGhost } from "./chat/ThreadContextDragGhost";
 import {
   dropThreadContext,
@@ -33,14 +33,14 @@ import { sortSettledThreads } from "@vekrel/client-runtime/state/thread-sort";
 import { threadSearchMatchKey } from "@vekrel/client-runtime/state/thread-search";
 import {
   threadRuntimeCanArchive,
-  type EnvironmentThreadShell,
+  type MachineThreadShell,
 } from "@vekrel/client-runtime/state/models";
 import {
   parseScopedThreadKey,
   scopeProjectRef,
   scopeThreadRef,
   scopedThreadKey,
-} from "@vekrel/client-runtime/environment";
+} from "@vekrel/client-runtime/machine";
 import {
   AuthOrchestrationOperateScope,
   type ScopedThreadRef,
@@ -84,7 +84,7 @@ import { readLocalApi } from "../localApi";
 import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
 import { selectProjectGroupingSettings } from "../logicalProject";
 import {
-  projectGroupsSpanEnvironments,
+  projectGroupsSpanMachines,
   resolveSidebarProjectScopeKey,
   getSidebarProjectSettingsKey,
   type SidebarProjectSnapshot,
@@ -106,30 +106,30 @@ import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
 import {
-  useEnvironmentIdentities,
-  useConnectedEnvironmentIds,
-  useEnvironmentMachines,
-  usePrimaryEnvironmentId,
-} from "../state/environments";
+  useMachineIdentities,
+  useConnectedMachineIds,
+  useMachineKinds,
+  usePrimaryMachineId,
+} from "../state/machines";
 import {
   readThreadShell,
-  useAllEnvironmentProjectSnapshotsReady,
+  useAllMachineProjectSnapshotsReady,
   useProjects,
   useServerConfigs,
   useQuietThreadShells,
 } from "../state/entities";
-import { environmentPresentations } from "../state/presentation";
+import { machinePresentations } from "../state/presentation";
 import { primaryServerKeybindingsAtom } from "../state/server";
-import { environmentProjects } from "../state/projects";
-import { threadEnvironment } from "../state/threads";
+import { machineProjects } from "../state/projects";
+import { threadMachine } from "../state/threads";
 import { useThreadSearch } from "../state/queries";
 import { useOrchestrationCommand } from "../state/use-orchestration-command";
-import { readEnvironmentScope } from "../state/session";
+import { readMachineScope } from "../state/session";
 import { buildThreadRouteParams, resolveActiveThreadRouteRef } from "../threadRoutes";
 import type { SidebarThreadSummary } from "../types";
 import { isScratchProject } from "@vekrel/client-runtime/state/projects";
 import { cn } from "~/lib/utils";
-import { ProjectEnvironmentBadge } from "./ProjectEnvironmentBadge";
+import { ProjectMachineBadge } from "./ProjectMachineBadge";
 import {
   buildDraftActionMenuItems,
   buildThreadActionMenuItems,
@@ -177,7 +177,7 @@ import { SidebarDragLifecycle, SidebarPointerSensor } from "./Sidebar.pointer";
 import { createSidebarListMotion } from "./Sidebar.motion";
 import { resolveSnoozePresets, snoozeWakeLabel, type SnoozePreset } from "./Sidebar.snooze";
 import { ProjectFavicon } from "./ProjectFavicon";
-import { deriveProviderEntriesByEnvironment } from "../providerInstances";
+import { deriveProviderEntriesByMachine } from "../providerInstances";
 import { useStableCallback } from "../hooks/useStableCallback";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 import { Button } from "./ui/button";
@@ -233,15 +233,15 @@ function sameSidebarProviderEntries(
   return true;
 }
 
-// Threads on non-primary environments (T3 Connect, hosted) resolve their
-// provider entry from their own environment's config: default instance ids
-// are driver slugs, so a flat map would collide across environments.
+// Threads on non-primary machines (T3 Connect, hosted) resolve their
+// provider entry from their own machine's config: default instance ids
+// are driver slugs, so a flat map would collide across machines.
 const sidebarProviderEntriesAtom = Atom.make((get) => {
-  const providersByEnvironment = get(environmentPresentations.providersByEnvironmentAtom);
-  const derived = deriveProviderEntriesByEnvironment(
-    [...get(environmentPresentations.serverConfigsAtom)].map(
-      ([environmentId, config]) =>
-        [environmentId, providersByEnvironment.get(environmentId) ?? [], config.settings] as const,
+  const providersByMachine = get(machinePresentations.providersByMachineAtom);
+  const derived = deriveProviderEntriesByMachine(
+    [...get(machinePresentations.serverConfigsAtom)].map(
+      ([machineId, config]) =>
+        [machineId, providersByMachine.get(machineId) ?? [], config.settings] as const,
     ),
   );
   const previous = Option.getOrNull(
@@ -249,12 +249,12 @@ const sidebarProviderEntriesAtom = Atom.make((get) => {
   );
   const next = new Map<string, ReadonlyMap<string, SidebarProviderEntry>>();
   let changed = previous === null || previous.size !== derived.size;
-  for (const [environmentId, entries] of derived) {
-    const prior = previous?.get(environmentId);
+  for (const [machineId, entries] of derived) {
+    const prior = previous?.get(machineId);
     if (prior !== undefined && sameSidebarProviderEntries(prior, entries)) {
-      next.set(environmentId, prior);
+      next.set(machineId, prior);
     } else {
-      next.set(environmentId, entries);
+      next.set(machineId, entries);
       changed = true;
     }
   }
@@ -264,7 +264,7 @@ const sidebarProviderEntriesAtom = Atom.make((get) => {
 const EMPTY_PROVIDER_ENTRIES: ReadonlyMap<string, SidebarProviderEntry> = new Map();
 // Collapsed shelves share one empty list so a route change alone does not
 // give the sidebar list a new identity.
-const EMPTY_THREADS: readonly EnvironmentThreadShell[] = [];
+const EMPTY_THREADS: readonly MachineThreadShell[] = [];
 
 const SETTLED_TAIL_INITIAL_COUNT = 10;
 const SETTLED_TAIL_PAGE_COUNT = 25;
@@ -286,9 +286,9 @@ type SidebarOptimisticDrop = {
 };
 
 interface SidebarThreadPartitionInput {
-  readonly threads: readonly EnvironmentThreadShell[];
+  readonly threads: readonly MachineThreadShell[];
   readonly scopedProjectKeys: ReadonlySet<string> | null;
-  readonly serverConfigs: ReadonlyMap<EnvironmentId, EnvironmentServerConfig>;
+  readonly serverConfigs: ReadonlyMap<MachineId, MachineServerConfig>;
   readonly optimisticDrop: SidebarOptimisticDrop | null;
   readonly workingShelfEnabled: boolean;
   // Snooze wakes and the queued-turn grace depend on the clock, so the minute
@@ -296,8 +296,8 @@ interface SidebarThreadPartitionInput {
   readonly clockKey: string;
 }
 
-function threadShellKey(thread: Pick<SidebarThreadSummary, "environmentId" | "id">): string {
-  return scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
+function threadShellKey(thread: Pick<SidebarThreadSummary, "machineId" | "id">): string {
+  return scopedThreadKey(scopeThreadRef(thread.machineId, thread.id));
 }
 
 const NO_DRAGGED_ORDER: readonly string[] = [];
@@ -310,15 +310,15 @@ const NO_DRAGGED_ORDERS: {
 // time-ordered active shelf; the strategy previews those slots.
 function resolveDraggedOrders(input: {
   readonly drag: { readonly activeKey: string; readonly occurredAt: string };
-  readonly threadByKey: ReadonlyMap<string, EnvironmentThreadShell>;
-  readonly settledThreads: readonly EnvironmentThreadShell[];
-  readonly activeThreads: readonly EnvironmentThreadShell[];
+  readonly threadByKey: ReadonlyMap<string, MachineThreadShell>;
+  readonly settledThreads: readonly MachineThreadShell[];
+  readonly activeThreads: readonly MachineThreadShell[];
   readonly workingShelfEnabled: boolean;
 }): typeof NO_DRAGGED_ORDERS {
   const { drag, threadByKey, settledThreads, activeThreads, workingShelfEnabled } = input;
   const thread = threadByKey.get(drag.activeKey);
   if (thread === undefined) return NO_DRAGGED_ORDERS;
-  const others = (list: readonly EnvironmentThreadShell[]) =>
+  const others = (list: readonly MachineThreadShell[]) =>
     list.filter((candidate) => threadShellKey(candidate) !== drag.activeKey);
   return {
     settledOrder: sortSettledThreads([
@@ -335,9 +335,9 @@ function resolveDraggedOrders(input: {
 }
 
 function routeThreadOnly(
-  threads: readonly EnvironmentThreadShell[],
+  threads: readonly MachineThreadShell[],
   routeThreadKey: string | null,
-): readonly EnvironmentThreadShell[] {
+): readonly MachineThreadShell[] {
   if (routeThreadKey === null) return EMPTY_THREADS;
   const routeThread = threads.find((thread) => threadShellKey(thread) === routeThreadKey);
   return routeThread === undefined ? EMPTY_THREADS : [routeThread];
@@ -350,7 +350,7 @@ function routeThreadOnly(
 function useSidebarThreads(input: {
   readonly projectScopeKey: string | null;
   readonly scopedProjectKeys: ReadonlySet<string> | null;
-  readonly serverConfigs: ReadonlyMap<EnvironmentId, EnvironmentServerConfig>;
+  readonly serverConfigs: ReadonlyMap<MachineId, MachineServerConfig>;
   readonly optimisticDrop: SidebarOptimisticDrop | null;
   readonly routeThreadRef: ScopedThreadRef | null;
 }) {
@@ -362,10 +362,10 @@ function useSidebarThreads(input: {
       ? null
       : scopedThreadKey(
           scopeThreadRef(
-            routeThreadRef.environmentId,
+            routeThreadRef.machineId,
             resolveSidebarRowThreadId(
               routeThreadRef.threadId,
-              routeThreadRef.environmentId,
+              routeThreadRef.machineId,
               threads,
             ),
           ),
@@ -505,20 +505,20 @@ function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
   const preciseNow = new Date().toISOString();
   const visible = filterSidebarV2VisibleThreads(threads, scopedProjectKeys);
   inboxReturns.observe(workingShelfEnabled ? threads : null);
-  const pinned: EnvironmentThreadShell[] = [];
-  const active: EnvironmentThreadShell[] = [];
-  const working: EnvironmentThreadShell[] = [];
-  const inbox = (thread: EnvironmentThreadShell) =>
+  const pinned: MachineThreadShell[] = [];
+  const active: MachineThreadShell[] = [];
+  const working: MachineThreadShell[] = [];
+  const inbox = (thread: MachineThreadShell) =>
     workingShelfEnabled && isSidebarThreadWorking(thread) ? working : active;
-  const snoozed: EnvironmentThreadShell[] = [];
-  const settled: EnvironmentThreadShell[] = [];
+  const snoozed: MachineThreadShell[] = [];
+  const settled: MachineThreadShell[] = [];
   const draggable = new Set<string>();
   const activeReorderable = new Set<string>();
   for (const thread of visible) {
-    const capabilities = serverConfigs.get(thread.environmentId)?.environment.capabilities;
+    const capabilities = serverConfigs.get(thread.machineId)?.machine.capabilities;
     const supportsSettlement = capabilities?.threadSettlement === true;
     const supportsSnooze = capabilities?.threadSnooze === true;
-    const threadKey = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
+    const threadKey = scopedThreadKey(scopeThreadRef(thread.machineId, thread.id));
     if (capabilities?.threadActiveReorder === true) activeReorderable.add(threadKey);
     if (capabilities?.threadPinning === true && capabilities.threadPinReorder === true) {
       draggable.add(threadKey);
@@ -570,7 +570,7 @@ function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
         : orderItemsByPreferredIds({
             items: sortedPinned,
             preferredIds: optimisticDrop.order,
-            getId: (thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+            getId: (thread) => scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
           }),
     draggableThreadKeys: draggable,
     activeReorderableThreadKeys: activeReorderable,
@@ -580,7 +580,7 @@ function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
         : orderItemsByPreferredIds({
             items: sortedActive,
             preferredIds: optimisticDrop.order,
-            getId: (thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+            getId: (thread) => scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
           }),
     workingThreads: sortWorkingThreadsBySend(working),
     snoozedThreads: snoozed.toSorted(
@@ -595,7 +595,7 @@ function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
 
 function isOptimisticDropReleased(input: {
   readonly optimisticDrop: SidebarOptimisticDrop;
-  readonly threads: readonly EnvironmentThreadShell[];
+  readonly threads: readonly MachineThreadShell[];
   readonly pinnedKeys: readonly string[];
   readonly activeKeys: readonly string[];
   readonly now: string;
@@ -603,7 +603,7 @@ function isOptimisticDropReleased(input: {
   const { optimisticDrop, threads, pinnedKeys, activeKeys, now } = input;
   const canonicalByKey = new Map(
     threads.map((thread) => [
-      scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+      scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
       thread,
     ]),
   );
@@ -645,7 +645,7 @@ function isOptimisticDropReleased(input: {
   });
   const keyByThread = new Map(
     canonicalDestination.map((thread) => [
-      scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+      scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
       (optimisticDrop.section === "pinned" ? thread.pinOrderKey : thread.activeOrderKey) ?? null,
     ]),
   );
@@ -669,20 +669,20 @@ function isOptimisticDropReleased(input: {
 // unmutated; built inside a hook they reach it frozen and cached.
 function useSidebarLookups() {
   const projects = useProjects();
-  const environments = useEnvironmentIdentities();
+  const machines = useMachineIdentities();
   const serverConfigs = useServerConfigs();
-  const providerEntriesByEnvironment = useAtomValue(sidebarProviderEntriesAtom);
+  const providerEntriesByMachine = useAtomValue(sidebarProviderEntriesAtom);
   const projectGroups = useSidebarProjectGroups();
-  const environmentLabelById = new Map(
-    environments.map((environment) => [environment.environmentId, environment.label] as const),
+  const machineLabelById = new Map(
+    machines.map((machine) => [machine.machineId, machine.label] as const),
   );
   const projectByKey = new Map(
-    projects.map((project) => [`${project.environmentId}:${project.id}`, project] as const),
+    projects.map((project) => [`${project.machineId}:${project.id}`, project] as const),
   );
   const projectDisplayNameByKey = new Map(
     projectGroups.flatMap((group) =>
       group.memberProjects.map(
-        (project) => [`${project.environmentId}:${project.id}`, group.displayName] as const,
+        (project) => [`${project.machineId}:${project.id}`, group.displayName] as const,
       ),
     ),
   );
@@ -697,8 +697,8 @@ function useSidebarLookups() {
     projects,
     serverConfigs,
     projectGroups,
-    environmentLabelById,
-    providerEntriesByEnvironment,
+    machineLabelById,
+    providerEntriesByMachine,
     projectByKey,
     projectDisplayNameByKey,
     projectGroupByScopeKey,
@@ -718,15 +718,15 @@ function scheduleSnoozeWake(wakeAt: string | null, onWake: () => void): (() => v
 }
 
 function canOperateThreads(
-  threads: ReadonlyArray<Pick<SidebarThreadSummary, "environmentId">>,
+  threads: ReadonlyArray<Pick<SidebarThreadSummary, "machineId">>,
 ): boolean {
   return threads.every((thread) =>
-    readEnvironmentScope(thread.environmentId, AuthOrchestrationOperateScope),
+    readMachineScope(thread.machineId, AuthOrchestrationOperateScope),
   );
 }
 
 function checkThreadOperations(
-  threads: ReadonlyArray<Pick<SidebarThreadSummary, "environmentId">>,
+  threads: ReadonlyArray<Pick<SidebarThreadSummary, "machineId">>,
 ): boolean {
   if (canOperateThreads(threads)) return true;
   toastManager.add({
@@ -746,8 +746,8 @@ export default function Sidebar() {
     projects,
     serverConfigs,
     projectGroups,
-    environmentLabelById,
-    providerEntriesByEnvironment,
+    machineLabelById,
+    providerEntriesByMachine,
     projectByKey,
     projectDisplayNameByKey,
     projectGroupByScopeKey,
@@ -775,7 +775,7 @@ export default function Sidebar() {
     archiveThread,
     deleteThread,
   } = useThreadActions();
-  const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
+  const updateThreadMetadata = useOrchestrationCommand(threadMachine.updateMetadata, {
     reportFailure: false,
   });
   const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
@@ -834,7 +834,7 @@ export default function Sidebar() {
     },
   });
   const newThreadContext = useHandleNewThread();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const primaryMachineId = usePrimaryMachineId();
   const clearSelection = useThreadSelectionStore((s) => s.clearSelection);
   const setSelectionAnchor = useThreadSelectionStore((s) => s.setAnchor);
   const toggleThreadSelection = useThreadSelectionStore((s) => s.toggleThread);
@@ -844,7 +844,7 @@ export default function Sidebar() {
   const routeDraftThread = useComposerDraftStore((store) =>
     routeTarget?.kind === "draft" ? store.getDraftSession(routeTarget.draftId) : null,
   );
-  const environmentMachineById = useEnvironmentMachines();
+  const machineById = useMachineKinds();
   const projectGroupsRef = useRef(projectGroups);
   const persistedProjectScopeKey = useUiStateStore((store) => store.sidebarProjectScopeKey);
   const setPersistedProjectScopeKey = useUiStateStore((store) => store.setSidebarProjectScopeKey);
@@ -853,8 +853,8 @@ export default function Sidebar() {
     { open: false, query: "" },
   );
   const projectScopeFilter = useComboboxFilter();
-  const allProjectSnapshotsReady = useAllEnvironmentProjectSnapshotsReady();
-  const allProjectConfigsReady = useAtomValue(environmentProjects.projectConfigsReadyAtom);
+  const allProjectSnapshotsReady = useAllMachineProjectSnapshotsReady();
+  const allProjectConfigsReady = useAtomValue(machineProjects.projectConfigsReadyAtom);
   const headerSearchRef = useRef<HTMLDivElement | null>(null);
   // Safari can send a click after Ctrl+click opens settings. Ignore that one
   // selection, then clear the guard when the picker opens again.
@@ -867,8 +867,8 @@ export default function Sidebar() {
   const threadSearchInputRef = useRef<HTMLInputElement>(null);
   const [threadSearchQuery, setThreadSearchQuery] = useState("");
   const [searchHighlight, setSearchHighlight] = useState({ orderKey: "", index: 0 });
-  const searchEnvironmentIds = useConnectedEnvironmentIds();
-  const threadSearch = useThreadSearch(searchEnvironmentIds, threadSearchQuery);
+  const searchMachineIds = useConnectedMachineIds();
+  const threadSearch = useThreadSearch(searchMachineIds, threadSearchQuery);
   const handleNewThreadRef = useRef(newThreadContext.handleNewThread);
   const queuePendingFileDrop = useSidebarPendingFileDropStore((s) => s.queuePendingFileDrop);
   const clearPendingFileDrop = useSidebarPendingFileDropStore((s) => s.clearPendingFileDrop);
@@ -911,19 +911,19 @@ export default function Sidebar() {
     key: persistedProjectScopeKey,
     settings: projectGroupingSettings,
   });
-  const showProjectEnvironments = projectGroupsSpanEnvironments(projectGroups);
+  const showProjectMachines = projectGroupsSpanMachines(projectGroups);
   const scratchMachineLabelFor = (
-    thread: Pick<SidebarThreadSummary, "environmentId" | "projectId">,
+    thread: Pick<SidebarThreadSummary, "machineId" | "projectId">,
   ) => {
-    if (!showProjectEnvironments) return null;
-    const project = projectByKey.get(`${thread.environmentId}:${thread.projectId}`);
+    if (!showProjectMachines) return null;
+    const project = projectByKey.get(`${thread.machineId}:${thread.projectId}`);
     if (
       !project ||
-      !isScratchProject(project, serverConfigs.get(thread.environmentId)?.scratchWorkspaceRoot)
+      !isScratchProject(project, serverConfigs.get(thread.machineId)?.scratchWorkspaceRoot)
     ) {
       return null;
     }
-    return environmentLabelById.get(thread.environmentId) ?? null;
+    return machineLabelById.get(thread.machineId) ?? null;
   };
   const selectedProjectScopeItem =
     projectScopeItems.find((item) => item.value === (projectScopeKey ?? "all")) ??
@@ -943,7 +943,7 @@ export default function Sidebar() {
       ? null
       : new Set(
           scopedProjectGroup.memberProjectRefs.map(
-            (projectRef) => `${projectRef.environmentId}:${projectRef.projectId}`,
+            (projectRef) => `${projectRef.machineId}:${projectRef.projectId}`,
           ),
         );
   useEffect(() => {
@@ -978,7 +978,7 @@ export default function Sidebar() {
       }
       if (
         scopedProjectKeys !== null &&
-        !scopedProjectKeys.has(`${session.environmentId}:${session.projectId}`)
+        !scopedProjectKeys.has(`${session.machineId}:${session.projectId}`)
       ) {
         continue;
       }
@@ -1070,7 +1070,7 @@ export default function Sidebar() {
     new Set(threadSearchMatchByKey.keys()),
   );
   const threadSearchResultOrderKey = threadSearchResults
-    .map((thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)))
+    .map((thread) => scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)))
     .join("\0");
 
   // The highlight belongs to one result list; a new list starts at the top.
@@ -1090,7 +1090,7 @@ export default function Sidebar() {
   const activeSearchResultKey =
     activeSearchResult === undefined
       ? null
-      : scopedThreadKey(scopeThreadRef(activeSearchResult.environmentId, activeSearchResult.id));
+      : scopedThreadKey(scopeThreadRef(activeSearchResult.machineId, activeSearchResult.id));
   useEffect(() => {
     if (activeSearchResultKey === null) return;
     document
@@ -1128,7 +1128,7 @@ export default function Sidebar() {
       setOpenMobile(false);
     }
     return router.navigate({
-      to: "/$environmentId/$threadId",
+      to: "/$machineId/$threadId",
       params: buildThreadRouteParams(threadRef),
     });
   };
@@ -1137,7 +1137,7 @@ export default function Sidebar() {
     const dropId = queuePendingFileDrop({ threadRef, files });
     const landedBefore =
       router.buildLocation({
-        to: "/$environmentId/$threadId",
+        to: "/$machineId/$threadId",
         params: buildThreadRouteParams(threadRef),
       }).pathname === router.state.location.pathname;
     if (landedBefore) return;
@@ -1146,7 +1146,7 @@ export default function Sidebar() {
       await navigateToThread(threadRef);
       const landed =
         router.buildLocation({
-          to: "/$environmentId/$threadId",
+          to: "/$machineId/$threadId",
           params: buildThreadRouteParams(threadRef),
         }).pathname === router.state.location.pathname;
       if (!landed) clearPendingFileDrop(dropId);
@@ -1167,9 +1167,9 @@ export default function Sidebar() {
     setThreadSearchQuery("");
     setActiveSearchResultIndex(0);
   };
-  const selectThreadSearchResult = (thread: EnvironmentThreadShell) => {
+  const selectThreadSearchResult = (thread: MachineThreadShell) => {
     clearThreadSearch();
-    navigateToThread(scopeThreadRef(thread.environmentId, thread.id));
+    navigateToThread(scopeThreadRef(thread.machineId, thread.id));
   };
   const handleThreadSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -1200,14 +1200,14 @@ export default function Sidebar() {
   };
 
   const startThreadRename = (threadRef: ScopedThreadRef, title: string) => {
-    if (!readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope)) return;
+    if (!readMachineScope(threadRef.machineId, AuthOrchestrationOperateScope)) return;
     setRenamingThreadKey(scopedThreadKey(threadRef));
     setRenamingTitle(title);
   };
   const cancelThreadRename = () => setRenamingThreadKey(null);
   const commitThreadRename = (threadRef: ScopedThreadRef, title: string, originalTitle: string) => {
     void (async () => {
-      if (!readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope)) return;
+      if (!readMachineScope(threadRef.machineId, AuthOrchestrationOperateScope)) return;
       const trimmed = title.trim();
       setRenamingThreadKey(null);
       if (trimmed.length === 0) {
@@ -1216,7 +1216,7 @@ export default function Sidebar() {
       }
       if (trimmed === originalTitle) return;
       const result = await updateThreadMetadata({
-        environmentId: threadRef.environmentId,
+        machineId: threadRef.machineId,
         input: { threadId: threadRef.threadId, title: trimmed },
       });
       if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
@@ -1273,10 +1273,10 @@ export default function Sidebar() {
           ) ?? null);
     const nextThread = nextCardKey ? threadByKeyRef.current.get(nextCardKey) : null;
     return nextThread
-      ? () => navigateToThread(scopeThreadRef(nextThread.environmentId, nextThread.id))
+      ? () => navigateToThread(scopeThreadRef(nextThread.machineId, nextThread.id))
       : shell
         ? () =>
-            void handleNewThreadRef.current(scopeProjectRef(shell.environmentId, shell.projectId))
+            void handleNewThreadRef.current(scopeProjectRef(shell.machineId, shell.projectId))
         : () => void router.navigate({ to: "/" });
   };
 
@@ -1323,7 +1323,7 @@ export default function Sidebar() {
     for (const threadKey of threadKeys) {
       const thread = threadByKeyRef.current.get(threadKey);
       if (!thread || thread.settledOverride === "settled") continue;
-      attemptSettle(scopeThreadRef(thread.environmentId, thread.id), { coSettlingKeys });
+      attemptSettle(scopeThreadRef(thread.machineId, thread.id), { coSettlingKeys });
     }
   };
   const attemptUnsettle = (threadRef: ScopedThreadRef) => {
@@ -1453,7 +1453,7 @@ export default function Sidebar() {
       const canApply = (key: string) => {
         const thread = threadByKeyRef.current.get(key);
         const capabilities =
-          thread && serverConfigs.get(thread.environmentId)?.environment.capabilities;
+          thread && serverConfigs.get(thread.machineId)?.machine.capabilities;
         return (
           thread !== undefined &&
           sectionByThreadKeyRef.current.get(key) === originSection &&
@@ -1580,11 +1580,11 @@ export default function Sidebar() {
   };
   const sidebarListItemsFresh = ((): readonly SidebarListItem[] => {
     const rowsOf = (
-      list: readonly EnvironmentThreadShell[],
+      list: readonly MachineThreadShell[],
       section: SidebarSection,
     ): SidebarListItem[] =>
       list.map((thread) => {
-        const key = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
+        const key = scopedThreadKey(scopeThreadRef(thread.machineId, thread.id));
         return { kind: "thread", key, section };
       });
     if (
@@ -1712,7 +1712,7 @@ export default function Sidebar() {
             activePinned: source.pinnedAt != null,
             activeSettled: source.settledOverride === "settled",
             supportsSettlement:
-              serverConfigs.get(source.environmentId)?.environment.capabilities.threadSettlement ===
+              serverConfigs.get(source.machineId)?.machine.capabilities.threadSettlement ===
               true,
             target,
             pinnedOrder: pinnedKeys,
@@ -1740,14 +1740,14 @@ export default function Sidebar() {
         : resolveSidebarDropTarget(sidebarListItems, activeKey, String(event.over.id));
     const activeThread = threadByKey.get(activeKey);
     if (activeSection === undefined || target === null || activeThread === undefined) return;
-    const threadRef = scopeThreadRef(activeThread.environmentId, activeThread.id);
+    const threadRef = scopeThreadRef(activeThread.machineId, activeThread.id);
     const plan = planSidebarThreadDrop({
       activeKey,
       activeSection,
       activePinned: activeThread.pinnedAt != null,
       activeSettled: activeThread.settledOverride === "settled",
       supportsSettlement:
-        serverConfigs.get(activeThread.environmentId)?.environment.capabilities.threadSettlement ===
+        serverConfigs.get(activeThread.machineId)?.machine.capabilities.threadSettlement ===
         true,
       target,
       pinnedOrder: pinnedKeys,
@@ -1861,7 +1861,7 @@ export default function Sidebar() {
         if (
           !(await run(
             (plan.kind === "move-active" ? reorderActiveThread : reorderPinnedThread)(
-              scopeThreadRef(thread.environmentId, thread.id),
+              scopeThreadRef(thread.machineId, thread.id),
               assignment.orderKey,
             ),
             plan.kind === "move-active"
@@ -1945,12 +1945,12 @@ export default function Sidebar() {
       );
       const canSnoozeSelection = selectedThreads.every(
         (thread) =>
-          serverConfigs.get(thread.environmentId)?.environment.capabilities.threadSnooze === true &&
+          serverConfigs.get(thread.machineId)?.machine.capabilities.threadSnooze === true &&
           canSnooze(thread, { now: selectionNow.toISOString() }),
       );
       const titleRegenerationThreads = selectedThreads.filter(
         (thread) =>
-          serverConfigs.get(thread.environmentId)?.environment.capabilities
+          serverConfigs.get(thread.machineId)?.machine.capabilities
             .threadTitleRegeneration === true,
       );
       const regeneratableTitleThreads = titleRegenerationThreads.filter(
@@ -1962,7 +1962,7 @@ export default function Sidebar() {
       });
       const pinnedSelectedThreads = selectedThreads.filter(
         (thread) =>
-          serverConfigs.get(thread.environmentId)?.environment.capabilities.threadPinning ===
+          serverConfigs.get(thread.machineId)?.machine.capabilities.threadPinning ===
             true && thread.pinnedAt != null,
       );
       const unpinMenuItem = buildBulkUnpinContextMenuItem({
@@ -2032,7 +2032,7 @@ export default function Sidebar() {
             : clicked.value === "settle"
               ? settlingThreads.flatMap((thread) => {
                   const current = threadByKeyRef.current.get(
-                    scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+                    scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
                   );
                   return current && current.settledOverride !== "settled" ? [current] : [];
                 })
@@ -2049,7 +2049,7 @@ export default function Sidebar() {
           clearSelection();
           const outcomes = await Promise.all(
             selectedThreads.map(async (thread) => {
-              const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+              const threadRef = scopeThreadRef(thread.machineId, thread.id);
               const outcome = await performSnooze(threadRef, preset, { coSnoozingKeys });
               return { outcome, threadRef };
             }),
@@ -2080,7 +2080,7 @@ export default function Sidebar() {
       }
       if (clicked.value === "unpin") {
         for (const thread of pinnedSelectedThreads) {
-          attemptUnpin(scopeThreadRef(thread.environmentId, thread.id));
+          attemptUnpin(scopeThreadRef(thread.machineId, thread.id));
         }
         clearSelection();
         return;
@@ -2088,7 +2088,7 @@ export default function Sidebar() {
       if (clicked.value === "regenerate-title") {
         for (const thread of regeneratableTitleThreads) {
           const result = await updateThreadMetadata({
-            environmentId: thread.environmentId,
+            machineId: thread.machineId,
             input: { threadId: thread.id, regenerateTitle: true },
           });
           if (result._tag === "Success") continue;
@@ -2110,7 +2110,7 @@ export default function Sidebar() {
       if (clicked.value === "settle") {
         settleThreads(
           actionTargets.map((thread) =>
-            scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+            scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
           ),
         );
         clearSelection();
@@ -2119,7 +2119,7 @@ export default function Sidebar() {
       if (clicked.value === "mark-unread") {
         for (const threadKey of threadKeys) {
           const thread = threadByKeyRef.current.get(threadKey);
-          if (thread) markThreadUnread(scopeThreadRef(thread.environmentId, thread.id));
+          if (thread) markThreadUnread(scopeThreadRef(thread.machineId, thread.id));
         }
         clearSelection();
         return;
@@ -2151,7 +2151,7 @@ export default function Sidebar() {
         delete: async ({ threadKey }, deletedThreadKeys) => {
           const thread = threadByKeyRef.current.get(threadKey);
           if (!thread) return null;
-          return deleteThread(scopeThreadRef(thread.environmentId, thread.id), {
+          return deleteThread(scopeThreadRef(thread.machineId, thread.id), {
             deletedThreadKeys,
           });
         },
@@ -2184,12 +2184,12 @@ export default function Sidebar() {
         const projectGroup = projectGroupsRef.current.find((group) =>
           group.memberProjectRefs.some(
             (ref) =>
-              ref.environmentId === session.environmentId && ref.projectId === session.projectId,
+              ref.machineId === session.machineId && ref.projectId === session.projectId,
           ),
         );
         const workspacePath =
           session.worktreePath ??
-          projectByKey.get(`${session.environmentId}:${session.projectId}`)?.workspaceRoot;
+          projectByKey.get(`${session.machineId}:${session.projectId}`)?.workspaceRoot;
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             buildDraftActionMenuItems({
@@ -2205,7 +2205,7 @@ export default function Sidebar() {
           case "project-settings":
             if (projectGroup)
               openProjectSettings(projectGroup, {
-                environmentId: session.environmentId,
+                machineId: session.machineId,
                 projectId: session.projectId,
               });
             return;
@@ -2242,20 +2242,20 @@ export default function Sidebar() {
         if (!thread) return;
         const threadWorkspacePath =
           thread.worktreePath ??
-          projectByKey.get(`${thread.environmentId}:${thread.projectId}`)?.workspaceRoot ??
+          projectByKey.get(`${thread.machineId}:${thread.projectId}`)?.workspaceRoot ??
           null;
         const supportsSettlement =
-          serverConfigs.get(thread.environmentId)?.environment.capabilities.threadSettlement ===
+          serverConfigs.get(thread.machineId)?.machine.capabilities.threadSettlement ===
           true;
         const supportsSnooze =
-          serverConfigs.get(thread.environmentId)?.environment.capabilities.threadSnooze === true;
+          serverConfigs.get(thread.machineId)?.machine.capabilities.threadSnooze === true;
         const supportsPinning =
-          serverConfigs.get(thread.environmentId)?.environment.capabilities.threadPinning === true;
+          serverConfigs.get(thread.machineId)?.machine.capabilities.threadPinning === true;
         const supportsAutoSettleOptOut =
-          serverConfigs.get(thread.environmentId)?.environment.capabilities
+          serverConfigs.get(thread.machineId)?.machine.capabilities
             .threadAutoSettleOptOut === true;
         const supportsTitleRegeneration =
-          serverConfigs.get(thread.environmentId)?.environment.capabilities
+          serverConfigs.get(thread.machineId)?.machine.capabilities
             .threadTitleRegeneration === true;
         const isRegeneratingTitle = thread.titleRegeneration != null;
         const isSettled = settledThreadKeysRef.current.has(threadKey);
@@ -2266,15 +2266,15 @@ export default function Sidebar() {
           projectGroupsRef.current.find((project) =>
             project.memberProjectRefs.some(
               (projectRef) =>
-                projectRef.environmentId === thread.environmentId &&
+                projectRef.machineId === thread.machineId &&
                 projectRef.projectId === thread.projectId,
             ),
           ) ?? null;
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             buildThreadActionMenuItems({
-              canOperate: readEnvironmentScope(
-                threadRef.environmentId,
+              canOperate: readMachineScope(
+                threadRef.machineId,
                 AuthOrchestrationOperateScope,
               ),
               branch: thread.branch ?? null,
@@ -2326,13 +2326,13 @@ export default function Sidebar() {
           case "project-settings":
             if (threadProjectGroup)
               openProjectSettings(threadProjectGroup, {
-                environmentId: threadRef.environmentId,
+                machineId: threadRef.machineId,
                 projectId: thread.projectId,
               });
             return;
           case "new-thread-on-branch": {
             const result = await settlePromise(() =>
-              handleNewThreadRef.current(scopeProjectRef(thread.environmentId, thread.projectId), {
+              handleNewThreadRef.current(scopeProjectRef(thread.machineId, thread.projectId), {
                 branch: thread.branch,
                 worktreePath: thread.worktreePath,
                 envMode: thread.worktreePath ? "worktree" : "local",
@@ -2390,7 +2390,7 @@ export default function Sidebar() {
           case "regenerate-title": {
             if (isRegeneratingTitle) return;
             const result = await updateThreadMetadata({
-              environmentId: threadRef.environmentId,
+              machineId: threadRef.machineId,
               input: { threadId: threadRef.threadId, regenerateTitle: true },
             });
             if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
@@ -2517,7 +2517,7 @@ export default function Sidebar() {
         if (!targetThread) return false;
         event.preventDefault();
         event.stopPropagation();
-        navigateToThread(scopeThreadRef(targetThread.environmentId, targetThread.id));
+        navigateToThread(scopeThreadRef(targetThread.machineId, targetThread.id));
         return true;
       };
       const traversalDirection = threadTraversalDirectionFromCommand(command);
@@ -2688,11 +2688,11 @@ export default function Sidebar() {
                               <FolderIcon className="size-4 shrink-0" />
                             )}
                             <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
-                            {project && showProjectEnvironments ? (
-                              <ProjectEnvironmentBadge
+                            {project && showProjectMachines ? (
+                              <ProjectMachineBadge
                                 group={project}
-                                primaryEnvironmentId={primaryEnvironmentId}
-                                machineByEnvironmentId={environmentMachineById}
+                                primaryMachineId={primaryMachineId}
+                                machineByMachineId={machineById}
                               />
                             ) : null}
                             {project ? (
@@ -2756,7 +2756,7 @@ export default function Sidebar() {
                 >
                   {threadSearchResults.map((thread, index) => {
                     const threadKey = scopedThreadKey(
-                      scopeThreadRef(thread.environmentId, thread.id),
+                      scopeThreadRef(thread.machineId, thread.id),
                     );
                     return (
                       <SidebarSearchResultRow
@@ -2764,19 +2764,19 @@ export default function Sidebar() {
                         key={threadKey}
                         thread={thread}
                         project={
-                          projectByKey.get(`${thread.environmentId}:${thread.projectId}`) ?? null
+                          projectByKey.get(`${thread.machineId}:${thread.projectId}`) ?? null
                         }
                         projectDisplayName={
                           projectDisplayNameByKey.get(
-                            `${thread.environmentId}:${thread.projectId}`,
+                            `${thread.machineId}:${thread.projectId}`,
                           ) ?? null
                         }
-                        environmentLabel={environmentLabelById.get(thread.environmentId) ?? null}
-                        environmentMachine={
-                          environmentMachineById.get(thread.environmentId) ?? "server"
+                        machineLabel={machineLabelById.get(thread.machineId) ?? null}
+                        machine={
+                          machineById.get(thread.machineId) ?? "server"
                         }
                         providerEntryByInstanceId={
-                          providerEntriesByEnvironment.get(thread.environmentId) ??
+                          providerEntriesByMachine.get(thread.machineId) ??
                           EMPTY_PROVIDER_ENTRIES
                         }
                         isHighlighted={activeSearchResultIndex === index}
@@ -2785,7 +2785,7 @@ export default function Sidebar() {
                         searchMatch={
                           threadSearchMatchByKey.get(
                             threadSearchMatchKey({
-                              environmentId: thread.environmentId,
+                              machineId: thread.machineId,
                               threadId: thread.id,
                             }),
                           ) ?? null
@@ -2841,11 +2841,11 @@ export default function Sidebar() {
                   >
                     {(() => {
                       const renderThreadRow = (
-                        thread: EnvironmentThreadShell,
+                        thread: MachineThreadShell,
                         section: SidebarSection,
                       ) => {
                         const threadKey = scopedThreadKey(
-                          scopeThreadRef(thread.environmentId, thread.id),
+                          scopeThreadRef(thread.machineId, thread.id),
                         );
                         const isCard =
                           section === "active" || section === "pinned" || section === "working";
@@ -2870,15 +2870,15 @@ export default function Sidebar() {
                                   : "settle"
                             }
                             settlementSupported={
-                              serverConfigs.get(thread.environmentId)?.environment.capabilities
+                              serverConfigs.get(thread.machineId)?.machine.capabilities
                                 .threadSettlement === true
                             }
                             snoozeSupported={
-                              serverConfigs.get(thread.environmentId)?.environment.capabilities
+                              serverConfigs.get(thread.machineId)?.machine.capabilities
                                 .threadSnooze === true
                             }
                             pinningSupported={
-                              serverConfigs.get(thread.environmentId)?.environment.capabilities
+                              serverConfigs.get(thread.machineId)?.machine.capabilities
                                 .threadPinning === true
                             }
                             isPinned={thread.pinnedAt != null}
@@ -2907,25 +2907,25 @@ export default function Sidebar() {
                             jumpLabel={
                               showJumpHints ? (jumpLabelByKey.get(threadKey) ?? null) : null
                             }
-                            currentEnvironmentId={primaryEnvironmentId}
-                            environmentLabel={
-                              environmentLabelById.get(thread.environmentId) ?? null
+                            currentMachineId={primaryMachineId}
+                            machineLabel={
+                              machineLabelById.get(thread.machineId) ?? null
                             }
-                            environmentMachine={
-                              environmentMachineById.get(thread.environmentId) ?? "server"
+                            machine={
+                              machineById.get(thread.machineId) ?? "server"
                             }
                             scratchMachineLabel={scratchMachineLabelFor(thread)}
                             project={
-                              projectByKey.get(`${thread.environmentId}:${thread.projectId}`) ??
+                              projectByKey.get(`${thread.machineId}:${thread.projectId}`) ??
                               null
                             }
                             projectDisplayName={
                               projectDisplayNameByKey.get(
-                                `${thread.environmentId}:${thread.projectId}`,
+                                `${thread.machineId}:${thread.projectId}`,
                               ) ?? null
                             }
                             providerEntryByInstanceId={
-                              providerEntriesByEnvironment.get(thread.environmentId) ??
+                              providerEntriesByMachine.get(thread.machineId) ??
                               EMPTY_PROVIDER_ENTRIES
                             }
                             timestampFormat={timestampFormat}

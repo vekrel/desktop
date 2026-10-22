@@ -1,6 +1,6 @@
 import { MISSING_FILE_ACCESS_MESSAGE } from "@vekrel/client-runtime/state/assets";
 import { mediaFileReference, mediaUrlReference } from "@vekrel/client-runtime/media-reference";
-import type { AssetResource, EnvironmentId } from "@vekrel/contracts";
+import type { AssetResource, MachineId } from "@vekrel/contracts";
 import { TriangleAlertIcon } from "lucide-react";
 import {
   createContext,
@@ -304,7 +304,7 @@ export function ChatMarkdownVideo(props: {
 }
 
 export const ChatMarkdownAssetImage = memo(function ChatMarkdownAssetImage(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly resource: Extract<
     AssetResource,
     {
@@ -334,11 +334,11 @@ export const ChatMarkdownAssetImage = memo(function ChatMarkdownAssetImage(props
   readonly workspaceMutationId?: string | null | undefined;
   readonly onImageExpand?: ((preview: ExpandedImagePreview) => void) | undefined;
 }) {
-  const assetUrl = useAssetUrlState(props.environmentId, props.resource);
-  const refreshAssetUrl = useAssetUrlRefresh(props.environmentId, props.resource);
-  const connectionReady = usePreparedConnection(props.environmentId)._tag === "Some";
+  const assetUrl = useAssetUrlState(props.machineId, props.resource);
+  const refreshAssetUrl = useAssetUrlRefresh(props.machineId, props.resource);
+  const connectionReady = usePreparedConnection(props.machineId)._tag === "Some";
   const resource = props.resource;
-  const refreshToken = JSON.stringify([props.environmentId, resource, props.workspaceMutationId]);
+  const refreshToken = JSON.stringify([props.machineId, resource, props.workspaceMutationId]);
   const handledRefreshToken = useRef<string | null | undefined>(undefined);
   const assetLoading = assetUrl._tag === "Loading" || assetUrl.waiting === true;
   useEffect(() => {
@@ -405,7 +405,7 @@ export const ChatMarkdownAssetImage = memo(function ChatMarkdownAssetImage(props
     name: props.alt || (props.kind ?? "image"),
     src,
     ...(fallbackSrc === undefined
-      ? { asset: { environmentId: props.environmentId, resource } }
+      ? { asset: { machineId: props.machineId, resource } }
       : {}),
     ...(reference ? { reference } : {}),
     ...(relativePath && (resource._tag === "media-file" || resource._tag === "workspace-file")
@@ -414,7 +414,7 @@ export const ChatMarkdownAssetImage = memo(function ChatMarkdownAssetImage(props
             useRightPanelStore
               .getState()
               .openFile(
-                { environmentId: props.environmentId, threadId: resource.threadId },
+                { machineId: props.machineId, threadId: resource.threadId },
                 relativePath,
               ),
         }
@@ -430,7 +430,7 @@ export const ChatMarkdownAssetImage = memo(function ChatMarkdownAssetImage(props
         copyMarkdown={props.copyMarkdown}
         originalUrl={props.originalUrl}
         style={props.style}
-        mediaIdentity={JSON.stringify([props.environmentId, props.resource, props.srcFragment])}
+        mediaIdentity={JSON.stringify([props.machineId, props.resource, props.srcFragment])}
         onRetry={refreshAssetUrl}
         actionsSource={actionsSource}
       />
@@ -439,7 +439,7 @@ export const ChatMarkdownAssetImage = memo(function ChatMarkdownAssetImage(props
 
   return (
     <ChatMarkdownImage
-      key={JSON.stringify([props.environmentId, props.resource, props.srcFragment])}
+      key={JSON.stringify([props.machineId, props.resource, props.srcFragment])}
       src={src}
       sourceFailed={assetUrl._tag === "Failure" && fallbackSrc === undefined}
       unavailableDetail={

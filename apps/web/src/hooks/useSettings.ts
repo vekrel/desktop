@@ -5,7 +5,7 @@ import {
   DEFAULT_SERVER_SETTINGS,
   AuthSettingsWriteScope,
   requiredScopesForServerSettingsPatch,
-  type EnvironmentId,
+  type MachineId,
   type ProviderInstanceMutation,
   type ProviderInstanceId,
   ServerSettings,
@@ -16,7 +16,7 @@ import {
   type ClientSettingsPatch,
   type ClientSettings,
   DEFAULT_CLIENT_SETTINGS,
-  type EnvironmentIdentificationMode,
+  type MachineIdentificationMode,
   type UnifiedSettings,
 } from "@vekrel/contracts/settings";
 import { safeErrorLogAttributes } from "@vekrel/client-runtime/errors";
@@ -47,18 +47,18 @@ import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { toastManager } from "~/components/ui/toast";
 import { isHostedStaticApp } from "~/hostedPairing";
-import { environmentCatalog } from "~/connection/catalog";
-import { primaryServerSettingsAtom, serverEnvironment } from "~/state/server";
-import { useEnvironments, usePrimaryEnvironment } from "~/state/environments";
+import { machineCatalog } from "~/connection/catalog";
+import { primaryServerSettingsAtom, serverMachine } from "~/state/server";
+import { useMachines, usePrimaryMachine } from "~/state/machines";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { useTheme } from "./useTheme";
 import {
-  environmentSession,
-  environmentSessionStatesAtom,
-  readEnvironmentScope,
-  useEnvironmentScope,
+  machineSession,
+  machineSessionStatesAtom,
+  readMachineScope,
+  useMachineScope,
 } from "~/state/session";
-import { environmentIdsKey } from "~/state/environmentAtomList";
+import { machineIdsKey } from "~/state/machineAtomList";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 
 const CLIENT_SETTINGS_PERSISTENCE_ERROR_SCOPE = "[CLIENT_SETTINGS]";
@@ -312,7 +312,7 @@ export function useClientSettings<T = ClientSettings>(
   );
 }
 
-export function mergeEnvironmentSettings(
+export function mergeMachineSettings(
   serverSettings: ServerSettings,
   clientSettings: ClientSettings,
 ): UnifiedSettings {
@@ -326,12 +326,12 @@ export function mergeEnvironmentSettings(
 }
 
 // Servers that predate `migrateModelPreferences` drop it and keep reporting null favorites.
-const attemptedMigrationGenerations = new Map<EnvironmentId, number>();
-const connectionGenerationAtom = Atom.family((environmentId: EnvironmentId | null) =>
+const attemptedMigrationGenerations = new Map<MachineId, number>();
+const connectionGenerationAtom = Atom.family((machineId: MachineId | null) =>
   Atom.make((get) =>
-    environmentId === null
+    machineId === null
       ? null
-      : Option.match(AsyncResult.value(get(environmentCatalog.stateAtom(environmentId))), {
+      : Option.match(AsyncResult.value(get(machineCatalog.stateAtom(machineId))), {
           onNone: () => null,
           onSome: (connection) => (connection.phase === "connected" ? connection.generation : null),
         }),
@@ -344,27 +344,27 @@ const selectLegacyModelPreferences = (settings: ClientSettings) => ({
 });
 
 export function useMigrateModelPreferences(
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   settings: ServerSettings | null,
 ) {
   const clientSettings = useClientSettings(selectLegacyModelPreferences);
   const hydrated = useClientSettingsHydrated();
-  const connectionGeneration = useAtomValue(connectionGenerationAtom(environmentId));
-  const migrate = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: false });
+  const connectionGeneration = useAtomValue(connectionGenerationAtom(machineId));
+  const migrate = useAtomCommand(serverMachine.updateSettings, { reportFailure: false });
   useEffect(() => {
     if (
-      !environmentId ||
+      !machineId ||
       !settings ||
       !hydrated ||
       connectionGeneration === null ||
-      attemptedMigrationGenerations.get(environmentId) === connectionGeneration
+      attemptedMigrationGenerations.get(machineId) === connectionGeneration
     )
       return;
     const patch = modelPreferencesMigrationPatch(settings, clientSettings);
     if (!patch) return;
-    attemptedMigrationGenerations.set(environmentId, connectionGeneration);
-    void migrate({ environmentId, input: { patch } });
-  }, [clientSettings, connectionGeneration, environmentId, hydrated, migrate, settings]);
+    attemptedMigrationGenerations.set(machineId, connectionGeneration);
+    void migrate({ machineId, input: { patch } });
+  }, [clientSettings, connectionGeneration, machineId, hydrated, migrate, settings]);
 }
 
 /** Selecting inside the client store keeps a client write from re-rendering unaffected readers. */
@@ -373,26 +373,26 @@ export function useMergedSettings<T = UnifiedSettings>(
   selector?: (settings: UnifiedSettings) => T,
 ): T {
   return useClientSettings((clientSettings) => {
-    const merged = mergeEnvironmentSettings(serverSettings, clientSettings);
+    const merged = mergeMachineSettings(serverSettings, clientSettings);
     return selector ? selector(merged) : (merged as T);
   });
 }
 
-export function resolveEnvironmentIdentificationMode(input: {
-  mode: EnvironmentIdentificationMode;
+export function resolveMachineIdentificationMode(input: {
+  mode: MachineIdentificationMode;
   settingsHydrated: boolean;
   paletteThemeActive?: boolean;
   paletteThemeAllowsArtwork?: boolean;
-}): EnvironmentIdentificationMode {
+}): MachineIdentificationMode {
   if (!input.settingsHydrated) return "none";
   return input.paletteThemeActive && !input.paletteThemeAllowsArtwork && input.mode === "artwork"
     ? "pill"
     : input.mode;
 }
 
-export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMode {
+export function useMachineIdentificationMode(): MachineIdentificationMode {
   const settingsHydrated = useClientSettingsHydrated();
-  const mode = useClientSettings((settings) => settings.environmentIdentificationMode);
+  const mode = useClientSettings((settings) => settings.machineIdentificationMode);
   const { resolvedTheme, theme, themeHalves } = useTheme();
   const previewSidebarArtwork = useSyncExternalStore(
     subscribeToThemePreview,
@@ -401,7 +401,7 @@ export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMod
   );
   const activeTheme = resolveThemeHalf(theme, themeHalves, resolvedTheme);
   const activeThemeDefinition = getThemeDefinition(activeTheme);
-  return resolveEnvironmentIdentificationMode({
+  return resolveMachineIdentificationMode({
     mode,
     settingsHydrated,
     paletteThemeActive: previewSidebarArtwork !== null || activeThemeDefinition !== null,
@@ -431,13 +431,13 @@ export async function prepareModelPreferencesPatch(
   return { ...modelPreferencesMigrationPatch(settings, getClientSettings()), ...patch };
 }
 
-export function useUpdateEnvironmentModelPreferences(environmentId: EnvironmentId | null) {
+export function useUpdateMachineModelPreferences(machineId: MachineId | null) {
   const settings = useAtomValue(
-    environmentId ? serverEnvironment.settingsValueAtom(environmentId) : noEnvironmentSettingsAtom,
+    machineId ? serverMachine.settingsValueAtom(machineId) : noMachineSettingsAtom,
   );
-  const save = useAtomCommand(serverEnvironment.updateSettings, "model preferences update");
+  const save = useAtomCommand(serverMachine.updateSettings, "model preferences update");
   return async (patch: ServerSettingsPatch) => {
-    if (!environmentId || !settings) return;
+    if (!machineId || !settings) return;
     let prepared: ServerSettingsPatch;
     try {
       prepared = await prepareModelPreferencesPatch(settings, patch);
@@ -449,20 +449,20 @@ export function useUpdateEnvironmentModelPreferences(environmentId: EnvironmentI
       });
       return;
     }
-    return save({ environmentId, input: { patch: prepared } });
+    return save({ machineId, input: { patch: prepared } });
   };
 }
 
 /** Send the desired state so two clients adding a favorite do not cancel each other. */
-export function useToggleEnvironmentModelFavorite(environmentId: EnvironmentId | null) {
+export function useToggleMachineModelFavorite(machineId: MachineId | null) {
   const registry = use(RegistryContext);
   const pendingFavorites = useRef(
     new Map<string, { favorite: boolean; settings: ServerSettings; pending: boolean }>(),
   );
-  const save = useUpdateEnvironmentModelPreferences(environmentId);
+  const save = useUpdateMachineModelPreferences(machineId);
   return async (provider: ProviderInstanceId, model: string) => {
-    if (!environmentId) return;
-    const settingsAtom = serverEnvironment.settingsValueAtom(environmentId);
+    if (!machineId) return;
+    const settingsAtom = serverMachine.settingsValueAtom(machineId);
     const settings = registry.get(settingsAtom);
     if (!settings) return;
     if (settings.favorites === null) {
@@ -479,7 +479,7 @@ export function useToggleEnvironmentModelFavorite(environmentId: EnvironmentId |
     }
     const currentSettings = registry.get(settingsAtom) ?? settings;
     const favorites = resolveModelPreferences(currentSettings, getClientSettings()).favorites;
-    const key = JSON.stringify([environmentId, provider, model]);
+    const key = JSON.stringify([machineId, provider, model]);
     const previous = pendingFavorites.current.get(key);
     // Keep the acknowledged choice until the config stream catches up with the RPC reply.
     const previousFavorite =
@@ -517,33 +517,33 @@ export function useToggleEnvironmentModelFavorite(environmentId: EnvironmentId |
   };
 }
 
-const noEnvironmentSettingsAtom = Atom.make<ServerSettings | null>(null);
+const noMachineSettingsAtom = Atom.make<ServerSettings | null>(null);
 
-export function useEnvironmentModelPreferences(environmentId: EnvironmentId | null) {
+export function useMachineModelPreferences(machineId: MachineId | null) {
   const settings = useAtomValue(
-    environmentId ? serverEnvironment.settingsValueAtom(environmentId) : noEnvironmentSettingsAtom,
+    machineId ? serverMachine.settingsValueAtom(machineId) : noMachineSettingsAtom,
   );
   const legacy = useClientSettings(selectLegacyModelPreferences);
-  useMigrateModelPreferences(environmentId, settings);
+  useMigrateModelPreferences(machineId, settings);
   return resolveModelPreferences(settings ?? DEFAULT_SERVER_SETTINGS, legacy);
 }
 
-export function useEnvironmentSettings<T = UnifiedSettings>(
-  environmentId: EnvironmentId,
+export function useMachineSettings<T = UnifiedSettings>(
+  machineId: MachineId,
   selector?: (settings: UnifiedSettings) => T,
 ): T {
-  const serverSettings = useAtomValue(serverEnvironment.settingsValueAtom(environmentId));
-  useMigrateModelPreferences(environmentId, serverSettings);
+  const serverSettings = useAtomValue(serverMachine.settingsValueAtom(machineId));
+  useMigrateModelPreferences(machineId, serverSettings);
   return useMergedSettings(serverSettings ?? DEFAULT_SERVER_SETTINGS, selector);
 }
 
-export function usePersistEnvironmentProviderInstanceMutation(environmentId: EnvironmentId) {
-  const mutateProviderInstance = useAtomCommand(serverEnvironment.mutateProviderInstance, {
+export function usePersistMachineProviderInstanceMutation(machineId: MachineId) {
+  const mutateProviderInstance = useAtomCommand(serverMachine.mutateProviderInstance, {
     reportFailure: false,
   });
   return (providerInstanceMutation: ProviderInstanceMutation, patch: ServerSettingsPatch = {}) =>
     mutateProviderInstance({
-      environmentId,
+      machineId,
       input: { patch, providerInstanceMutation },
     });
 }
@@ -551,11 +551,11 @@ export function usePersistEnvironmentProviderInstanceMutation(environmentId: Env
 export function usePrimarySettings<T = UnifiedSettings>(
   selector?: (settings: UnifiedSettings) => T,
 ): T {
-  const environment = usePrimaryEnvironment();
+  const machine = usePrimaryMachine();
   const settings = useAtomValue(primaryServerSettingsAtom);
   useMigrateModelPreferences(
-    environment?.environmentId ?? null,
-    environment?.serverConfig?.settings ?? null,
+    machine?.machineId ?? null,
+    machine?.serverConfig?.settings ?? null,
   );
   return useMergedSettings(settings, selector);
 }
@@ -564,48 +564,48 @@ export const PRIMARY_SETTINGS_UNAVAILABLE_MESSAGE =
   "This setting is saved on a server, and the hosted app is not anchored to one. Change it from the desktop app or from the server's own address.";
 
 /**
- * The hosted app connects to every environment as a remote, so it has no
+ * The hosted app connects to every machine as a remote, so it has no
  * primary: `usePrimarySettings` reads schema defaults there and writes have
  * nowhere to go.
  */
 export function usePrimarySettingsAvailable(): boolean {
-  const primaryEnvironment = usePrimaryEnvironment();
-  return primaryEnvironment !== null || !isHostedStaticApp();
+  const primaryMachine = usePrimaryMachine();
+  return primaryMachine !== null || !isHostedStaticApp();
 }
 
-function useSharedSettingsSyncTargetIds(includePending = false): ReadonlyArray<EnvironmentId> {
-  const { environments } = useEnvironments();
-  const targetIds = environments
+function useSharedSettingsSyncTargetIds(includePending = false): ReadonlyArray<MachineId> {
+  const { machines } = useMachines();
+  const targetIds = machines
     .filter(supportsSharedSettingsSync)
-    .map(({ environmentId }) => environmentId);
-  const results = useAtomValue(environmentSessionStatesAtom(environmentIdsKey(targetIds)));
-  return targetIds.flatMap((environmentId, index) => {
+    .map(({ machineId }) => machineId);
+  const results = useAtomValue(machineSessionStatesAtom(machineIdsKey(targetIds)));
+  return targetIds.flatMap((machineId, index) => {
     const result = results[index]!;
     // A cold grant must not drop a shared edit. The server authorizes the
     // write; mismatch suggestions still wait for a confirmed grant.
     if (includePending && result._tag === "Initial") {
-      return [environmentId];
+      return [machineId];
     }
     const session = result._tag === "Failure" ? null : Option.getOrNull(AsyncResult.value(result));
     return session !== null && sessionGrantsScope(session, AuthSettingsWriteScope)
-      ? [environmentId]
+      ? [machineId]
       : [];
   });
 }
 
-function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
-  useEnvironmentScope(environmentId, AuthSettingsWriteScope);
-  const persist = useAtomCommand(serverEnvironment.updateSettings, {
+function useUpdateSettingsTarget(machineId: MachineId | null) {
+  useMachineScope(machineId, AuthSettingsWriteScope);
+  const persist = useAtomCommand(serverMachine.updateSettings, {
     label: "server settings update",
     reportFailure: false,
   });
-  const { environments } = useEnvironments();
+  const { machines } = useMachines();
   const persistServerSettings = async (request: Parameters<typeof persist>[0]) => {
     const result = await persist(request);
     if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
       const label =
-        environments.find((environment) => environment.environmentId === request.environmentId)
-          ?.label ?? request.environmentId;
+        machines.find((machine) => machine.machineId === request.machineId)
+          ?.label ?? request.machineId;
       const error = squashAtomCommandFailure(result);
       toastManager.add({
         type: "error",
@@ -620,15 +620,15 @@ function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
     const { serverPatch, clientPatch } = splitPatch(patch);
 
     const canWriteServerPatch =
-      environmentId === null ||
+      machineId === null ||
       requiredScopesForServerSettingsPatch(serverPatch).every((scope) =>
-        readEnvironmentScope(environmentId, scope),
+        readMachineScope(machineId, scope),
       );
     if (Object.keys(serverPatch).length > 0 && !canWriteServerPatch) {
       toastManager.add({
         type: "warning",
         title: "Setting not saved",
-        description: `This connection lacks permission to change settings on ${environments.find((target) => target.environmentId === environmentId)?.label ?? "the selected environment"}.`,
+        description: `This connection lacks permission to change settings on ${machines.find((target) => target.machineId === machineId)?.label ?? "the selected machine"}.`,
       });
     }
     if (Object.keys(serverPatch).length > 0 && canWriteServerPatch) {
@@ -641,9 +641,9 @@ function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
           description,
         });
       if (Object.keys(localPatch).length > 0) {
-        if (environmentId) {
+        if (machineId) {
           void persistServerSettings({
-            environmentId,
+            machineId,
             input: { patch: localPatch },
           });
         } else {
@@ -651,36 +651,36 @@ function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
         }
       }
       if (Object.keys(sharedPatch).length > 0) {
-        const sourceSettings = environments.find((target) => target.environmentId === environmentId)
+        const sourceSettings = machines.find((target) => target.machineId === machineId)
           ?.serverConfig?.settings;
         const targets = new Set(sharedSettingsSyncTargetIds);
-        if (environmentId) {
-          targets.add(environmentId);
+        if (machineId) {
+          targets.add(machineId);
         }
         const writes: Array<Parameters<typeof persist>[0]> = [];
         const deniedLabels: string[] = [];
         for (const targetId of targets) {
-          const target = environments.find((candidate) => candidate.environmentId === targetId);
+          const target = machines.find((candidate) => candidate.machineId === targetId);
           const targetPatch = filterSharedServerPatch(
             sharedPatch,
-            target?.serverConfig?.environment.capabilities,
+            target?.serverConfig?.machine.capabilities,
             target?.serverConfig?.settings,
             sourceSettings,
-            targetId === environmentId,
+            targetId === machineId,
           );
           if (Object.keys(targetPatch).length === 0) continue;
-          const session = appAtomRegistry.get(environmentSession.sessionStateAtom(targetId));
+          const session = appAtomRegistry.get(machineSession.sessionStateAtom(targetId));
           if (
             session._tag !== "Initial" &&
             !requiredScopesForServerSettingsPatch(sharedPatch).every((scope) =>
-              readEnvironmentScope(targetId, scope),
+              readMachineScope(targetId, scope),
             )
           ) {
             deniedLabels.push(target?.label ?? targetId);
             continue;
           }
           writes.push({
-            environmentId: targetId,
+            machineId: targetId,
             input: { patch: targetPatch },
           });
         }
@@ -696,8 +696,8 @@ function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
           void Promise.all(
             writes.map(async (request) => ({
               label:
-                environments.find((target) => target.environmentId === request.environmentId)
-                  ?.label ?? request.environmentId,
+                machines.find((target) => target.machineId === request.machineId)
+                  ?.label ?? request.machineId,
               result: await persist(request),
             })),
           ).then((outcomes) => {
@@ -714,7 +714,7 @@ function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
               .map(({ label }) => label);
             toastManager.add({
               type: "error",
-              title: saved.length > 0 ? "Setting saved on some environments" : "Setting not saved",
+              title: saved.length > 0 ? "Setting saved on some machines" : "Setting not saved",
               description: [
                 ...failures,
                 ...(saved.length > 0 ? [`Saved on ${saved.join(", ")}.`] : []),
@@ -732,12 +732,12 @@ function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
   return updateSettings;
 }
 
-export function useUpdateEnvironmentSettings(environmentId: EnvironmentId | null) {
-  return useUpdateSettingsTarget(environmentId);
+export function useUpdateMachineSettings(machineId: MachineId | null) {
+  return useUpdateSettingsTarget(machineId);
 }
 
 export function useUpdatePrimarySettings() {
-  return useUpdateSettingsTarget(usePrimaryEnvironment()?.environmentId ?? null);
+  return useUpdateSettingsTarget(usePrimaryMachine()?.machineId ?? null);
 }
 
 export function updateClientSettings(patch: ClientSettingsPatch): Promise<void> {

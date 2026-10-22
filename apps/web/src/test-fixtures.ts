@@ -1,6 +1,6 @@
 import { presentThreadShell } from "@vekrel/client-runtime/state/shell";
 import {
-  EnvironmentId,
+  MachineId,
   MessageId,
   RunId,
   TurnItemId,
@@ -71,7 +71,7 @@ export function makeThreadProjectionFixture(): OrchestrationV2ThreadProjection {
 }
 
 export function makeThreadFixture(overrides: ThreadFixtureOverrides = {}): Thread {
-  const environmentId = overrides.environmentId ?? EnvironmentId.make("environment-test");
+  const machineId = overrides.machineId ?? MachineId.make("machine-test");
   const id = overrides.id ?? ThreadId.make("thread-test");
   const projectId = overrides.projectId ?? ProjectId.make("project-test");
   const providerInstanceId =
@@ -92,7 +92,7 @@ export function makeThreadFixture(overrides: ThreadFixtureOverrides = {}): Threa
     overrides.deletedAt === null || overrides.deletedAt === undefined
       ? null
       : DateTime.makeUnsafe(overrides.deletedAt);
-  const shell = presentThreadShell(environmentId, {
+  const shell = presentThreadShell(machineId, {
     id,
     projectId,
     title: overrides.title ?? "Thread",

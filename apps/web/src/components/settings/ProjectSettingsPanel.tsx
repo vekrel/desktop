@@ -1,7 +1,7 @@
 import { useComposerMenuState } from "../chat/useComposerMenuState";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import { AuthOrchestrationOperateScope } from "@vekrel/contracts";
-import { useEnvironmentsWithScope, readEnvironmentScope } from "../../state/session";
+import { useMachinesWithScope, readMachineScope } from "../../state/session";
 import {
   isAtomCommandInterrupted,
   mapAtomCommandResult,
@@ -9,10 +9,10 @@ import {
   squashAtomCommandFailure,
   type AtomCommandResult,
 } from "@vekrel/client-runtime/state/runtime";
-import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { planProjectRemoval } from "@vekrel/client-runtime/state/projects";
 import { AsyncResult } from "effect/reactivity";
-import { type EnvironmentId, type ProjectIconOverride } from "@vekrel/contracts";
+import { type MachineId, type ProjectIconOverride } from "@vekrel/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import * as Cause from "effect/Cause";
 import { InfoIcon, Trash2Icon } from "lucide-react";
@@ -25,9 +25,9 @@ import {
   type SidebarProjectGroupMember,
   type SidebarProjectSnapshot,
 } from "../../sidebarProjectGrouping";
-import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environments";
+import { useMachines, usePrimaryMachineId } from "../../state/machines";
 import { useThreadShells, waitForProjectRemoval } from "../../state/entities";
-import { projectEnvironment } from "../../state/projects";
+import { projectMachine } from "../../state/projects";
 import { ProjectFavicon } from "../ProjectFavicon";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
@@ -48,7 +48,7 @@ import { ProjectActionsSettings } from "./ProjectActionsSettings";
 import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { projectGroupTitleNeedsUpdate } from "./ProjectSettingsPanel.logic";
 import { useSettingsProjectGroups } from "./useSettingsProjectGroups";
-import { settingsScopeEnvironmentLabels } from "./settingsScopeAxis";
+import { settingsScopeMachineLabels } from "./settingsScopeAxis";
 
 const ProjectIconPickerDialog = lazy(() =>
   import("./ProjectIconPickerDialog").then((module) => ({
@@ -60,12 +60,12 @@ export type ProjectSettingsCategory = "general" | "source-control" | "project";
 
 export function ProjectSettingsPanel({
   projectKey,
-  environmentId = null,
+  machineId = null,
   checkoutKey = null,
   unavailable,
 }: {
   projectKey: string;
-  environmentId?: EnvironmentId | null;
+  machineId?: MachineId | null;
   checkoutKey?: string | null;
   unavailable?: ReactNode;
 }) {
@@ -77,7 +77,7 @@ export function ProjectSettingsPanel({
   const members =
     selected?.memberProjects.filter(
       (member) =>
-        (environmentId === null || member.environmentId === environmentId) &&
+        (machineId === null || member.machineId === machineId) &&
         (checkoutKey === null || member.physicalProjectKey === checkoutKey),
     ) ?? [];
 
@@ -85,7 +85,7 @@ export function ProjectSettingsPanel({
   // (which changes the group key) can follow the project to its new group.
   const lastSelectionRef = useRef<{
     key: string;
-    environmentId: EnvironmentId | null;
+    machineId: MachineId | null;
     checkoutKey: string | null;
     memberKeys: string[];
   } | null>(null);
@@ -93,18 +93,18 @@ export function ProjectSettingsPanel({
     if (!selected || members.length === 0) return;
     lastSelectionRef.current = {
       key: selected.projectKey,
-      environmentId,
+      machineId,
       checkoutKey,
       memberKeys: members.map((member) => member.physicalProjectKey),
     };
-  }, [selected, members, environmentId, checkoutKey]);
+  }, [selected, members, machineId, checkoutKey]);
 
   useEffect(() => {
     if (members.length > 0) return;
     const last = lastSelectionRef.current;
     if (
       last?.key !== projectKey ||
-      last.environmentId !== environmentId ||
+      last.machineId !== machineId ||
       last.checkoutKey !== checkoutKey
     )
       return;
@@ -116,14 +116,14 @@ export function ProjectSettingsPanel({
         to: pathname,
         search: () => ({
           project: successor.projectKey,
-          machine: environmentId ?? undefined,
+          machine: machineId ?? undefined,
           checkout: checkoutKey ?? undefined,
         }),
         replace: true,
         hashScrollIntoView: false,
       });
     }
-  }, [groups, navigate, pathname, projectKey, members.length, environmentId, checkoutKey]);
+  }, [groups, navigate, pathname, projectKey, members.length, machineId, checkoutKey]);
 
   if ((!selected || members.length === 0) && unavailable != null) return unavailable;
 
@@ -139,18 +139,18 @@ export function ProjectSettingsPanel({
   if (members.length === 0)
     return (
       <p className="p-8 text-sm text-muted-foreground">
-        This checkout is no longer available in the selected project and environment.
+        This checkout is no longer available in the selected project and machine.
       </p>
     );
   const scopedGroup = {
     ...selected,
     memberProjects: members,
-    environmentId: members[0]!.environmentId,
+    machineId: members[0]!.machineId,
     id: members[0]!.id,
   };
   return (
     <ProjectDetail
-      key={`${selected.projectKey}:${environmentId ?? "all"}:${checkoutKey ?? "all"}`}
+      key={`${selected.projectKey}:${machineId ?? "all"}:${checkoutKey ?? "all"}`}
       group={scopedGroup}
       hasOtherMembers={members.length < selected.memberProjects.length}
     />
@@ -165,24 +165,24 @@ function ProjectDetail({
   hasOtherMembers: boolean;
 }) {
   const navigate = useNavigate({ from: "/settings" });
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const { environments } = useEnvironments();
-  const environmentById = new Map(
-    environments.map((environment) => [environment.environmentId, environment]),
+  const primaryMachineId = usePrimaryMachineId();
+  const { machines } = useMachines();
+  const machineById = new Map(
+    machines.map((machine) => [machine.machineId, machine]),
   );
-  const editableIds = useEnvironmentsWithScope(group.memberProjects, AuthOrchestrationOperateScope);
+  const editableIds = useMachinesWithScope(group.memberProjects, AuthOrchestrationOperateScope);
   const canEditGroup = group.memberProjects.every((member) =>
-    editableIds.has(member.environmentId),
+    editableIds.has(member.machineId),
   );
   const representative =
     group.memberProjects.find(
-      (member) => environmentById.get(member.environmentId)?.serverConfig != null,
+      (member) => machineById.get(member.machineId)?.serverConfig != null,
     ) ?? group.memberProjects[0]!;
   const threads = useThreadShells();
-  const updateProject = useOrchestrationCommand(projectEnvironment.update, {
+  const updateProject = useOrchestrationCommand(projectMachine.update, {
     reportFailure: false,
   });
-  const deleteProject = useOrchestrationCommand(projectEnvironment.delete, {
+  const deleteProject = useOrchestrationCommand(projectMachine.delete, {
     reportFailure: false,
   });
   const projectNameEditedRef = useRef(false);
@@ -193,7 +193,7 @@ function ProjectDetail({
     typeof window !== "undefined" &&
     group.memberProjects.every(
       (member) =>
-        member.environmentId === primaryEnvironmentId &&
+        member.machineId === primaryMachineId &&
         canPickExternalProjectFavicon(member.workspaceRoot, navigator.platform),
     )
       ? window.desktopBridge?.pickProjectFavicon
@@ -216,13 +216,13 @@ function ProjectDetail({
     failureTitle: string,
   ) => {
     const denied = members.find(
-      (member) => !readEnvironmentScope(member.environmentId, AuthOrchestrationOperateScope),
+      (member) => !readMachineScope(member.machineId, AuthOrchestrationOperateScope),
     );
     if (!denied) return null;
     const result = AsyncResult.failure<void, Error>(
       Cause.fail(
         new Error(
-          `This connection cannot change projects in ${denied.environmentLabel ?? "this environment"}.`,
+          `This connection cannot change projects in ${denied.machineLabel ?? "this machine"}.`,
         ),
       ),
     );
@@ -241,12 +241,12 @@ function ProjectDetail({
     const denied = checkProjectAccess(group.memberProjects, failureTitle);
     if (denied) return denied;
     const unavailable = group.memberProjects.find((member) => {
-      const environment = environmentById.get(member.environmentId);
-      return environment?.connection.phase !== "connected" || !environment.serverConfig;
+      const machine = machineById.get(member.machineId);
+      return machine?.connection.phase !== "connected" || !machine.serverConfig;
     });
     if (unavailable) {
       const error = new Error(
-        `Connect ${unavailable.environmentLabel ?? "the selected environment"} and try again.`,
+        `Connect ${unavailable.machineLabel ?? "the selected machine"} and try again.`,
       );
       const result: AtomCommandResult<void, unknown> = AsyncResult.failure(Cause.fail(error));
       reportFailure(failureTitle, result);
@@ -257,7 +257,7 @@ function ProjectDetail({
       if (revoked) return revoked;
       const result = mapAtomCommandResult(
         await updateProject({
-          environmentId: member.environmentId,
+          machineId: member.machineId,
           input: { projectId: member.id, ...input },
         }),
         () => undefined,
@@ -265,7 +265,7 @@ function ProjectDetail({
       if (result._tag === "Failure") {
         reportFailure(
           group.memberProjects.length > 1
-            ? `${failureTitle} on ${member.environmentLabel ?? "the current environment"}`
+            ? `${failureTitle} on ${member.machineLabel ?? "the current machine"}`
             : failureTitle,
           result,
         );
@@ -333,11 +333,11 @@ function ProjectDetail({
     for (const member of members) {
       if (checkProjectAccess([member], "Failed to remove project")) return;
       const memberThreads = projectThreads.filter(
-        (thread) => thread.environmentId === member.environmentId && thread.projectId === member.id,
+        (thread) => thread.machineId === member.machineId && thread.projectId === member.id,
       );
       const result = mapAtomCommandResult(
         await deleteProject({
-          environmentId: member.environmentId,
+          machineId: member.machineId,
           input: {
             projectId: member.id,
             force: true,
@@ -349,11 +349,11 @@ function ProjectDetail({
         reportFailure(`Failed to remove "${member.title}"`, result);
         return;
       }
-      const projectRef = scopeProjectRef(member.environmentId, member.id);
+      const projectRef = scopeProjectRef(member.machineId, member.id);
       await waitForProjectRemoval(projectRef);
       releaseProjectDraftUploads(
         projectRef,
-        memberThreads.map((thread) => scopeThreadRef(thread.environmentId, thread.id)),
+        memberThreads.map((thread) => scopeThreadRef(thread.machineId, thread.id)),
       );
       const projectDraftThread = draftStore.getDraftThreadByProjectRef(projectRef);
       if (projectDraftThread) {
@@ -371,17 +371,17 @@ function ProjectDetail({
     }
   };
 
-  const checkoutsByEnvironment = new Map<EnvironmentId, SidebarProjectGroupMember[]>();
+  const checkoutsByMachine = new Map<MachineId, SidebarProjectGroupMember[]>();
   for (const member of group.memberProjects) {
-    const members = checkoutsByEnvironment.get(member.environmentId);
+    const members = checkoutsByMachine.get(member.machineId);
     if (members) members.push(member);
-    else checkoutsByEnvironment.set(member.environmentId, [member]);
+    else checkoutsByMachine.set(member.machineId, [member]);
   }
   const checkoutRemoveButton = (member: SidebarProjectGroupMember) => (
     <Button
       size="sm"
       variant="outline"
-      disabled={!editableIds.has(member.environmentId)}
+      disabled={!editableIds.has(member.machineId)}
       onClick={() => void removeMembers([member])}
       aria-label={`Remove checkout ${member.workspaceRoot}`}
     >
@@ -390,12 +390,12 @@ function ProjectDetail({
   );
   const checkoutChoices = (
     <SettingsSection title="Checkouts">
-      {Array.from(checkoutsByEnvironment, ([environmentId, members]) => {
-        if (checkoutsByEnvironment.size === 1) {
+      {Array.from(checkoutsByMachine, ([machineId, members]) => {
+        if (checkoutsByMachine.size === 1) {
           return members.map((member) => (
             <SettingsRow
               key={member.physicalProjectKey}
-              title={member.environmentLabel ?? "Environment"}
+              title={member.machineLabel ?? "Machine"}
               description={member.workspaceRoot}
               control={checkoutRemoveButton(member)}
             />
@@ -403,13 +403,13 @@ function ProjectDetail({
         }
         const firstMember = members[0]!;
         const hasMultiple = members.length > 1;
-        const environment = environmentById.get(environmentId);
-        const labels = environment
-          ? settingsScopeEnvironmentLabels(environment, environments)
-          : { primary: firstMember.environmentLabel ?? "Environment", secondary: environmentId };
+        const machine = machineById.get(machineId);
+        const labels = machine
+          ? settingsScopeMachineLabels(machine, machines)
+          : { primary: firstMember.machineLabel ?? "Machine", secondary: machineId };
         return (
           <SettingsRow
-            key={environmentId}
+            key={machineId}
             title={labels.primary}
             description={
               <>
@@ -586,9 +586,9 @@ function ProjectDetail({
       </SettingsPageContainer>
 
       <ProjectFaviconPickerDialog
-        key={`${representative.environmentId}:${representative.workspaceRoot}:${faviconPickerOpen}`}
+        key={`${representative.machineId}:${representative.workspaceRoot}:${faviconPickerOpen}`}
         cwd={representative.workspaceRoot}
-        environmentId={representative.environmentId}
+        machineId={representative.machineId}
         onOpenChange={setFaviconPickerOpen}
         {...(pickProjectFavicon
           ? { onPickExternal: () => pickProjectFavicon(representative.workspaceRoot) }

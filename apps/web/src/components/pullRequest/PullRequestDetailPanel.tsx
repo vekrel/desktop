@@ -5,7 +5,7 @@ import {
   scopedThreadKey,
   scopeProjectRef,
   scopeThreadRef,
-} from "@vekrel/client-runtime/environment";
+} from "@vekrel/client-runtime/machine";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -13,7 +13,7 @@ import {
 import {
   AuthOrchestrationOperateScope,
   AuthSourceControlWriteScope,
-  type EnvironmentId,
+  type MachineId,
   type PullRequestAction,
   type PullRequestDetail,
   type PullRequestMergeMethod,
@@ -21,7 +21,7 @@ import {
   type PullRequestUpdateMethod,
   type PullRequestRef,
   type PullRequestReviewGuideStop,
-  resolveEnvironmentMachineKind,
+  resolveMachineKind,
   type ScopedThreadRef,
 } from "@vekrel/contracts";
 import {
@@ -45,7 +45,7 @@ import {
 
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { type PullRequestDetailTab, useRightPanelStore } from "~/rightPanelStore";
-import { useEnvironmentSettings } from "~/hooks/useSettings";
+import { useMachineSettings } from "~/hooks/useSettings";
 import { useNewThreadHandler } from "~/hooks/useHandleNewThread";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { isCommandPaletteOpen } from "~/commandPaletteBus";
@@ -59,17 +59,17 @@ import { cn } from "~/lib/utils";
 import { readLocalApi } from "~/localApi";
 import type { ReviewCommentContext } from "~/reviewCommentContext";
 import { useProjects, useServerConfigs } from "~/state/entities";
-import { useEnvironments } from "~/state/environments";
-import { useEnvironmentQuery } from "~/state/query";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import { useMachines } from "~/state/machines";
+import { useMachineQuery } from "~/state/query";
+import { readMachineScope, useMachineScope } from "~/state/session";
 import { useLiveRefresh } from "~/hooks/useLiveRefresh";
-import { pullRequestEnvironment, usePullRequestTurnRefresh } from "~/state/pullRequests";
+import { pullRequestMachine, usePullRequestTurnRefresh } from "~/state/pullRequests";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { PullRequestStackMenu } from "./PullRequestStackMenu";
 import { PullRequestChangeBreakdownStat } from "./PullRequestChangeBreakdownStat";
 import { sourceControlClients } from "@vekrel/client-runtime/source-control-clients";
 import { PullRequestThreadLinks } from "./PullRequestThreadLinks";
-import { vcsEnvironment } from "~/state/vcs";
+import { vcsMachine } from "~/state/vcs";
 import { RelativeTime } from "~/components/RelativeTime";
 import { useUiStateStore } from "~/uiStateStore";
 
@@ -135,7 +135,7 @@ import {
   shouldRefreshPullRequestActivity,
   stripPullRequestHandoffReferences,
 } from "./pullRequestDetail.logic";
-import { resolvePickableEnvironments } from "./pullRequestProjectAssignment.logic";
+import { resolvePickableMachines } from "./pullRequestProjectAssignment.logic";
 import { PullRequestChecksPopover } from "./PullRequestChecksPopover";
 import {
   PullRequestActorLabel,
@@ -256,7 +256,7 @@ function pullRequestStackReference(
 }
 
 export function PullRequestDetailPanel({
-  environmentId,
+  machineId,
   shortcutsEnabled,
   getShortcutContext,
   threadRef = null,
@@ -273,7 +273,7 @@ export function PullRequestDetailPanel({
   initialTab = "summary",
   onTabChange,
 }: {
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   shortcutsEnabled: boolean;
   getShortcutContext: () => ShortcutMatchContext;
   onSelectPullRequest?: ((reference: PullRequestRef) => void) | undefined;
@@ -290,15 +290,15 @@ export function PullRequestDetailPanel({
   initialTab?: PullRequestDetailTab;
   onTabChange?: ((tab: PullRequestDetailTab) => void) | undefined;
 }) {
-  const environmentConfigs = useServerConfigs();
+  const machineConfigs = useServerConfigs();
   const projects = useProjects();
   const project = projects.find(
     (project) =>
-      project.id === requestedReference.projectId && project.environmentId === environmentId,
+      project.id === requestedReference.projectId && project.machineId === machineId,
   );
   const repositoryIdentity = project?.repositoryIdentity;
   const supportsThreadPullRequests =
-    environmentConfigs.get(environmentId)?.environment.capabilities.threadPullRequests === true;
+    machineConfigs.get(machineId)?.machine.capabilities.threadPullRequests === true;
   const reference = resolvePullRequestReference(
     requestedReference,
     repositoryIdentity,
@@ -351,7 +351,7 @@ export function PullRequestDetailPanel({
     selectTab("code");
   };
   const guideOpenRequested = useGuideRunStore(
-    (state) => state.openRequestKey === guideRunKey(environmentId, reference),
+    (state) => state.openRequestKey === guideRunKey(machineId, reference),
   );
   if (guideOpenRequested && tab !== "guide") setTab("guide");
   useEffect(() => {
@@ -359,7 +359,7 @@ export function PullRequestDetailPanel({
     useGuideRunStore.getState().requestOpen(null);
     onTabChange?.("guide");
   }, [guideOpenRequested, onTabChange]);
-  const tabScopeKey = `${environmentId}:${pullRequestKey}`;
+  const tabScopeKey = `${machineId}:${pullRequestKey}`;
   const [tabMountState, setTabMountState] = useState(() => ({
     key: tabScopeKey,
     tabs: new Set<PullRequestDetailTab>([tab]),
@@ -414,7 +414,7 @@ export function PullRequestDetailPanel({
   const lastSelectedMergeMethod = useUiStateStore((state) => state.pullRequestMergeMethod);
   const setLastSelectedMergeMethod = useUiStateStore((state) => state.setPullRequestMergeMethod);
   const resolveProjectDefaultMergeMethod = usePullRequestDefaultMergeMethodResolver(
-    environmentId,
+    machineId,
     reference.projectId,
   );
   const projectDefaultMergeMethod = resolveProjectDefaultMergeMethod();
@@ -426,7 +426,7 @@ export function PullRequestDetailPanel({
     setMergeMethodSelection({ pullRequestKey, method });
   };
   const [handoff, setHandoff] = useState<string | null>(null);
-  const turnRefresh = usePullRequestTurnRefresh(environmentId);
+  const turnRefresh = usePullRequestTurnRefresh(machineId);
   const {
     canWriteSourceControl,
     detailQuery,
@@ -435,7 +435,7 @@ export function PullRequestDetailPanel({
     sharedSummary,
     coreDetail,
     detail,
-  } = usePullRequestDetail(environmentId, reference, matchingListEntry);
+  } = usePullRequestDetail(machineId, reference, matchingListEntry);
   const handoffSummary = detail ?? sharedSummary;
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const { copyToClipboard: copyReference } = useCopyToClipboard<string>({
@@ -486,11 +486,11 @@ export function PullRequestDetailPanel({
         changeRequestRepositoryUrl(handoffSummary.url),
       )
     : loadingCheckoutCommand;
-  const branchRefsQuery = useEnvironmentQuery(
+  const branchRefsQuery = useMachineQuery(
     detail === null
       ? null
-      : vcsEnvironment.listRefs({
-          environmentId,
+      : vcsMachine.listRefs({
+          machineId,
           input: {
             cwd: detail.workspaceRoot,
             includeMatchingRemoteRefs: true,
@@ -502,13 +502,13 @@ export function PullRequestDetailPanel({
     detail !== null &&
     isStackedPullRequestBase(detail.baseBranch, branchRefsQuery.data?.refs ?? []);
   const stackReference = pullRequestStackReference(detail, reference, supportsThreadPullRequests);
-  const nativeStackQuery = usePullRequestStack(environmentId, stackReference);
+  const nativeStackQuery = usePullRequestStack(machineId, stackReference);
   const nativeStack = nativeStackQuery.data;
   const supportsStackActions =
     supportsThreadPullRequests &&
     detail?.capabilities.stacks === true &&
     detail.capabilities.stackActions === true &&
-    environmentConfigs.get(environmentId)?.environment.capabilities.pullRequestStackActions ===
+    machineConfigs.get(machineId)?.machine.capabilities.pullRequestStackActions ===
       true;
   const canMergeSinglePullRequest = allowsSinglePullRequestMerge({
     supportsStackActions,
@@ -553,15 +553,15 @@ export function PullRequestDetailPanel({
     () => {
       detailQuery.refresh();
     },
-    { key: `pull-request:${environmentId}:${pullRequestKey}` },
+    { key: `pull-request:${machineId}:${pullRequestKey}` },
   );
-  const invalidate = useAtomCommand(pullRequestEnvironment.invalidate, { reportFailure: false });
+  const invalidate = useAtomCommand(pullRequestMachine.invalidate, { reportFailure: false });
   const [isInvalidating, setIsInvalidating] = useState(false);
   const refreshing = isInvalidating || detailQuery.isPending;
   const refreshFromHost = async () => {
     setIsInvalidating(true);
     // Atom commands settle instead of throwing, so the reset below always runs.
-    await invalidate({ environmentId, input: { reference } });
+    await invalidate({ machineId, input: { reference } });
     refreshDetail();
     setRefreshToken((token) => token + 1);
     setIsInvalidating(false);
@@ -573,42 +573,42 @@ export function PullRequestDetailPanel({
     appliedForcedToken.current = forcedRefreshToken;
     refreshFromHostOnRequest();
   }, [forcedRefreshToken]);
-  const runAction = useAtomCommand(pullRequestEnvironment.runAction, {
+  const runAction = useAtomCommand(pullRequestMachine.runAction, {
     reportFailure: false,
   });
-  const postComment = useAtomCommand(pullRequestEnvironment.comment, {
+  const postComment = useAtomCommand(pullRequestMachine.comment, {
     reportFailure: false,
   });
   const [pendingAction, setPendingAction] = useState<PullRequestAction | null>(null);
   const actionPending = pendingAction !== null;
   const newThread = useNewThreadHandler();
-  const { environments } = useEnvironments();
-  const pickableEnvironments =
+  const { machines } = useMachines();
+  const pickableMachines =
     context === "page"
-      ? resolvePickableEnvironments(
-          { environmentId, projectId: reference.projectId },
+      ? resolvePickableMachines(
+          { machineId, projectId: reference.projectId },
           projects,
-          environments.map((environment) => ({
-            environmentId: environment.environmentId,
-            label: environment.label,
-            machine: resolveEnvironmentMachineKind(environment.serverConfig),
+          machines.map((machine) => ({
+            machineId: machine.machineId,
+            label: machine.label,
+            machine: resolveMachineKind(machine.serverConfig),
           })),
         )
       : [];
   const [actingScope, setActingScope] = useState<{
     readonly pullRequestKey: string;
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
   } | null>(null);
-  const chosenEnvironmentId =
-    actingScope?.pullRequestKey === pullRequestKey ? actingScope.environmentId : environmentId;
+  const chosenMachineId =
+    actingScope?.pullRequestKey === pullRequestKey ? actingScope.machineId : machineId;
   const acting =
-    pickableEnvironments.find((entry) => entry.environmentId === chosenEnvironmentId) ?? null;
-  const actingEnvironmentId = acting?.environmentId ?? environmentId;
+    pickableMachines.find((entry) => entry.machineId === chosenMachineId) ?? null;
+  const actingMachineId = acting?.machineId ?? machineId;
   const checkoutRoot =
     acting?.workspaceRoot ?? detail?.workspaceRoot ?? project?.workspaceRoot ?? null;
-  const canOperateThread = useEnvironmentScope(actingEnvironmentId, AuthOrchestrationOperateScope);
+  const canOperateThread = useMachineScope(actingMachineId, AuthOrchestrationOperateScope);
   const prepareThread = usePreparePullRequestThreadAction({
-    environmentId: actingEnvironmentId,
+    machineId: actingMachineId,
     cwd: checkoutRoot,
   });
 
@@ -619,7 +619,7 @@ export function PullRequestDetailPanel({
   ) => {
     onActed?.(action, "sent");
     const result = await runAction({
-      environmentId,
+      machineId,
       input: {
         ...reference,
         action,
@@ -674,7 +674,7 @@ export function PullRequestDetailPanel({
     if (!canWriteSourceControl || pendingAction !== null) return { commentPosted: false };
     setPendingAction(action);
     const commentResult = await postComment({
-      environmentId,
+      machineId,
       input: { ...reference, body },
     });
     if (commentResult._tag === "Failure") {
@@ -699,7 +699,7 @@ export function PullRequestDetailPanel({
   const canFixFindings = attachTarget !== null || canPrepareWorktree;
   const handoffLabels = pullRequestHandoffLabels(attachTarget !== null);
   const guideWriter = useReviewGuideWriter({
-    environmentId,
+    machineId,
     reference,
     title: detail?.title ?? null,
   });
@@ -781,7 +781,7 @@ export function PullRequestDetailPanel({
       return;
     }
     setHandoff(kind);
-    const projectRef = scopeProjectRef(actingEnvironmentId, acting?.projectId ?? detail.projectId);
+    const projectRef = scopeProjectRef(actingMachineId, acting?.projectId ?? detail.projectId);
     const opened = await openThreadWithTask(projectRef, task);
     setHandoff(null);
     if (opened !== null && options?.keepGuide === true) {
@@ -789,15 +789,15 @@ export function PullRequestDetailPanel({
       if (draft !== null) {
         useRightPanelStore
           .getState()
-          .openPullRequest(scopeThreadRef(draft.environmentId, draft.threadId), {
-            environmentId,
+          .openPullRequest(scopeThreadRef(draft.machineId, draft.threadId), {
+            machineId,
             projectId: reference.projectId,
             ...(reference.host === undefined ? {} : { host: reference.host }),
             repository: reference.repository,
             number: reference.number,
             url: detail.url,
           });
-        useGuideRunStore.getState().requestOpen(guideRunKey(environmentId, reference));
+        useGuideRunStore.getState().requestOpen(guideRunKey(machineId, reference));
       }
     }
     if (opened === null) {
@@ -836,13 +836,13 @@ export function PullRequestDetailPanel({
     if (checkoutRoot === null) return;
     if (
       !prepareThread.isAllowed ||
-      !readEnvironmentScope(actingEnvironmentId, AuthSourceControlWriteScope)
+      !readMachineScope(actingMachineId, AuthSourceControlWriteScope)
     ) {
       return;
     }
     if (
       mode === "worktree" &&
-      !readEnvironmentScope(actingEnvironmentId, AuthOrchestrationOperateScope)
+      !readMachineScope(actingMachineId, AuthOrchestrationOperateScope)
     ) {
       return;
     }
@@ -852,7 +852,7 @@ export function PullRequestDetailPanel({
       title: "Preparing the pull request checkout...",
     });
     const projectRef = scopeProjectRef(
-      actingEnvironmentId,
+      actingMachineId,
       acting?.projectId ?? handoffSummary.projectId,
     );
     // The thread is opened before the checkout rather than after it, because the project's setup
@@ -1068,8 +1068,8 @@ export function PullRequestDetailPanel({
     setMergeMethod(method);
     setLastSelectedMergeMethod(method);
   };
-  const selectActingEnvironment = (next: EnvironmentId) =>
-    setActingScope({ pullRequestKey, environmentId: next });
+  const selectActingMachine = (next: MachineId) =>
+    setActingScope({ pullRequestKey, machineId: next });
   const allowedMergeMethods = detail
     ? detail.capabilities.mergeMethods.filter((method) => detail.mergeCapabilities[method])
     : [];
@@ -1092,8 +1092,8 @@ export function PullRequestDetailPanel({
   const workflowApprovalsRequired =
     detail?.state === "open" ? (detail.workflowApprovalsRequired ?? 0) : 0;
   const freshness = detail === null ? null : resolveBaseFreshness(detail);
-  const reviewGuidesEnabled = useEnvironmentSettings(
-    environmentId,
+  const reviewGuidesEnabled = useMachineSettings(
+    machineId,
     (settings) => settings.reviewGuidesEnabled,
   );
   const visibleTabs = TABS.filter(
@@ -1161,9 +1161,9 @@ export function PullRequestDetailPanel({
     ? resolvePullRequestState({ state: detail.state, isDraft: detail.isDraft })
     : null;
   const showsDeleteBranch = detail !== null && canDeletePullRequestBranch(detail);
-  const environmentConnected = environments.some(
-    (environment) =>
-      environment.environmentId === environmentId && environment.connection.phase === "connected",
+  const machineConnected = machines.some(
+    (machine) =>
+      machine.machineId === machineId && machine.connection.phase === "connected",
   );
   const confirmDeleteBranch = async () => {
     if (detail === null) return;
@@ -1200,9 +1200,9 @@ export function PullRequestDetailPanel({
         canPrepareWorktree={canPrepareWorktree}
         canCheckoutHere={prepareThread.isAllowed}
         onCheckout={startCheckout}
-        pickableEnvironments={pickableEnvironments}
-        actingEnvironmentId={actingEnvironmentId}
-        onActingEnvironmentChange={selectActingEnvironment}
+        pickableMachines={pickableMachines}
+        actingMachineId={actingMachineId}
+        onActingMachineChange={selectActingMachine}
       />
     ) : null;
 
@@ -1244,9 +1244,9 @@ export function PullRequestDetailPanel({
     <div className="relative flex h-full min-h-0 w-full flex-col bg-background">
       {threadPickerOpen && detail ? (
         <PullRequestThreadLinks
-          key={`${environmentId}:${detail.url}`}
+          key={`${machineId}:${detail.url}`}
           display="picker"
-          environmentId={environmentId}
+          machineId={machineId}
           reference={reference}
           url={detail.url}
           threadRef={null}
@@ -1283,7 +1283,7 @@ export function PullRequestDetailPanel({
                   notice={nativeStackQuery.notice}
                   onRetry={nativeStackQuery.error ? nativeStackQuery.refresh : undefined}
                   reference={reference}
-                  environmentId={environmentId}
+                  machineId={machineId}
                   onSelect={onSelectPullRequest}
                   mergeMethod={selectedMergeMethod}
                   canMerge={
@@ -1306,7 +1306,7 @@ export function PullRequestDetailPanel({
               {context === "page" ? (
                 <PullRequestThreadLinks
                   display="count"
-                  environmentId={environmentId}
+                  machineId={machineId}
                   reference={reference}
                   url={detail.url}
                   threadRef={null}
@@ -1327,7 +1327,7 @@ export function PullRequestDetailPanel({
               />
               {checkoutControl}
               <PullRequestActionsMenu
-                environmentId={environmentId}
+                machineId={machineId}
                 reference={reference}
                 pullRequestKey={pullRequestKey}
                 detail={detail}
@@ -1349,9 +1349,9 @@ export function PullRequestDetailPanel({
                 guideRunning={guideWriter.running}
                 guideWritten={guideWriter.data?.guide != null}
                 writeGuide={writeGuide}
-                pickableEnvironments={pickableEnvironments}
-                actingEnvironmentId={actingEnvironmentId}
-                onActingEnvironmentChange={selectActingEnvironment}
+                pickableMachines={pickableMachines}
+                actingMachineId={actingMachineId}
+                onActingMachineChange={selectActingMachine}
                 can={can}
                 autoMergeArmed={autoMergeArmed}
                 showsDraftToggle={showsDraftToggle}
@@ -1362,7 +1362,7 @@ export function PullRequestDetailPanel({
                 selectedMergeMethod={selectedMergeMethod}
                 onSelectMergeMethod={selectMergeMethod}
                 showsDeleteBranch={showsDeleteBranch}
-                environmentConnected={environmentConnected}
+                machineConnected={machineConnected}
                 confirmDeleteBranch={confirmDeleteBranch}
                 pendingAction={pendingAction}
                 perform={perform}
@@ -1451,7 +1451,7 @@ export function PullRequestDetailPanel({
                       {detail.changedFiles.toLocaleString()}
                     </span>
                     <PullRequestChangeBreakdownStat
-                      environmentId={environmentId}
+                      machineId={machineId}
                       reference={reference}
                       additions={detail.additions}
                       deletions={detail.deletions}
@@ -1487,7 +1487,7 @@ export function PullRequestDetailPanel({
               <PullRequestDetailHeaderBody
                 title={
                   <PullRequestTitleEditor
-                    environmentId={environmentId}
+                    machineId={machineId}
                     reference={reference}
                     pullRequestKey={pullRequestKey}
                     detail={detail}
@@ -1538,7 +1538,7 @@ export function PullRequestDetailPanel({
                 files={`${detail.changedFiles.toLocaleString()} ${detail.changedFiles === 1 ? "file" : "files"}`}
                 diffStat={
                   <PullRequestChangeBreakdownStat
-                    environmentId={environmentId}
+                    machineId={machineId}
                     reference={reference}
                     additions={detail.additions}
                     deletions={detail.deletions}
@@ -1703,7 +1703,7 @@ export function PullRequestDetailPanel({
               <div className={cn("absolute inset-0", tab !== "summary" && "invisible")}>
                 <PullRequestSummaryTab
                   scrollerRef={scrollerRefs.summary}
-                  environmentId={environmentId}
+                  machineId={machineId}
                   threadRef={threadRef}
                   reference={reference}
                   detail={detail}
@@ -1722,7 +1722,7 @@ export function PullRequestDetailPanel({
             {mountedTabs.has("guide") ? (
               <div className={cn("absolute inset-0", tab !== "guide" && "invisible")}>
                 <PullRequestGuideTab
-                  environmentId={environmentId}
+                  machineId={machineId}
                   reference={reference}
                   active={tab === "guide"}
                   title={detail.title}
@@ -1759,7 +1759,7 @@ export function PullRequestDetailPanel({
                   <PullRequestTimelineTab
                     scrollerRef={scrollerRefs.timeline}
                     detail={detail}
-                    environmentId={environmentId}
+                    machineId={machineId}
                     threadRef={threadRef}
                     reference={reference}
                     order={timelineOrder}
@@ -1775,7 +1775,7 @@ export function PullRequestDetailPanel({
                   <PullRequestCodeTab
                     scrollerRef={scrollerRefs.code}
                     onAddToAgentSelection={addSelectionToAgent}
-                    environmentId={environmentId}
+                    machineId={machineId}
                     reference={reference}
                     detail={detail}
                     selectedCommitOid={selectedCodeCommitOid}
@@ -1799,13 +1799,13 @@ export function PullRequestDetailPanel({
         <div className="absolute right-4 bottom-3 z-20">
           <PullRequestComposer
             key={JSON.stringify([
-              environmentId,
+              machineId,
               reference.projectId,
               reference.host,
               reference.repository,
               reference.number,
             ])}
-            environmentId={environmentId}
+            machineId={machineId}
             reference={reference}
             detail={detail}
             actionPending={actionPending}

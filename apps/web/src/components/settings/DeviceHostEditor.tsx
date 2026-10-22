@@ -88,7 +88,7 @@ function DeviceHostEditorForm({
     targets.length === 1 ||
     (expandedChecks?.key === connectionKey ? expandedChecks.open : failed > 0);
   const checkSummary = checking
-    ? "Checking environments…"
+    ? "Checking machines…"
     : results
       ? failed
         ? `${failed} of ${targets.length} failed`
@@ -107,7 +107,7 @@ function DeviceHostEditorForm({
         <DialogDescription>
           {targets.length === 1
             ? `Connect from ${targets[0]?.label}.`
-            : `Connect from ${targets.length} selected environments.`}{" "}
+            : `Connect from ${targets.length} selected machines.`}{" "}
           Hosts on the same machine are skipped.
         </DialogDescription>
       </DialogHeader>
@@ -180,7 +180,7 @@ function DeviceHostEditorForm({
             </label>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Optional. Resolved separately on each environment.
+            Optional. Resolved separately on each machine.
           </p>
         </details>
         <Collapsible
@@ -228,10 +228,10 @@ function DeviceHostEditorForm({
               render={<ul className="border-t border-border/60 divide-y divide-border/40" />}
             >
               {targets.map((target) => {
-                const result = results[target.environmentId];
+                const result = results[target.machineId];
                 if (!result) return null;
                 return (
-                  <li key={target.environmentId} className="px-3 py-2.5 text-xs">
+                  <li key={target.machineId} className="px-3 py-2.5 text-xs">
                     <div className="flex items-center justify-between gap-3">
                       <span className="truncate font-medium">{target.label}</span>
                       <span

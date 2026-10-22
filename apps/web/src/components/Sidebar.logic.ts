@@ -8,7 +8,7 @@ import {
 } from "@vekrel/client-runtime/state/runtime";
 import { defaultAnimateLayoutChanges, type AnimateLayoutChanges } from "@dnd-kit/sortable";
 import { threadSearchMatchKey } from "@vekrel/client-runtime/state/thread-search";
-import type { ContextMenuItem, EnvironmentId, ThreadId } from "@vekrel/contracts";
+import type { ContextMenuItem, MachineId, ThreadId } from "@vekrel/contracts";
 import type { SidebarProjectSortOrder, SidebarThreadSortOrder } from "@vekrel/contracts/settings";
 import type { AsyncResult } from "effect/reactivity";
 import { planPinnedReorder } from "@vekrel/client-runtime/state/thread-sort";
@@ -416,11 +416,11 @@ type SidebarProject = {
 };
 
 type ScopedSidebarProject = SidebarProject & {
-  environmentId: string;
+  machineId: string;
 };
 
 type ScopedSidebarThread = ThreadSortInput & {
-  environmentId: string;
+  machineId: string;
   projectId: string;
   archivedAt: string | null;
 };
@@ -428,7 +428,7 @@ type ScopedSidebarThread = ThreadSortInput & {
 type LogicalSidebarProject = SidebarProject & {
   projectKey: string;
   memberProjectRefs: readonly {
-    environmentId: string;
+    machineId: string;
     projectId: string;
   }[];
 };
@@ -518,14 +518,14 @@ function isSidebarSubagentThread(thread: Pick<SidebarThreadSummary, "lineage">):
 
 // Subagent threads have no sidebar row, so an open subagent is represented by
 // its nearest non-subagent ancestor. A broken chain (missing parent, cycle,
-// other environment) resolves to the thread itself, which then matches no row.
+// other machine) resolves to the thread itself, which then matches no row.
 export function resolveSidebarRowThreadId(
   threadId: ThreadId,
-  environmentId: EnvironmentId,
-  threads: readonly Pick<SidebarThreadSummary, "id" | "environmentId" | "lineage">[],
+  machineId: MachineId,
+  threads: readonly Pick<SidebarThreadSummary, "id" | "machineId" | "lineage">[],
 ): ThreadId {
   const findThread = (id: ThreadId) =>
-    threads.find((thread) => thread.id === id && thread.environmentId === environmentId);
+    threads.find((thread) => thread.id === id && thread.machineId === machineId);
   const visited = new Set<ThreadId>();
   let thread = findThread(threadId);
   while (thread !== undefined && isSidebarSubagentThread(thread)) {
@@ -538,7 +538,7 @@ export function resolveSidebarRowThreadId(
 
 export function filterSidebarV2VisibleThreads<
   T extends Pick<SidebarThreadSummary, "archivedAt" | "lineage"> & {
-    environmentId: string;
+    machineId: string;
     projectId: string;
   },
 >(threads: readonly T[], scopedProjectKeys: ReadonlySet<string> | null): T[] {
@@ -547,7 +547,7 @@ export function filterSidebarV2VisibleThreads<
       thread.archivedAt === null &&
       !isSidebarSubagentThread(thread) &&
       (scopedProjectKeys === null ||
-        scopedProjectKeys.has(`${thread.environmentId}:${thread.projectId}`)),
+        scopedProjectKeys.has(`${thread.machineId}:${thread.projectId}`)),
   );
 }
 
@@ -977,7 +977,7 @@ const EMPTY_CONTENT_MATCH_KEYS: ReadonlySet<string> = new Set<string>();
 
 export function searchSidebarThreads<
   T extends {
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly id: ThreadId;
     readonly title: string;
   } & Parameters<typeof threadPullRequestSearchTerms>[0],
@@ -999,7 +999,7 @@ export function searchSidebarThreads<
     } else if (
       contentMatchKeys.size > 0 &&
       contentMatchKeys.has(
-        threadSearchMatchKey({ environmentId: thread.environmentId, threadId: thread.id }),
+        threadSearchMatchKey({ machineId: thread.machineId, threadId: thread.id }),
       )
     ) {
       contentMatches.push(thread);
@@ -1275,14 +1275,14 @@ export function sortLogicalProjectsForSidebar<
     projects.flatMap((project) =>
       project.memberProjectRefs.map(
         (projectRef) =>
-          [`${projectRef.environmentId}\0${projectRef.projectId}`, project.projectKey] as const,
+          [`${projectRef.machineId}\0${projectRef.projectId}`, project.projectKey] as const,
       ),
     ),
   );
   const threadsByProjectKey = new Map<string, TThread[]>();
   for (const thread of threads) {
     if (thread.archivedAt !== null) continue;
-    const projectKey = groupKeyByProjectRef.get(`${thread.environmentId}\0${thread.projectId}`);
+    const projectKey = groupKeyByProjectRef.get(`${thread.machineId}\0${thread.projectId}`);
     if (!projectKey) continue;
     const existing = threadsByProjectKey.get(projectKey);
     if (existing) {
@@ -1324,14 +1324,14 @@ export function sortScopedProjectsForSidebar<
   threads: readonly TThread[],
   sortOrder: SidebarProjectSortOrder,
 ): TProject[] {
-  const scopedKey = (environmentId: string, projectId: string) =>
-    `${environmentId}\u0000${projectId}`;
+  const scopedKey = (machineId: string, projectId: string) =>
+    `${machineId}\u0000${projectId}`;
   const threadsByProject = new Map<string, TThread[]>();
   for (const thread of threads) {
     if (thread.archivedAt !== null) {
       continue;
     }
-    const key = scopedKey(thread.environmentId, thread.projectId);
+    const key = scopedKey(thread.machineId, thread.projectId);
     const existing = threadsByProject.get(key) ?? [];
     existing.push(thread);
     threadsByProject.set(key, existing);
@@ -1340,10 +1340,10 @@ export function sortScopedProjectsForSidebar<
   return sortProjectsByActivity(
     projects,
     sortOrder,
-    (project) => threadsByProject.get(scopedKey(project.environmentId, project.id)) ?? [],
+    (project) => threadsByProject.get(scopedKey(project.machineId, project.id)) ?? [],
     (left, right) =>
       left.title.localeCompare(right.title) ||
-      left.environmentId.localeCompare(right.environmentId) ||
+      left.machineId.localeCompare(right.machineId) ||
       left.id.localeCompare(right.id),
   );
 }

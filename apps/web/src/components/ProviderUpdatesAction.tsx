@@ -2,8 +2,8 @@ import { PROVIDER_DISPLAY_NAMES } from "@vekrel/contracts";
 import { settlePromise } from "@vekrel/client-runtime/state/runtime";
 import { useRef, useState } from "react";
 
-import { useEnvironmentProviders, useEnvironments } from "~/state/environments";
-import { serverEnvironment } from "~/state/server";
+import { useMachineProviders, useMachines } from "~/state/machines";
+import { serverMachine } from "~/state/server";
 import { useAtomCommand } from "~/state/use-atom-command";
 import {
   canOneClickUpdateProviderCandidate,
@@ -16,34 +16,34 @@ import { stackedThreadToast, toastManager } from "./ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 export function useProviderUpdates() {
-  const { environments } = useEnvironments();
-  const providersByEnvironment = useEnvironmentProviders();
-  const updateProvider = useAtomCommand(serverEnvironment.updateProvider, {
+  const { machines: allMachines } = useMachines();
+  const providersByMachine = useMachineProviders();
+  const updateProvider = useAtomCommand(serverMachine.updateProvider, {
     reportFailure: false,
   });
-  const machines = environments.flatMap((environment) => {
-    const providers = providersByEnvironment.get(environment.environmentId) ?? [];
-    if (environment.connection.phase !== "connected") {
+  const machines = allMachines.flatMap((machine) => {
+    const providers = providersByMachine.get(machine.machineId) ?? [];
+    if (machine.connection.phase !== "connected") {
       return [];
     }
     const candidates = collectProviderUpdateCandidates(providers).filter((candidate) =>
       canOneClickUpdateProviderCandidate(candidate, providers),
     );
     return candidates.length > 0
-      ? [{ environmentId: environment.environmentId, label: environment.label, candidates }]
+      ? [{ machineId: machine.machineId, label: machine.label, candidates }]
       : [];
   });
 
   const updateAll = async ({ quiet = false }: { readonly quiet?: boolean } = {}) => {
     const runs = await Promise.all(
-      machines.flatMap(({ environmentId, label, candidates }) =>
+      machines.flatMap(({ machineId, label, candidates }) =>
         candidates.map(async (candidate): Promise<ProviderUpdateRun> => ({
-          environmentId,
+          machineId,
           machineLabel: label,
           driver: candidate.driver,
           instanceId: candidate.instanceId,
           result: await updateProvider({
-            environmentId,
+            machineId,
             input: { provider: candidate.driver, instanceId: candidate.instanceId },
           }),
         })),
@@ -97,7 +97,7 @@ export function ProviderUpdatesAction() {
       />
       <TooltipPopup side="top">
         {machines.map((machine) => (
-          <div key={machine.environmentId}>
+          <div key={machine.machineId}>
             {machine.label}:{" "}
             {machine.candidates
               .map((candidate) => PROVIDER_DISPLAY_NAMES[candidate.driver] ?? candidate.driver)

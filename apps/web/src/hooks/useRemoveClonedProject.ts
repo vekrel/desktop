@@ -6,18 +6,18 @@ import { useComposerDraftStore } from "../composerDraftStore";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { releaseProjectDraftUploads } from "../lib/composerDraftUploads";
 import { waitForProjectRemoval } from "../state/entities";
-import { projectEnvironment } from "../state/projects";
+import { projectMachine } from "../state/projects";
 import { useAtomCommand } from "../state/use-atom-command";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
 
 export function useRemoveClonedProject() {
   const router = useRouter();
-  const deleteProject = useAtomCommand(projectEnvironment.delete, { reportFailure: false });
+  const deleteProject = useAtomCommand(projectMachine.delete, { reportFailure: false });
 
   return async (projectRef: ScopedProjectRef) => {
     const draftStore = useComposerDraftStore.getState();
     const result = await deleteProject({
-      environmentId: projectRef.environmentId,
+      machineId: projectRef.machineId,
       // Not forced: a project whose clone never landed has no threads, and
       // if one appeared in the meantime the server refuses rather than
       // silently deleting it.
@@ -42,7 +42,7 @@ export function useRemoveClonedProject() {
     const viewingDraft =
       routeTarget?.kind === "draft" ? draftStore.getDraftSession(routeTarget.draftId) : null;
     const viewingThisProject =
-      viewingDraft?.environmentId === projectRef.environmentId &&
+      viewingDraft?.machineId === projectRef.machineId &&
       viewingDraft.projectId === projectRef.projectId;
     releaseProjectDraftUploads(projectRef);
     const projectDraft = draftStore.getDraftThreadByProjectRef(projectRef);

@@ -2,14 +2,14 @@ import {
   scopeProjectRef,
   scopedThreadKey,
   scopeThreadRef,
-} from "@vekrel/client-runtime/environment";
+} from "@vekrel/client-runtime/machine";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { useStableCallback } from "~/hooks/useStableCallback";
 
 import { pullRequestDetailToVcsStatus } from "@vekrel/client-runtime/state/pull-requests";
 import {
-  resolveEnvironmentMachineKind,
-  type EnvironmentId,
+  resolveMachineKind,
+  type MachineId,
   type ScopedThreadRef,
   type ThreadLinkedPullRequest,
   type ThreadPullRequestLink,
@@ -17,8 +17,8 @@ import {
 } from "@vekrel/contracts";
 import { Atom } from "effect/reactivity";
 import { FolderGit2Icon, TerminalIcon } from "lucide-react";
-import { useEnvironment, usePrimaryEnvironmentId } from "../state/environments";
-import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
+import { useMachine, usePrimaryMachineId } from "../state/machines";
+import { MachineIcon } from "./MachineIcon";
 import { useProject } from "../state/entities";
 import {
   pullRequestListLines,
@@ -34,10 +34,10 @@ import { cn } from "../lib/utils";
 import { revealThreadTerminal } from "../lib/revealThreadTerminal";
 
 import { parseChangeRequestUrl } from "../lib/openPullRequestLink";
-import { useEnvironmentQuery } from "../state/query";
+import { useMachineQuery } from "../state/query";
 import { linkedPullRequestDetailAtom, useSharedPullRequestSummary } from "../state/pullRequests";
 import { useThreadRunningTerminalIds } from "../state/terminalSessions";
-import { vcsEnvironment } from "../state/vcs";
+import { vcsMachine } from "../state/vcs";
 import { useUiStateStore } from "../uiStateStore";
 import { sourceControlClients } from "@vekrel/client-runtime/source-control-clients";
 import {
@@ -83,13 +83,13 @@ export interface LinkedThreadPullRequestStatus {
 }
 
 export function useLinkedThreadPullRequest(
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   linkedPullRequest: ThreadLinkedPullRequest | null | undefined,
   enabled = true,
   pullRequests?: ReadonlyArray<ThreadPullRequestLink>,
   branchPullRequest?: ThreadLinkedPullRequest | null,
 ): LinkedThreadPullRequestStatus | null {
-  const supportsLinks = useSupportsMultiplePullRequests(environmentId);
+  const supportsLinks = useSupportsMultiplePullRequests(machineId);
   const current = supportsLinks ? resolveThreadCurrentPullRequestLink(pullRequests ?? []) : null;
   // Callers key on the returned status, so it stays cached across the query hooks.
   const currentStatus = current === null ? null : linkedPullRequestSnapshotStatus(current);
@@ -98,13 +98,13 @@ export function useLinkedThreadPullRequest(
   // The query atom and shared summary effect key on this object, and a sidebar row
   // must not touch the summary cache on every render.
   const reference = fallback == null ? null : linkedPullRequestReference(fallback);
-  const queried = useEnvironmentQuery(
-    !enabled || environmentId === null || reference === null
+  const queried = useMachineQuery(
+    !enabled || machineId === null || reference === null
       ? null
-      : linkedPullRequestDetailAtom({ environmentId, input: reference }),
+      : linkedPullRequestDetailAtom({ machineId, input: reference }),
   );
   const detail = useSharedPullRequestSummary(
-    environmentId,
+    machineId,
     reference,
     queried.data,
     queried.dataUpdatedAt,
@@ -868,32 +868,32 @@ export function ThreadRowLeadingStatus({
   const statusRef = useStableCallback((node: HTMLSpanElement | null) =>
     rowRef(node?.parentElement ?? null),
   );
-  const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+  const threadRef = scopeThreadRef(thread.machineId, thread.id);
   const localLastVisitedAt = useUiStateStore(
     (state) => state.threadLastVisitedAtById[scopedThreadKey(threadRef)],
   );
   const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
-  const threadProject = useProject(scopeProjectRef(thread.environmentId, thread.projectId));
+  const threadProject = useProject(scopeProjectRef(thread.machineId, thread.projectId));
   const threadProjectCwd = threadProject?.workspaceRoot ?? null;
   const gitCwd = thread.worktreePath ?? threadProjectCwd;
   const linkedPullRequest = useLinkedThreadPullRequest(
-    thread.environmentId,
+    thread.machineId,
     thread.linkedPullRequest,
     leaseLiveStatus,
   );
-  const gitStatus = useEnvironmentQuery(
+  const gitStatus = useMachineQuery(
     leaseLiveStatus &&
       thread.linkedPullRequest == null &&
       (thread.branch != null || thread.worktreePath !== null) &&
       gitCwd !== null
-      ? vcsEnvironment.status({
-          environmentId: thread.environmentId,
+      ? vcsMachine.status({
+          machineId: thread.machineId,
           input: { cwd: gitCwd, includeRemote: false },
         })
       : null,
   );
   const visibleGitStatus = useRetainedValue(
-    JSON.stringify([thread.environmentId, gitCwd]),
+    JSON.stringify([thread.machineId, gitCwd]),
     gitStatus.data,
   );
   const displayedPrInput = {
@@ -913,7 +913,7 @@ export function ThreadRowLeadingStatus({
     },
   });
 
-  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.environmentId);
+  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.machineId);
   const pendingLink =
     pr === null && supportsMultiplePullRequests
       ? resolveThreadCurrentPullRequestLink(thread.pullRequests)
@@ -956,15 +956,15 @@ export function ThreadRowLeadingStatus({
 
 export function ThreadRowTrailingStatus({ thread }: { thread: SidebarThreadSummary }) {
   const runningTerminalIds = useThreadRunningTerminalIds({
-    environmentId: thread.environmentId,
+    machineId: thread.machineId,
     threadId: thread.id,
   });
-  const environment = useEnvironment(thread.environmentId);
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const isRemoteThread = thread.environmentId !== primaryEnvironmentId;
-  const remoteEnvLabel = environment?.label ?? null;
-  const threadEnvironmentLabel = isRemoteThread ? (remoteEnvLabel ?? "Remote") : null;
-  const remoteMachine = resolveEnvironmentMachineKind(environment?.serverConfig ?? null);
+  const machine = useMachine(thread.machineId);
+  const primaryMachineId = usePrimaryMachineId();
+  const isRemoteThread = thread.machineId !== primaryMachineId;
+  const remoteEnvLabel = machine?.label ?? null;
+  const threadMachineLabel = isRemoteThread ? (remoteEnvLabel ?? "Remote") : null;
+  const remoteMachine = resolveMachineKind(machine?.serverConfig ?? null);
   const terminalStatus = terminalStatusFromRunningIds(runningTerminalIds);
 
   if (!terminalStatus && !isRemoteThread) {
@@ -997,17 +997,17 @@ export function ThreadRowTrailingStatus({ thread }: { thread: SidebarThreadSumma
           <TooltipTrigger
             render={
               <span
-                aria-label={threadEnvironmentLabel ?? "Remote"}
+                aria-label={threadMachineLabel ?? "Remote"}
                 className="inline-flex items-center justify-center"
               />
             }
           >
-            <EnvironmentMachineIcon
+            <MachineIcon
               kind={remoteMachine}
               className="size-3 text-muted-foreground/60"
             />
           </TooltipTrigger>
-          <TooltipPopup side="top">{threadEnvironmentLabel}</TooltipPopup>
+          <TooltipPopup side="top">{threadMachineLabel}</TooltipPopup>
         </Tooltip>
       ) : null}
     </span>
@@ -1040,9 +1040,9 @@ export function ThreadSearchPullRequestNumber({
   settled?: boolean;
 }) {
   const matched = pullRequestMatchesSearchQuery(thread, query);
-  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.environmentId);
+  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.machineId);
   const linked = useLinkedThreadPullRequest(
-    thread.environmentId,
+    thread.machineId,
     thread.linkedPullRequest,
     enabled && matched,
     thread.pullRequests,

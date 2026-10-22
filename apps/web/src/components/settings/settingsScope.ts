@@ -1,10 +1,10 @@
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 
 import type {
   SidebarProjectGroupMember,
   SidebarProjectSnapshot,
 } from "../../sidebarProjectGrouping";
-import type { EnvironmentPresentation } from "../../state/environments";
+import type { MachinePresentation } from "../../state/machines";
 
 export interface SettingsScopeSearch {
   project?: string | undefined;
@@ -15,27 +15,27 @@ export interface SettingsScopeSearch {
 type ScopeTargets = {
   label: string;
   members: readonly SidebarProjectGroupMember[];
-  environmentIds: readonly EnvironmentId[];
+  machineIds: readonly MachineId[];
 };
 
 export type ResolvedSettingsScope = ScopeTargets &
   (
     | { kind: "all" }
-    | { kind: "environment"; environmentId: EnvironmentId }
+    | { kind: "machine"; machineId: MachineId }
     | {
         kind: "project";
         group: SidebarProjectSnapshot;
-        environmentId: EnvironmentId | null;
+        machineId: MachineId | null;
       }
     | {
         kind: "checkout";
         group: SidebarProjectSnapshot;
         checkout: SidebarProjectGroupMember;
-        environmentId: EnvironmentId;
+        machineId: MachineId;
       }
     | {
         kind: "unavailable";
-        reason: "project-required" | "project-missing" | "environment-missing" | "checkout-missing";
+        reason: "project-required" | "project-missing" | "machine-missing" | "checkout-missing";
         message: string;
       }
   );
@@ -58,7 +58,7 @@ export function validateSettingsScopeSearch(raw: Record<string, unknown>): Setti
 export function resolveSettingsScope(
   search: SettingsScopeSearch,
   groups: readonly SidebarProjectSnapshot[],
-  environments: readonly Pick<EnvironmentPresentation, "environmentId" | "label">[],
+  machines: readonly Pick<MachinePresentation, "machineId" | "label">[],
 ): ResolvedSettingsScope {
   const unavailable = (
     reason: Extract<ResolvedSettingsScope, { kind: "unavailable" }>["reason"],
@@ -69,16 +69,16 @@ export function resolveSettingsScope(
     label: "Unavailable selection",
     message,
     members: [],
-    environmentIds: [],
+    machineIds: [],
   });
 
   if (search.checkout && !search.project) {
     return unavailable("project-required", "Select a project to choose one of its checkouts.");
   }
 
-  const environment = environments.find((candidate) => candidate.environmentId === search.machine);
-  if (search.machine && !environment) {
-    return unavailable("environment-missing", "This environment is no longer available.");
+  const machine = machines.find((candidate) => candidate.machineId === search.machine);
+  if (search.machine && !machine) {
+    return unavailable("machine-missing", "This machine is no longer available.");
   }
 
   if (search.project) {
@@ -86,65 +86,65 @@ export function resolveSettingsScope(
     if (!group) return unavailable("project-missing", "This project is no longer available.");
     const members = group.memberProjects.filter(
       (member) =>
-        (search.machine === undefined || member.environmentId === search.machine) &&
+        (search.machine === undefined || member.machineId === search.machine) &&
         (search.checkout === undefined || member.physicalProjectKey === search.checkout),
     );
     if (members.length === 0) {
       return unavailable(
         "checkout-missing",
         search.checkout
-          ? "This checkout is no longer available in the selected project and environment."
-          : "This project has no checkout on this environment.",
+          ? "This checkout is no longer available in the selected project and machine."
+          : "This project has no checkout on this machine.",
       );
     }
     if (search.checkout) {
       const checkout = members[0]!;
-      const checkoutEnvironment = environments.find(
-        (candidate) => candidate.environmentId === checkout.environmentId,
+      const checkoutMachine = machines.find(
+        (candidate) => candidate.machineId === checkout.machineId,
       );
-      if (!checkoutEnvironment) {
+      if (!checkoutMachine) {
         return unavailable(
-          "environment-missing",
-          "This checkout's environment is no longer available.",
+          "machine-missing",
+          "This checkout's machine is no longer available.",
         );
       }
-      const sharesEnvironment = group.memberProjects.some(
+      const sharesMachine = group.memberProjects.some(
         (member) =>
-          member.environmentId === checkout.environmentId &&
+          member.machineId === checkout.machineId &&
           member.physicalProjectKey !== checkout.physicalProjectKey,
       );
       return {
         kind: "checkout",
         group,
         checkout,
-        environmentId: checkout.environmentId,
-        label: `${group.displayName} / ${checkoutEnvironment.label}${sharesEnvironment ? ` · ${checkout.workspaceRoot}` : ""}`,
+        machineId: checkout.machineId,
+        label: `${group.displayName} / ${checkoutMachine.label}${sharesMachine ? ` · ${checkout.workspaceRoot}` : ""}`,
         members,
-        environmentIds: [checkout.environmentId],
+        machineIds: [checkout.machineId],
       };
     }
     return {
       kind: "project",
       group,
-      environmentId: environment?.environmentId ?? null,
-      label: `${group.displayName} / ${environment?.label ?? "All checkouts"}`,
+      machineId: machine?.machineId ?? null,
+      label: `${group.displayName} / ${machine?.label ?? "All checkouts"}`,
       members,
-      environmentIds: [...new Set(members.map((member) => member.environmentId))],
+      machineIds: [...new Set(members.map((member) => member.machineId))],
     };
   }
-  if (environment) {
+  if (machine) {
     return {
-      kind: "environment",
-      environmentId: environment.environmentId,
-      label: environment.label,
+      kind: "machine",
+      machineId: machine.machineId,
+      label: machine.label,
       members: [],
-      environmentIds: [environment.environmentId],
+      machineIds: [machine.machineId],
     };
   }
   return {
     kind: "all",
-    label: "All environments",
+    label: "All machines",
     members: [],
-    environmentIds: environments.map((candidate) => candidate.environmentId),
+    machineIds: machines.map((candidate) => candidate.machineId),
   };
 }

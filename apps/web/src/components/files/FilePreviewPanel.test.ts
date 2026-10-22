@@ -103,7 +103,7 @@ describe("workspaceAssetResource", () => {
   const input = {
     kind: "workspace-file" as const,
     threadRef: {
-      environmentId: "env" as ScopedThreadRef["environmentId"],
+      machineId: "env" as ScopedThreadRef["machineId"],
       threadId: "thread-1" as ScopedThreadRef["threadId"],
     },
     workspaceRoot: "/repo",

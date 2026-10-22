@@ -1,6 +1,6 @@
 import type { AtomCommandResult } from "@vekrel/client-runtime/state/runtime";
 import type {
-  EnvironmentId,
+  MachineId,
   PreviewCloseInput,
   PreviewSessionSnapshot,
   ScopedThreadRef,
@@ -11,7 +11,7 @@ import { beginPreviewSessionClose, cancelPreviewSessionClose } from "~/previewSt
 
 interface ClosePreviewSessionInput<E> {
   readonly closePreview: (input: {
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly input: PreviewCloseInput;
   }) => Promise<AtomCommandResult<void, E>>;
   readonly snapshot: PreviewSessionSnapshot | null;
@@ -24,7 +24,7 @@ export async function closePreviewSession<E>(
 ): Promise<AtomCommandResult<void, E>> {
   beginPreviewSessionClose(input.threadRef, input.tabId);
   const result = await input.closePreview({
-    environmentId: input.threadRef.environmentId,
+    machineId: input.threadRef.machineId,
     input: { threadId: input.threadRef.threadId, tabId: input.tabId },
   });
   if (result._tag === "Failure") {

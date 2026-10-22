@@ -12,7 +12,7 @@ import {
   type BrowserProfile,
   BrowserSearchEngine,
   BROWSER_CUSTOM_SEARCH_URL_MAX_LENGTH,
-  type EnvironmentId,
+  type MachineId,
   BROWSER_PROFILE_NAME_MAX_LENGTH,
   BROWSER_RECORDING_FRAME_RATES,
   DEFAULT_BROWSER_AUTO_SHOW_FLOATING_PREVIEW,
@@ -43,15 +43,15 @@ import { useRef, useState } from "react";
 
 import { ScreenRotationIcon } from "~/browser/ScreenRotationIcon";
 import { AnimatedHeight } from "~/components/AnimatedHeight";
-import { resolveEnvironmentOptionLabel } from "~/components/BranchToolbar.logic";
+import { resolveMachineOptionLabel } from "~/components/BranchToolbar.logic";
 import { previewBridge } from "~/components/preview/previewBridge";
 import { cn, randomUUID } from "~/lib/utils";
-import { useEnvironments, usePrimaryEnvironment } from "~/state/environments";
-import { deviceEnvironment, useDeviceState } from "~/state/device";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import { useMachines, usePrimaryMachine } from "~/state/machines";
+import { deviceMachine, useDeviceState } from "~/state/device";
+import { readMachineScope, useMachineScope } from "~/state/session";
 import { useAtomCommand } from "~/state/use-atom-command";
-import { formatEnvironmentQueryError } from "~/state/query";
-import { previewEnvironment } from "~/state/preview";
+import { formatMachineQueryError } from "~/state/query";
+import { previewMachine } from "~/state/preview";
 import { useServerConfigs } from "~/state/entities";
 import { squashAtomCommandFailure } from "@vekrel/client-runtime/state/runtime";
 import {
@@ -131,37 +131,37 @@ type BrowserProfileDataBridge = Pick<
 >;
 
 export interface ServerProfileData {
-  readonly environmentIds: ReadonlyArray<EnvironmentId>;
-  readonly clear: (environmentId: EnvironmentId, profileId: string) => Promise<void>;
+  readonly machineIds: ReadonlyArray<MachineId>;
+  readonly clear: (machineId: MachineId, profileId: string) => Promise<void>;
 }
 
 export async function clearBrowserProfileData(
   bridge: BrowserProfileDataBridge | null,
-  environmentIds: ReadonlyArray<EnvironmentId>,
+  machineIds: ReadonlyArray<MachineId>,
   profileId: string,
   server?: ServerProfileData,
 ): Promise<void> {
-  const desktopEnvironmentIds = bridge === null ? [] : environmentIds;
-  const serverEnvironmentIds = server?.environmentIds ?? [];
-  if (desktopEnvironmentIds.length === 0 && serverEnvironmentIds.length === 0) {
+  const desktopMachineIds = bridge === null ? [] : machineIds;
+  const serverMachineIds = server?.machineIds ?? [];
+  if (desktopMachineIds.length === 0 && serverMachineIds.length === 0) {
     throw new Error("Browser profile data is not available to clear.");
   }
   await Promise.all([
-    ...desktopEnvironmentIds.flatMap((environmentId) => [
-      bridge!.clearCookies(environmentId, profileId),
-      bridge!.clearCache(environmentId, profileId),
+    ...desktopMachineIds.flatMap((machineId) => [
+      bridge!.clearCookies(machineId, profileId),
+      bridge!.clearCache(machineId, profileId),
     ]),
-    ...serverEnvironmentIds.map((environmentId) => server!.clear(environmentId, profileId)),
+    ...serverMachineIds.map((machineId) => server!.clear(machineId, profileId)),
   ]);
 }
 
 function browserProfileRemovalAvailable(
   bridgeAvailable: boolean,
-  environmentsReady: boolean,
-  environmentCount: number,
+  machinesReady: boolean,
+  machineCount: number,
   serverBrowserCount = 0,
 ): boolean {
-  return (bridgeAvailable || serverBrowserCount > 0) && environmentsReady && environmentCount > 0;
+  return (bridgeAvailable || serverBrowserCount > 0) && machinesReady && machineCount > 0;
 }
 
 const RESPONSIVE_SEED_SIZE = { width: 1280, height: 800 } as const;
@@ -199,12 +199,12 @@ export const importFailureReason = (cause: unknown): BrowserImportFailureReason 
 async function importBrowserCookiesIntoTarget(
   bridge: NonNullable<typeof previewBridge>,
   source: BrowserImportSource,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   input: { readonly sourceProfileDirectory: string; readonly target: WizardTarget },
 ): Promise<ImportOutcome> {
   try {
     const result = await bridge.importBrowserCookies({
-      environmentId,
+      machineId,
       sourceId: source.id,
       sourceProfileDirectory: input.sourceProfileDirectory,
       targetProfileId: input.target.profileId,
@@ -252,7 +252,7 @@ async function importBrowserCookiesIntoTarget(
           // This target id belongs only to the attempted new profile. Clear
           // its partition so a failed registration cannot strand imported
           // cookies behind a profile that disappears on restart.
-          await clearBrowserProfileData(bridge, [environmentId], input.target.profileId).catch(
+          await clearBrowserProfileData(bridge, [machineId], input.target.profileId).catch(
             () => undefined,
           );
           const reason =
@@ -803,16 +803,16 @@ function PullRequestLinksOpenInAppSetting() {
 }
 
 function DeviceIntegrationSettings() {
-  const { search, environment: selected } = useSettingsScope();
+  const { search, machine: selected } = useSettingsScope();
   const settings = useScopedSettings();
   const connected = selected?.connection.phase === "connected" && selected.serverConfig !== null;
-  const environmentId = connected ? selected.environmentId : null;
+  const machineId = connected ? selected.machineId : null;
 
   return (
     <SettingsSection id="devices" title="Devices">
       <DeviceIntegrationControls
-        key={`${environmentId}:${JSON.stringify(search)}`}
-        environmentId={environmentId}
+        key={`${machineId}:${JSON.stringify(search)}`}
+        machineId={machineId}
         enabled={settings.enableDeviceSupport}
         agentAccessEnabled={settings.enableAgentDeviceAccess}
       />
@@ -821,24 +821,24 @@ function DeviceIntegrationSettings() {
 }
 
 function DeviceIntegrationControls({
-  environmentId,
+  machineId,
   enabled,
   agentAccessEnabled,
 }: {
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   enabled: boolean;
   agentAccessEnabled: boolean;
 }) {
-  const canConfigure = useEnvironmentScope(environmentId, AuthSettingsWriteScope);
-  const { state, loaded } = useDeviceState(environmentId);
-  const { scope, environments, connectedEnvironments } = useSettingsScope();
+  const canConfigure = useMachineScope(machineId, AuthSettingsWriteScope);
+  const { state, loaded } = useDeviceState(machineId);
+  const { scope, machines, connectedMachines } = useSettingsScope();
   const updateSettings = useUpdateScopedSettings();
   const projectScope = scope.kind === "project" || scope.kind === "checkout";
-  const anyHubEnabled = connectedEnvironments.some(
-    (environment) => environment.serverConfig?.settings.enableDeviceSupport,
+  const anyHubEnabled = connectedMachines.some(
+    (machine) => machine.serverConfig?.settings.enableDeviceSupport,
   );
-  const configure = useAtomCommand(deviceEnvironment.configure, { reportFailure: false });
-  const list = useAtomCommand(deviceEnvironment.list, { reportFailure: false });
+  const configure = useAtomCommand(deviceMachine.configure, { reportFailure: false });
+  const list = useAtomCommand(deviceMachine.list, { reportFailure: false });
   const [pending, setPending] = useState<
     "hub" | "check" | "agent" | "update-hub" | "update-agent" | null
   >(null);
@@ -861,32 +861,32 @@ function DeviceIntegrationControls({
     kind: NonNullable<typeof pending>,
     input: { enabled?: boolean; agentAccessEnabled?: boolean },
   ) => {
-    if (!environmentId || !readEnvironmentScope(environmentId, AuthSettingsWriteScope)) return;
+    if (!machineId || !readMachineScope(machineId, AuthSettingsWriteScope)) return;
     setPending(kind);
     const results = await Promise.allSettled(
-      environments.map(async (environment) => {
-        if (environment.connection.phase !== "connected" || !environment.serverConfig) {
-          throw new Error("Environment disconnected");
+      machines.map(async (machine) => {
+        if (machine.connection.phase !== "connected" || !machine.serverConfig) {
+          throw new Error("Machine disconnected");
         }
-        if (!readEnvironmentScope(environment.environmentId, AuthSettingsWriteScope)) {
+        if (!readMachineScope(machine.machineId, AuthSettingsWriteScope)) {
           throw new Error("This connection cannot change device settings.");
         }
         return configure({
-          environmentId: environment.environmentId,
+          machineId: machine.machineId,
           input: { ...input, ...(input.enabled ? { onboardingCompleted: true } : {}) },
         });
       }),
     );
     setPending(null);
-    const failed = environments.filter((_, index) => {
+    const failed = machines.filter((_, index) => {
       const result = results[index];
       return result?.status !== "fulfilled" || result.value._tag === "Failure";
     });
     if (failed.length > 0) {
       toastManager.add({
         type: "error",
-        title: "Device settings not saved on all environments",
-        description: `Could not update ${failed.map((environment) => environment.label).join(", ")}.`,
+        title: "Device settings not saved on all machines",
+        description: `Could not update ${failed.map((machine) => machine.label).join(", ")}.`,
       });
     }
   };
@@ -904,15 +904,15 @@ function DeviceIntegrationControls({
           {state.supportsToolUpdate && needsUpdate ? (
             <Button
               size="sm"
-              disabled={!environmentId || pending !== null || busy}
+              disabled={!machineId || pending !== null || busy}
               onClick={() => {
-                if (!environmentId) return;
+                if (!machineId) return;
                 setUpdateError(null);
                 setPending(`update-${tool}`);
-                void list({ environmentId, input: { updateTool: tool } })
+                void list({ machineId, input: { updateTool: tool } })
                   .then((result) => {
                     if (result._tag === "Failure")
-                      setUpdateError({ tool, message: formatEnvironmentQueryError(result.cause) });
+                      setUpdateError({ tool, message: formatMachineQueryError(result.cause) });
                   })
                   .finally(() => setPending(null));
               }}
@@ -924,11 +924,11 @@ function DeviceIntegrationControls({
             <Button
               size="sm"
               variant="outline"
-              disabled={!environmentId || pending !== null || busy}
+              disabled={!machineId || pending !== null || busy}
               onClick={() => {
-                if (!environmentId) return;
+                if (!machineId) return;
                 setPending("check");
-                void list({ environmentId, input: { inspectOnly: true } }).finally(() =>
+                void list({ machineId, input: { inspectOnly: true } }).finally(() =>
                   setPending(null),
                 );
               }}
@@ -968,7 +968,7 @@ function DeviceIntegrationControls({
                 !canConfigure ||
                 projectScope ||
                 !loaded ||
-                !environmentId ||
+                !machineId ||
                 busy ||
                 pending !== null
               }
@@ -988,8 +988,8 @@ function DeviceIntegrationControls({
           <SettingsRow
             {...searchableSetting("device-platform-support")}
             description={
-              connectedEnvironments.length > 1
-                ? `Status for ${connectedEnvironments.find((environment) => environment.environmentId === environmentId)?.label}. Select an environment to inspect its simulator support.`
+              connectedMachines.length > 1
+                ? `Status for ${connectedMachines.find((machine) => machine.machineId === machineId)?.label}. Select a machine to inspect its simulator support.`
                 : undefined
             }
             status={
@@ -1017,11 +1017,11 @@ function DeviceIntegrationControls({
               <Button
                 size="sm"
                 variant="outline"
-                disabled={!environmentId || !enabled || busy || pending !== null}
+                disabled={!machineId || !enabled || busy || pending !== null}
                 onClick={() => {
-                  if (!environmentId) return;
+                  if (!machineId) return;
                   setPending("check");
-                  void list({ environmentId, input: {} }).finally(() => setPending(null));
+                  void list({ machineId, input: {} }).finally(() => setPending(null));
                 }}
               >
                 {pending === "check" ? "Checking…" : "Refresh"}
@@ -1048,7 +1048,7 @@ function DeviceIntegrationControls({
               checked={agentAccessEnabled}
               disabled={
                 !canConfigure ||
-                connectedEnvironments.length === 0 ||
+                connectedMachines.length === 0 ||
                 (!projectScope && (!loaded || !anyHubEnabled || busy)) ||
                 pending !== null
               }
@@ -1062,14 +1062,14 @@ function DeviceIntegrationControls({
           </>
         }
       />
-      {environmentId ? (
+      {machineId ? (
         <DeviceHostUpdates
           state={{ ...state, hosts: state.hosts.filter((host) => host.kind === "local") }}
-          environmentId={environmentId}
+          machineId={machineId}
         />
       ) : null}
-      <DeviceHostsSettings environmentId={environmentId} />
-      {state.supportsEasHosts ? <EasDeviceHostsSettings environmentId={environmentId} /> : null}
+      <DeviceHostsSettings machineId={machineId} />
+      {state.supportsEasHosts ? <EasDeviceHostsSettings machineId={machineId} /> : null}
     </>
   );
 }
@@ -1153,39 +1153,39 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
   const defaultProfileId = useClientSettings((settings) => settings.browserDefaultProfileId);
   const settingsHydrated = useClientSettingsHydrated();
   const updateSettings = useUpdatePrimarySettings();
-  const { environments, isReady: environmentsReady } = useEnvironments();
-  const primaryEnvironment = usePrimaryEnvironment();
+  const { machines, isReady: machinesReady } = useMachines();
+  const primaryMachine = usePrimaryMachine();
   const [sources, setSources] = useState<ReadonlyArray<BrowserImportSource> | null>(null);
   const [importSession, setImportSession] = useState<{
     readonly source: BrowserImportSource;
-    readonly environmentId: EnvironmentId;
-    readonly environmentName: string;
+    readonly machineId: MachineId;
+    readonly machineName: string;
   } | null>(null);
   const [profilePendingRemoval, setProfilePendingRemoval] = useState<BrowserProfile | null>(null);
   const [profilePendingClear, setProfilePendingClear] = useState<BrowserProfile | null>(null);
   const [profileRemovalError, setProfileRemovalError] = useState<string | null>(null);
   const [profileRemovalInFlight, setProfileRemovalInFlight] = useState(false);
   const serverConfigs = useServerConfigs();
-  const runClearServerProfile = useAtomCommand(previewEnvironment.clearProfile, {
+  const runClearServerProfile = useAtomCommand(previewMachine.clearProfile, {
     reportFailure: false,
   });
   const serverProfileData: ServerProfileData = {
-    environmentIds: environments
-      .map((environment) => environment.environmentId)
+    machineIds: machines
+      .map((machine) => machine.machineId)
       .filter(
-        (environmentId) =>
-          serverConfigs.get(environmentId)?.environment.capabilities.serverBrowser === true,
+        (machineId) =>
+          serverConfigs.get(machineId)?.machine.capabilities.serverBrowser === true,
       ),
-    clear: async (environmentId, profileId) => {
-      const result = await runClearServerProfile({ environmentId, input: { profileId } });
+    clear: async (machineId, profileId) => {
+      const result = await runClearServerProfile({ machineId, input: { profileId } });
       if (result._tag === "Failure") throw squashAtomCommandFailure(result);
     },
   };
   const removalAvailable = browserProfileRemovalAvailable(
     previewBridge !== null,
-    environmentsReady,
-    environments.length,
-    serverProfileData.environmentIds.length,
+    machinesReady,
+    machines.length,
+    serverProfileData.machineIds.length,
   );
   const importInFlightRef = useRef(false);
   const [importInFlight, setImportInFlight] = useState(false);
@@ -1235,7 +1235,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
     }
     void clearBrowserProfileData(
       previewBridge,
-      environments.map((environment) => environment.environmentId),
+      machines.map((machine) => machine.machineId),
       id,
       serverProfileData,
     )
@@ -1250,7 +1250,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
   const removeProfile = async (id: string) => {
     if (!settingsHydrated || importInFlightRef.current) return;
     if (!removalAvailable) {
-      setProfileRemovalError("Connect to an environment before removing this profile.");
+      setProfileRemovalError("Connect to a machine before removing this profile.");
       return;
     }
     setProfileRemovalError(null);
@@ -1258,7 +1258,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
     try {
       await clearBrowserProfileData(
         previewBridge,
-        environmentsReady ? environments.map((environment) => environment.environmentId) : [],
+        machinesReady ? machines.map((machine) => machine.machineId) : [],
         id,
         serverProfileData,
       );
@@ -1293,7 +1293,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
 
   const runWizardImport = async (
     source: BrowserImportSource,
-    environmentId: EnvironmentId,
+    machineId: MachineId,
     input: { readonly sourceProfileDirectory: string; readonly target: WizardTarget },
   ): Promise<ImportOutcome> => {
     if (!previewBridge) return { kind: "blocked", reason: "sessionUnavailable" };
@@ -1309,7 +1309,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
     if (importInFlightRef.current) return { kind: "blocked", reason: "readFailed" };
     importInFlightRef.current = true;
     setImportInFlight(true);
-    return importBrowserCookiesIntoTarget(previewBridge, source, environmentId, input).finally(
+    return importBrowserCookiesIntoTarget(previewBridge, source, machineId, input).finally(
       () => {
         importInFlightRef.current = false;
         setImportInFlight(false);
@@ -1372,16 +1372,16 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
                   {importableSources.map((source) => (
                     <MenuItem
                       key={source.id}
-                      disabled={!settingsHydrated || primaryEnvironment == null}
+                      disabled={!settingsHydrated || primaryMachine == null}
                       onClick={() => {
-                        if (!settingsHydrated || primaryEnvironment == null) return;
+                        if (!settingsHydrated || primaryMachine == null) return;
                         setImportSession({
                           source,
-                          environmentId: primaryEnvironment.environmentId,
-                          environmentName: resolveEnvironmentOptionLabel({
+                          machineId: primaryMachine.machineId,
+                          machineName: resolveMachineOptionLabel({
                             isPrimary: true,
-                            environmentId: primaryEnvironment.environmentId,
-                            runtimeLabel: primaryEnvironment.label,
+                            machineId: primaryMachine.machineId,
+                            runtimeLabel: primaryMachine.label,
                           }),
                         });
                       }}
@@ -1389,8 +1389,8 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
                       {source.name}
                     </MenuItem>
                   ))}
-                  {primaryEnvironment == null ? (
-                    <MenuItem disabled>Connect to an environment to import cookies</MenuItem>
+                  {primaryMachine == null ? (
+                    <MenuItem disabled>Connect to a machine to import cookies</MenuItem>
                   ) : null}
                 </>
               )}
@@ -1466,7 +1466,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
                   <MenuItem
                     disabled={!settingsHydrated || !removalAvailable}
                     onClick={() => {
-                      if (serverProfileData.environmentIds.length > 0) {
+                      if (serverProfileData.machineIds.length > 0) {
                         setProfilePendingClear(profile);
                       } else clearProfileData(profile.id, profile.name);
                     }}
@@ -1488,9 +1488,9 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
                     <>
                       <MenuSeparator />
                       <MenuItem disabled>
-                        {environmentsReady
-                          ? "Connect to an environment to clear profile data"
-                          : "Checking environments…"}
+                        {machinesReady
+                          ? "Connect to a machine to clear profile data"
+                          : "Checking machines…"}
                       </MenuItem>
                     </>
                   ) : null}
@@ -1523,7 +1523,7 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
             ) : null}
             {!removalAvailable ? (
               <p className="text-sm text-muted-foreground">
-                Connect to an environment to remove this profile and its data.
+                Connect to a machine to remove this profile and its data.
               </p>
             ) : null}
           </AlertDialogHeader>
@@ -1581,11 +1581,11 @@ function BrowserProfilesSetting({ disabled }: { readonly disabled: boolean }) {
       {importSession ? (
         <BrowserImportWizard
           source={importSession.source}
-          destinationEnvironmentName={importSession.environmentName}
+          destinationMachineName={importSession.machineName}
           targetProfiles={listedProfiles.map((profile) => ({ id: profile.id, name: profile.name }))}
           canCreateProfile={settingsHydrated && !atProfileLimit}
           onImport={(input) =>
-            runWizardImport(importSession.source, importSession.environmentId, input)
+            runWizardImport(importSession.source, importSession.machineId, input)
           }
           onRefreshSource={() => refreshImportSource(importSession.source.id)}
           onCheckFullDiskAccess={

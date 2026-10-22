@@ -1,4 +1,4 @@
-import { AuthOrchestrationOperateScope, EnvironmentId, type EditorId } from "@vekrel/contracts";
+import { AuthOrchestrationOperateScope, MachineId, type EditorId } from "@vekrel/contracts";
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@vekrel/shared/keybindings";
 import { AsyncResult } from "effect/reactivity";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -19,18 +19,18 @@ const state = vi.hoisted(() => ({
 
 vi.mock(import("../../state/session"), async (importOriginal) => {
   const { useSyncExternalStore } = await import("react");
-  const readEnvironmentScope = (environmentId: string, scope: string) =>
-    scope === AuthOrchestrationOperateScope && state.allowed.has(environmentId);
+  const readMachineScope = (machineId: string, scope: string) =>
+    scope === AuthOrchestrationOperateScope && state.allowed.has(machineId);
   return {
     ...(await importOriginal()),
-    readEnvironmentScope: readEnvironmentScope as never,
-    useEnvironmentScope: ((environmentId: string, scope: string) =>
+    readMachineScope: readMachineScope as never,
+    useMachineScope: ((machineId: string, scope: string) =>
       useSyncExternalStore(
         (listener) => {
           state.listeners.add(listener);
           return () => state.listeners.delete(listener);
         },
-        () => readEnvironmentScope(environmentId, scope),
+        () => readMachineScope(machineId, scope),
       )) as never,
   };
 });
@@ -38,9 +38,9 @@ vi.mock(import("../../state/use-atom-command"), async (importOriginal) => ({
   ...(await importOriginal()),
   useAtomCommand: (() => state.run) as never,
 }));
-vi.mock(import("../../state/environments"), async (importOriginal) => ({
+vi.mock(import("../../state/machines"), async (importOriginal) => ({
   ...(await importOriginal()),
-  useEnvironment: (() => ({ label: "Test host" })) as never,
+  useMachine: (() => ({ label: "Test host" })) as never,
 }));
 vi.mock(import("../../editorPreferences"), async (importOriginal) => {
   const actual = await importOriginal();
@@ -67,8 +67,8 @@ vi.mock(import("../../remoteOpen"), async (importOriginal) => ({
 import { OpenInPicker } from "./OpenInPicker";
 import { useOpenFavoriteEditorShortcut } from "./OpenInPickerShortcut";
 
-const primary = EnvironmentId.make("primary");
-const selected = EnvironmentId.make("selected");
+const primary = MachineId.make("primary");
+const selected = MachineId.make("selected");
 const editors: readonly EditorId[] = ["vscode"];
 
 async function setup() {
@@ -97,7 +97,7 @@ async function setup() {
       for (const listener of state.listeners) listener();
       const node = (
         <OpenInPicker
-          environmentId={selected}
+          machineId={selected}
           keybindings={DEFAULT_RESOLVED_KEYBINDINGS}
           availableEditors={availableEditors}
           openInCwd={openInCwd}
@@ -138,7 +138,7 @@ async function setup() {
   function FavoriteEditorFallback() {
     useOpenFavoriteEditorShortcut({
       enabled: true,
-      environmentId: selected,
+      machineId: selected,
       keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
       availableEditors: editors,
       openInCwd: "/work/project",
@@ -146,7 +146,7 @@ async function setup() {
     return null;
   }
 
-  const environment = stack.move();
+  const machine = stack.move();
   return {
     screen,
     renderPicker,
@@ -156,7 +156,7 @@ async function setup() {
     click,
     pressOpenFavorite,
     FavoriteEditorFallback,
-    [Symbol.asyncDispose]: () => environment.disposeAsync(),
+    [Symbol.asyncDispose]: () => machine.disposeAsync(),
   };
 }
 

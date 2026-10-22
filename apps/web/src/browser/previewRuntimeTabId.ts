@@ -2,7 +2,7 @@ import type { ScopedThreadRef } from "@vekrel/contracts";
 
 /**
  * The server only guarantees preview tab ids are unique within one process.
- * Desktop resources live across every connected environment, so they need a
+ * Desktop resources live across every connected machine, so they need a
  * stronger identity that also changes when a server process restarts.
  */
 export function previewRuntimeTabId(
@@ -10,7 +10,7 @@ export function previewRuntimeTabId(
   serverEpoch: string | null,
   tabId: string,
 ): string {
-  return JSON.stringify([threadRef.environmentId, threadRef.threadId, serverEpoch, tabId]);
+  return JSON.stringify([threadRef.machineId, threadRef.threadId, serverEpoch, tabId]);
 }
 
 export function isCurrentPreviewRuntimeTab(

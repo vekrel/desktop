@@ -1,5 +1,5 @@
 import type {
-  EnvironmentId,
+  MachineId,
   OrchestrationV2ProjectedTurnItem,
   RunId,
   ThreadId,
@@ -34,7 +34,7 @@ import { ShellCommandBlock } from "./ShellCommandBlock";
 
 interface V2ItemInspectorProps {
   readonly projectedItem: OrchestrationV2ProjectedTurnItem;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly cwd?: string | undefined;
   readonly workspaceRoot?: string | undefined;
   readonly onOpenThread: (threadId: ThreadId) => void;
@@ -111,7 +111,7 @@ function StructuredValue({
 
 function useFetchedTurnItem(
   projectedItem: OrchestrationV2ProjectedTurnItem,
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   skip = false,
 ) {
   const wireItem = projectedItem.item;
@@ -119,7 +119,7 @@ function useFetchedTurnItem(
   const detail = useTurnItemDetail(
     fetches
       ? {
-          environmentId,
+          machineId,
           threadId: projectedItem.sourceThreadId,
           itemId: projectedItem.sourceItemId,
           revision: turnItemDetailRevision(wireItem),
@@ -133,7 +133,7 @@ function useFetchedTurnItem(
     output: {
       output: turnItemOutputText(item),
       images: turnItemOutputImages(item),
-      environmentId,
+      machineId,
       pending: item === wireItem && detail.isPending,
       error:
         item !== wireItem
@@ -149,7 +149,7 @@ function useFetchedTurnItem(
 interface ToolOutputState {
   readonly output: string | null;
   readonly images: ReturnType<typeof turnItemOutputImages>;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly pending: boolean;
   readonly error: string | null;
   readonly empty: boolean;
@@ -160,7 +160,7 @@ function ToolOutput(props: ToolOutputState) {
   const images = props.images.map((resource) => (
     <ChatMarkdownAssetImage
       key={resource.index}
-      environmentId={props.environmentId}
+      machineId={props.machineId}
       resource={resource}
       alt="Tool output image"
       maxHeightRem={16}
@@ -186,10 +186,10 @@ function ToolOutput(props: ToolOutputState) {
 
 export function FetchedToolOutput(props: {
   readonly projectedItem: OrchestrationV2ProjectedTurnItem;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly onImageExpand?: ((preview: ExpandedImagePreview) => void) | undefined;
 }) {
-  const { output } = useFetchedTurnItem(props.projectedItem, props.environmentId);
+  const { output } = useFetchedTurnItem(props.projectedItem, props.machineId);
   return (
     <div className={cn("mt-1.5 space-y-1.5", monoClassName)}>
       <ToolOutput {...output} onImageExpand={props.onImageExpand} />
@@ -237,13 +237,13 @@ function ToolCallBody(
 export const V2ItemInspector = memo(function V2ItemInspector(props: V2ItemInspectorProps) {
   // Command rows stream their output, including the final output, from the server.
   const streamsOutput =
-    useCommandOutputStreaming(props.environmentId) &&
+    useCommandOutputStreaming(props.machineId) &&
     props.projectedItem.item.type === "command_execution";
-  const fetched = useFetchedTurnItem(props.projectedItem, props.environmentId, streamsOutput);
+  const fetched = useFetchedTurnItem(props.projectedItem, props.machineId, streamsOutput);
   const item = fetched.item;
   const outputState = fetched.output;
   const support = useV2ItemSupport({
-    environmentId: props.environmentId,
+    machineId: props.machineId,
     sourceThreadId: props.projectedItem.sourceThreadId,
     sourceItemId: props.projectedItem.sourceItemId,
   });
@@ -255,7 +255,7 @@ export const V2ItemInspector = memo(function V2ItemInspector(props: V2ItemInspec
             text={item.text}
             cwd={props.cwd}
             threadRef={{
-              environmentId: props.environmentId,
+              machineId: props.machineId,
               threadId: props.projectedItem.sourceThreadId,
             }}
             lineBreaks
@@ -272,7 +272,7 @@ export const V2ItemInspector = memo(function V2ItemInspector(props: V2ItemInspec
           outputSlot={
             streamsOutput ? (
               <CommandOutputPanel
-                environmentId={props.environmentId}
+                machineId={props.machineId}
                 threadId={props.projectedItem.sourceThreadId}
                 itemId={props.projectedItem.sourceItemId}
               />

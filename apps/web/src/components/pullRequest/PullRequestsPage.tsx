@@ -5,9 +5,9 @@ import { usePullRequestCloseBatch } from "~/components/pullRequest/usePullReques
 import { SidebarPointerSensor } from "~/components/Sidebar.pointer";
 import { resolveSidebarSweepKeys } from "~/components/Sidebar.logic";
 import { sortProjectsByGroupOrder } from "@vekrel/client-runtime/state/project-grouping";
-import { pullRequestHostOf, resolveEnvironmentMachineKind } from "@vekrel/contracts";
+import { pullRequestHostOf, resolveMachineKind } from "@vekrel/contracts";
 import type {
-  EnvironmentId,
+  MachineId,
   ProjectId,
   PullRequestAction,
   PullRequestInvolvement,
@@ -33,7 +33,7 @@ import {
   pullRequestStatsRefreshBatches,
   pullRequestStatsRequestBatches,
   retainVisiblePullRequestStatsBatches,
-  type EnvironmentPullRequestEntry,
+  type MachinePullRequestEntry,
   type MergedPullRequestList,
   type PullRequestDiffStats,
   type PullRequestStatsBatch,
@@ -51,7 +51,7 @@ import {
   type PullRequestListPreferencePatch,
   writePullRequestListPreferences,
 } from "./pullRequestListPreferences";
-import { environmentMachineIcon } from "../EnvironmentMachineIcon";
+import { machineIcon } from "../MachineIcon";
 import { PullRequestDetailPanel } from "./PullRequestDetailPanel";
 import {
   PullRequestFiltersMenu,
@@ -100,11 +100,11 @@ import {
 } from "~/rightPanelStore";
 import { useSidebarProjectGroups } from "~/hooks/useSidebarProjectGroups";
 import {
-  pullRequestEnvironment,
+  pullRequestMachine,
   usePullRequestList,
   usePullRequestListStats,
   usePullRequestTurnRefreshes,
-  type EnvironmentQueryTarget,
+  type MachineQueryTarget,
 } from "~/state/pullRequests";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { cn } from "~/lib/utils";
@@ -132,7 +132,7 @@ const PAGE_SIZE = 99;
 const MAX_PAGE_SIZE = 500;
 const EMPTY_VIEWERS: PullRequestListResult["viewers"] = {};
 const EMPTY_PARTITIONS: PullRequestPartitionsSnapshot = { authored: [], reviewing: [] };
-const NO_LIST_TARGETS: ReadonlyArray<EnvironmentQueryTarget<PullRequestListInput>> = [];
+const NO_LIST_TARGETS: ReadonlyArray<MachineQueryTarget<PullRequestListInput>> = [];
 const EMPTY_PREVIEW_SESSIONS = {};
 const EMPTY_PREVIEW_DESKTOP_STATE = {};
 const EMPTY_TERMINAL_LABELS = new Map<string, string>();
@@ -146,25 +146,25 @@ export function PullRequestsPage() {
   const navigate = useNavigate({ from: "/pull-requests" });
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const {
-    capableEnvironments,
-    scopedEnvironmentId,
-    environmentKey,
+    capableMachines,
+    scopedMachineId,
+    machineKey,
     capabilityKnown,
     pullRequestsSupported,
     projects,
-    environmentLabels,
+    machineLabels,
     scopedProjectId,
     scopedProject,
     scopedProjects,
     selectedProject,
-    queryEnvironmentIds,
-    environmentQueries,
+    queryMachineIds,
+    machineQueries,
     assignmentKey,
     linkedSelection,
     expectedHosts,
     projectsKnown,
   } = usePullRequestScope(search);
-  const rightPanelRef = capableEnvironments.length === 0 ? null : PULL_REQUESTS_PANEL_REF;
+  const rightPanelRef = capableMachines.length === 0 ? null : PULL_REQUESTS_PANEL_REF;
   const openPanelPullRequestUrl = useOpenPanelPullRequestUrl(rightPanelRef);
   const rightPanelState = useRightPanelStore((state) =>
     selectThreadRightPanelState(state.byThreadKey, rightPanelRef),
@@ -191,9 +191,9 @@ export function PullRequestsPage() {
   const rightPanelPresent = rightPanelPresence.present;
   const renderedPullRequestSurface = rightPanelPresence.value?.activeSurface ?? null;
   const renderedRightPanelSurfaces = rightPanelPresence.value?.surfaces ?? [];
-  const panelEnvironmentId =
-    (renderedPullRequestSurface?.environmentId as EnvironmentId | undefined) ??
-    selectedProject?.environmentId ??
+  const panelMachineId =
+    (renderedPullRequestSurface?.machineId as MachineId | undefined) ??
+    selectedProject?.machineId ??
     null;
   const updateSearch = (patch: {
     [Key in keyof PullRequestsSearch]?: PullRequestsSearch[Key] | undefined;
@@ -208,12 +208,12 @@ export function PullRequestsPage() {
           ...(next.repository ? { repository: next.repository } : {}),
           ...(next.number ? { number: next.number } : {}),
           ...(next.projectId ? { projectId: next.projectId } : {}),
-          ...(next.environmentId ? { environmentId: next.environmentId } : {}),
+          ...(next.machineId ? { machineId: next.machineId } : {}),
           ...(next.host ? { host: next.host } : {}),
           ...(next.selectedHost ? { selectedHost: next.selectedHost } : {}),
           ...(next.selectedProjectId ? { selectedProjectId: next.selectedProjectId } : {}),
-          ...(next.selectedEnvironmentId
-            ? { selectedEnvironmentId: next.selectedEnvironmentId }
+          ...(next.selectedMachineId
+            ? { selectedMachineId: next.selectedMachineId }
             : {}),
           ...(next.q ? { q: next.q } : {}),
           ...(next.draft ? { draft: next.draft } : {}),
@@ -230,7 +230,7 @@ export function PullRequestsPage() {
     repository: undefined,
     number: undefined,
     selectedProjectId: undefined,
-    selectedEnvironmentId: undefined,
+    selectedMachineId: undefined,
     selectedHost: undefined,
   };
   const updateListScope = (patch: PullRequestListPreferencePatch) => {
@@ -259,12 +259,12 @@ export function PullRequestsPage() {
     hasLocalFilters,
   } = usePullRequestQueryFilters(search, typedQuery);
   const turnRefreshes = usePullRequestTurnRefreshes(
-    environmentQueries.map(({ environmentId }) => environmentId),
+    machineQueries.map(({ machineId }) => machineId),
   );
   const turnRefreshToken = turnRefreshes
-    .map(([environmentId, revision]) => `${environmentId}:${revision}`)
+    .map(([machineId, revision]) => `${machineId}:${revision}`)
     .join("|");
-  const scopeKey = `${environmentKey}:${assignmentKey}:${search.state}:${search.involvement}:${scopedProjectId ?? ""}:${search.host ?? ""}:${search.draft ?? ""}:${search.review ?? ""}:${search.checks ?? ""}:${search.author ?? ""}:${search.labels?.join("\u0000") ?? ""}`;
+  const scopeKey = `${machineKey}:${assignmentKey}:${search.state}:${search.involvement}:${scopedProjectId ?? ""}:${search.host ?? ""}:${search.draft ?? ""}:${search.review ?? ""}:${search.checks ?? ""}:${search.author ?? ""}:${search.labels?.join("\u0000") ?? ""}`;
   const filterKey = `${scopeKey}:${sentQuery}`;
   const statsScope: PullRequestStatsScope = { key: filterKey, policy: statsPolicy };
   const [page, setPage] = useState<{
@@ -272,7 +272,7 @@ export function PullRequestsPage() {
     size: number;
     cursors: Readonly<Record<string, PullRequestListCursors>> | null;
     /**
-     * An environment can say it has more without saying where to carry on from — its provider has
+     * A machine can say it has more without saying where to carry on from — its provider has
      * no cursor to give — and a continuation naming only the others would strand its rows on the
      * host forever.
      */
@@ -286,14 +286,14 @@ export function PullRequestsPage() {
     setPage({ key: filterKey, size: PAGE_SIZE, cursors: null, regrown: [] });
   }
 
-  const listTargets = environmentQueries.flatMap(({ environmentId, projectIds }) => {
-    const cursors = sentCursors?.[environmentId];
-    if (sentCursors !== null && cursors === undefined && !sentRegrown.includes(environmentId)) {
+  const listTargets = machineQueries.flatMap(({ machineId, projectIds }) => {
+    const cursors = sentCursors?.[machineId];
+    if (sentCursors !== null && cursors === undefined && !sentRegrown.includes(machineId)) {
       return [];
     }
     return [
       {
-        environmentId,
+        machineId,
         input: {
           state: search.state,
           involvement: search.involvement,
@@ -315,8 +315,8 @@ export function PullRequestsPage() {
    * say which question it belongs to: mid-switch the text has already changed and the data has
    * not, and a search's answer would file itself under the workspace.
    */
-  const baselineTargets = environmentQueries.map(({ environmentId, projectIds }) => ({
-    environmentId,
+  const baselineTargets = machineQueries.map(({ machineId, projectIds }) => ({
+    machineId,
     input: {
       state: search.state,
       involvement: search.involvement,
@@ -335,8 +335,8 @@ export function PullRequestsPage() {
     baselineQuery.error === null;
   const facetTargets = (() => {
     if (!filtersOpen) return NO_LIST_TARGETS;
-    return environmentQueries.map(({ environmentId, projectIds }) => ({
-      environmentId,
+    return machineQueries.map(({ machineId, projectIds }) => ({
+      machineId,
       input: {
         state: "all",
         involvement: search.involvement,
@@ -361,8 +361,8 @@ export function PullRequestsPage() {
       return { authored: NO_LIST_TARGETS, reviewing: NO_LIST_TARGETS };
     }
     const targetsFor = (involvement: PullRequestInvolvement) =>
-      environmentQueries.map(({ environmentId, projectIds }) => ({
-        environmentId,
+      machineQueries.map(({ machineId, projectIds }) => ({
+        machineId,
         input: {
           state: search.state,
           involvement,
@@ -377,13 +377,13 @@ export function PullRequestsPage() {
   })();
   const authoredQuery = usePullRequestList(partitionTargets.authored);
   const reviewingQuery = usePullRequestList(partitionTargets.reviewing);
-  const invalidate = useAtomCommand(pullRequestEnvironment.invalidate, { reportFailure: false });
+  const invalidate = useAtomCommand(pullRequestMachine.invalidate, { reportFailure: false });
   const [detailRefreshToken, setDetailRefreshToken] = useState(0);
   const [invalidating, setInvalidating] = useState(false);
   const refreshing = invalidating || listQuery.isPending;
 
   const [loaded, setLoaded] = useState<{
-    environmentKey: string;
+    machineKey: string;
     scope: string;
     query: string;
     /** The answer this was built from, so a re-render with the same answer leaves it alone. */
@@ -394,14 +394,14 @@ export function PullRequestsPage() {
   const [ordered, setOrdered] = useState<{
     key: string;
     source: MergedPullRequestList;
-    entries: ReadonlyArray<EnvironmentPullRequestEntry>;
+    entries: ReadonlyArray<MachinePullRequestEntry>;
   } | null>(null);
   const [overrides, setOverrides] = useState<ReadonlyMap<string, PullRequestListOverride>>(
     () => new Map(),
   );
   const overrideToken = useRef(0);
   const overrideEntry = (
-    entry: EnvironmentPullRequestEntry,
+    entry: MachinePullRequestEntry,
     action: PullRequestAction,
   ): number | null => {
     const token = ++overrideToken.current;
@@ -424,23 +424,23 @@ export function PullRequestsPage() {
     // Some hosts accept a merge before it completes. Let the next host read declare it merged.
     if (action !== "merge") overrideEntry(entry, action);
   });
-  const onBatchClosed = useStableCallback((entry: EnvironmentPullRequestEntry) => {
+  const onBatchClosed = useStableCallback((entry: MachinePullRequestEntry) => {
     onSpeedAction({ entry, action: "close" });
   });
   const { close: closeBatch, closingKeys } = usePullRequestCloseBatch(onBatchClosed);
-  const [snapshotEnvironmentKey, setSnapshotEnvironmentKey] = useState("");
-  if (environmentKey.length > 0 && snapshotEnvironmentKey !== environmentKey) {
-    setSnapshotEnvironmentKey(environmentKey);
-    if (loaded?.environmentKey !== environmentKey) {
+  const [snapshotMachineKey, setSnapshotMachineKey] = useState("");
+  if (machineKey.length > 0 && snapshotMachineKey !== machineKey) {
+    setSnapshotMachineKey(machineKey);
+    if (loaded?.machineKey !== machineKey) {
       const snapshot = readPullRequestListSnapshot(
         typeof window === "undefined" ? undefined : window.localStorage,
-        environmentKey,
+        machineKey,
       );
       setLoaded(
         snapshot === null
           ? null
           : {
-              environmentKey,
+              machineKey,
               scope: snapshot.scope,
               query: "",
               source: null,
@@ -458,7 +458,7 @@ export function PullRequestsPage() {
         ? { authored: authoredQuery.data.entries, reviewing: reviewingQuery.data.entries }
         : null;
   const heldPartitions =
-    loaded !== null && loaded.environmentKey === environmentKey && loaded.scope === scopeKey
+    loaded !== null && loaded.machineKey === machineKey && loaded.scope === scopeKey
       ? loaded.partitions
       : undefined;
   const nextPartitions = answeredPartitions ?? heldPartitions;
@@ -473,7 +473,7 @@ export function PullRequestsPage() {
     loadedEntries !== null &&
     (loaded === null ||
       loaded.source !== settledList ||
-      loaded.environmentKey !== environmentKey ||
+      loaded.machineKey !== machineKey ||
       loaded.scope !== scopeKey ||
       loaded.query !== sentQuery ||
       loaded.data.entries !== loadedEntries ||
@@ -481,7 +481,7 @@ export function PullRequestsPage() {
       loaded.partitions?.reviewing !== nextPartitions?.reviewing)
   ) {
     setLoaded({
-      environmentKey,
+      machineKey,
       scope: scopeKey,
       query: sentQuery,
       source: settledList,
@@ -492,7 +492,7 @@ export function PullRequestsPage() {
   const snapshotToWrite =
     loaded !== null &&
     loaded.source !== null &&
-    loaded.environmentKey.length > 0 &&
+    loaded.machineKey.length > 0 &&
     loaded.query.length === 0
       ? loaded
       : null;
@@ -502,7 +502,7 @@ export function PullRequestsPage() {
     if (snapshotToWrite === null) return;
     writePullRequestListSnapshot(
       typeof window === "undefined" ? undefined : window.localStorage,
-      snapshotToWrite.environmentKey,
+      snapshotToWrite.machineKey,
       {
         scope: snapshotToWrite.scope,
         data: {
@@ -517,7 +517,7 @@ export function PullRequestsPage() {
     );
   }, [snapshotToWrite, snapshotViewers, snapshotProviders]);
   const narrowed = (() => {
-    if (loaded === null || loaded.environmentKey !== environmentKey || loaded.scope === scopeKey) {
+    if (loaded === null || loaded.machineKey !== machineKey || loaded.scope === scopeKey) {
       return null;
     }
     const entries = narrowPullRequestsToFilters(loaded.data.entries, {
@@ -585,8 +585,8 @@ export function PullRequestsPage() {
   // continuation is a boundary in one listing, and carrying one across a search would ask the new
   // question to start where the old one stopped — skipping its newest matches entirely.
   const nextCursors = answered?.nextCursors ?? {};
-  const regrown = (answered?.truncatedEnvironments ?? []).filter(
-    (environmentId) => nextCursors[environmentId] === undefined,
+  const regrown = (answered?.truncatedMachines ?? []).filter(
+    (machineId) => nextCursors[machineId] === undefined,
   );
   const canContinue = !showingCarried && Object.keys(nextCursors).length > 0;
   const loadMore = () => {
@@ -607,7 +607,7 @@ export function PullRequestsPage() {
     });
   };
 
-  const refreshList = (includeRelated = false, actedEnvironmentId?: EnvironmentId) => {
+  const refreshList = (includeRelated = false, actedMachineId?: MachineId) => {
     const related = (
       includeRelated
         ? [
@@ -618,14 +618,14 @@ export function PullRequestsPage() {
           ]
         : []
     ).filter(
-      ({ environmentId }) =>
-        actedEnvironmentId === undefined || environmentId === actedEnvironmentId,
+      ({ machineId }) =>
+        actedMachineId === undefined || machineId === actedMachineId,
     );
     if (sentCursors === null) {
       listQuery.refresh([
         ...listTargets.filter(
-          ({ environmentId }) =>
-            actedEnvironmentId === undefined || environmentId === actedEnvironmentId,
+          ({ machineId }) =>
+            actedMachineId === undefined || machineId === actedMachineId,
         ),
         ...related,
       ]);
@@ -692,7 +692,7 @@ export function PullRequestsPage() {
     answeredLocally: querySettled && !showingCarried,
     baselineEmpty,
     held:
-      loaded !== null && loaded.environmentKey === environmentKey && loaded.scope === scopeKey
+      loaded !== null && loaded.machineKey === machineKey && loaded.scope === scopeKey
         ? loaded.partitions
         : undefined,
     authored: partitionsWanted ? authoredQuery.data?.entries : undefined,
@@ -707,8 +707,8 @@ export function PullRequestsPage() {
     readonly batches: ReadonlyArray<PullRequestStatsBatch>;
   }>({ key: filterKey, batches: [] });
   const statsBatches = statsTargetState.key === filterKey ? statsTargetState.batches : [];
-  const statsTargets = statsBatches.map(({ environmentId, input }) => ({
-    environmentId,
+  const statsTargets = statsBatches.map(({ machineId, input }) => ({
+    machineId,
     input,
   }));
   const statsQuery = usePullRequestListStats(statsTargets);
@@ -835,9 +835,9 @@ export function PullRequestsPage() {
   const refreshListAndStats = useStableCallback(
     (
       requestedStatsScope: PullRequestStatsScope = statsScope,
-      actedEnvironmentId?: EnvironmentId,
+      actedMachineId?: MachineId,
     ) => {
-      refreshList(true, actedEnvironmentId);
+      refreshList(true, actedMachineId);
       const visible = visibleStatsKeys.current;
       const batches = pullRequestStatsRefreshBatches({
         requestedScope: requestedStatsScope,
@@ -850,10 +850,10 @@ export function PullRequestsPage() {
         setStatsTargetState({ key: requestedStatsScope.key, batches });
         statsQuery.refresh(
           batches
-            .filter(({ environmentId }) =>
-              actedEnvironmentId === undefined ? true : environmentId === actedEnvironmentId,
+            .filter(({ machineId }) =>
+              actedMachineId === undefined ? true : machineId === actedMachineId,
             )
-            .map(({ environmentId, input }) => ({ environmentId, input })),
+            .map(({ machineId, input }) => ({ machineId, input })),
         );
       }
     },
@@ -863,7 +863,7 @@ export function PullRequestsPage() {
     setInvalidating(true);
     // Atom commands settle into results rather than throwing.
     await Promise.all(
-      queryEnvironmentIds.map((environmentId) => invalidate({ environmentId, input: {} })),
+      queryMachineIds.map((machineId) => invalidate({ machineId, input: {} })),
     );
     setInvalidating(false);
     refreshListAndStats(requestedStatsScope);
@@ -916,7 +916,7 @@ export function PullRequestsPage() {
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, []);
   const startCloseSweep = useStableCallback(
-    (entry: EnvironmentPullRequestEntry, event: PointerEvent) => {
+    (entry: MachinePullRequestEntry, event: PointerEvent) => {
       closeSensorRef.current?.cancel();
       const originKey = pullRequestEntryKey(entry);
       const group = readCloseSweep().displayGroups.find((candidate) =>
@@ -999,7 +999,7 @@ export function PullRequestsPage() {
   const selected =
     rightPanelState.isOpen && activePullRequestSurface !== null
       ? {
-          environmentId: activePullRequestSurface.environmentId,
+          machineId: activePullRequestSurface.machineId,
           repository: activePullRequestSurface.repository,
           number: activePullRequestSurface.number,
           projectId: activePullRequestSurface.projectId as ProjectId,
@@ -1023,9 +1023,9 @@ export function PullRequestsPage() {
             number: surface.number,
             selectedProjectId: surface.projectId as ProjectId,
             selectedHost: surface.host,
-            ...(surface.environmentId === undefined
+            ...(surface.machineId === undefined
               ? {}
-              : { selectedEnvironmentId: surface.environmentId as EnvironmentId }),
+              : { selectedMachineId: surface.machineId as MachineId }),
           },
     );
 
@@ -1045,7 +1045,7 @@ export function PullRequestsPage() {
     listErrors.map(
       (error) =>
         [
-          pullRequestProjectKey({ id: error.projectId, environmentId: error.environmentId }),
+          pullRequestProjectKey({ id: error.projectId, machineId: error.machineId }),
           error.message,
         ] as const,
     ),
@@ -1058,7 +1058,7 @@ export function PullRequestsPage() {
       repository: entry.repository,
       number: entry.number,
       selectedProjectId: entry.projectId,
-      selectedEnvironmentId: entry.environmentId,
+      selectedMachineId: entry.machineId,
       selectedHost: entry.host,
     });
   };
@@ -1148,7 +1148,7 @@ export function PullRequestsPage() {
       ) : (
         <PullRequestListGroups
           groups={displayGroups}
-          environmentLabels={capableEnvironments.length > 1 ? environmentLabels : null}
+          machineLabels={capableMachines.length > 1 ? machineLabels : null}
           query={typedParsed.text}
           selected={selected}
           showProvider={showProvider}
@@ -1210,10 +1210,10 @@ export function PullRequestsPage() {
   ];
   const serverMenuOptions: ReadonlyArray<PullRequestFilterOption<string>> = [
     { value: "", label: "All servers", Icon: LayersIcon },
-    ...capableEnvironments.map((environment) => ({
-      value: environment.environmentId,
-      label: environment.label,
-      Icon: environmentMachineIcon(resolveEnvironmentMachineKind(environment.serverConfig)),
+    ...capableMachines.map((machine) => ({
+      value: machine.machineId,
+      label: machine.label,
+      Icon: machineIcon(resolveMachineKind(machine.serverConfig)),
     })),
   ];
   const sortMenu = (
@@ -1261,15 +1261,15 @@ export function PullRequestsPage() {
       host={search.host}
       hostOptions={hostMenuOptions}
       onHost={(host) => updateListScope({ host })}
-      server={scopedEnvironmentId ?? undefined}
+      server={scopedMachineId ?? undefined}
       serverOptions={serverMenuOptions}
-      onServer={(server) => updateListScope({ environmentId: server, projectId: undefined })}
+      onServer={(server) => updateListScope({ machineId: server, projectId: undefined })}
       projects={scopedProjects}
       projectId={scopedProjectId}
-      projectEnvironmentId={scopedProject?.environmentId}
+      projectMachineId={scopedProject?.machineId}
       unavailable={unavailableProjects}
-      onProject={(projectId, environmentId) =>
-        updateListScope(environmentId === undefined ? { projectId } : { projectId, environmentId })
+      onProject={(projectId, machineId) =>
+        updateListScope(machineId === undefined ? { projectId } : { projectId, machineId })
       }
     />
   );
@@ -1415,7 +1415,7 @@ export function PullRequestsPage() {
         {pullRequestsSupported && rightPanelPresent ? openPanelControls : null}
         <PullRequestsColumn {...columnProps} />
 
-        {rightPanelPresent && renderedPullRequestSurface && panelEnvironmentId !== null ? (
+        {rightPanelPresent && renderedPullRequestSurface && panelMachineId !== null ? (
           <RightPanelTabs
             mode="inline"
             open={rightPanelState.isOpen}
@@ -1425,7 +1425,7 @@ export function PullRequestsPage() {
             widthStorageKey="t3code:pull-request-panel-width"
             defaultWidth={typeof window === "undefined" ? 640 : Math.floor(window.innerWidth / 2)}
             surfaces={renderedRightPanelSurfaces}
-            environmentId={panelEnvironmentId}
+            machineId={panelMachineId}
             activeSurfaceId={renderedPullRequestSurface.id}
             pendingSurfaceIds={EMPTY_PENDING_SURFACES}
             previewSessions={EMPTY_PREVIEW_SESSIONS}
@@ -1470,7 +1470,7 @@ export function PullRequestsPage() {
               getShortcutContext={getShortcutContext}
               shortcutsEnabled={activePullRequestSurface?.id === renderedPullRequestSurface.id}
               key={renderedPullRequestSurface.id}
-              environmentId={panelEnvironmentId}
+              machineId={panelMachineId}
               onGuideShown={onGuideShown}
               onSelectPullRequest={(reference) => {
                 if (rightPanelRef === null) return;
@@ -1479,14 +1479,14 @@ export function PullRequestsPage() {
                   repository: reference.repository,
                   number: reference.number,
                   ...(reference.host ? { host: reference.host } : {}),
-                  environmentId: panelEnvironmentId,
+                  machineId: panelMachineId,
                 });
                 updateSearch({
                   repository: reference.repository,
                   number: reference.number,
                   selectedHost: reference.host,
                   selectedProjectId: reference.projectId,
-                  selectedEnvironmentId: panelEnvironmentId,
+                  selectedMachineId: panelMachineId,
                 });
               }}
               reference={{
@@ -1524,11 +1524,11 @@ export function PullRequestsPage() {
                   if (phase !== "sent") detailOverrideTokens.current.delete(key);
                   if (phase === "done" && action === "merge") {
                     overrideEntry(acted, action);
-                    refreshListAndStats(undefined, panelEnvironmentId);
+                    refreshListAndStats(undefined, panelMachineId);
                   }
                   return;
                 }
-                if (phase === "done") refreshListAndStats(undefined, panelEnvironmentId);
+                if (phase === "done") refreshListAndStats(undefined, panelMachineId);
               }}
             />
           </RightPanelTabs>

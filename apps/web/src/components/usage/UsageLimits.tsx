@@ -1,6 +1,6 @@
 import {
   AuthProvidersManageScope,
-  type EnvironmentId,
+  type MachineId,
   type ProviderConsumeResetCreditOutcome,
   ProviderConsumeResetCreditInput,
   ServerProvider,
@@ -22,9 +22,9 @@ import { Fragment, type ReactNode, useLayoutEffect, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { observeResize } from "../../lib/observeResize";
-import { environmentPresentations } from "../../state/presentation";
-import { useEnvironmentScope, readEnvironmentScope } from "../../state/session";
-import { serverEnvironment } from "../../state/server";
+import { machinePresentations } from "../../state/presentation";
+import { useMachineScope, readMachineScope } from "../../state/session";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { formatUpcomingTimestamp } from "../../timestampFormat";
 import {
@@ -234,21 +234,21 @@ const OUTCOME_TEXT: Record<ProviderConsumeResetCreditOutcome, string> = {
 };
 
 export function useResetCredit(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   input: ProviderConsumeResetCreditInput,
 ) {
-  const canManageProviders = useEnvironmentScope(environmentId, AuthProvidersManageScope);
-  const consume = useAtomCommand(serverEnvironment.consumeResetCredit, { reportFailure: false });
+  const canManageProviders = useMachineScope(machineId, AuthProvidersManageScope);
+  const consume = useAtomCommand(serverMachine.consumeResetCredit, { reportFailure: false });
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   const redeem = async () => {
     setConfirming(false);
-    if (!readEnvironmentScope(environmentId, AuthProvidersManageScope)) return;
+    if (!readMachineScope(machineId, AuthProvidersManageScope)) return;
     setBusy(true);
     setStatus(null);
-    const result = await consume({ environmentId, input });
+    const result = await consume({ machineId, input });
     setBusy(false);
     if (result._tag === "Success") {
       setStatus(result.value.warning ?? OUTCOME_TEXT[result.value.outcome]);
@@ -318,18 +318,18 @@ export function resetCreditsSummary(
 }
 
 export function ResetCredits({
-  environmentId,
+  machineId,
   input,
   credits,
   now,
 }: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly input: ProviderConsumeResetCreditInput;
   readonly credits: ServerProviderResetCredits;
   readonly now: number;
 }) {
   const { canManageProviders, confirming, setConfirming, busy, status, redeem } = useResetCredit(
-    environmentId,
+    machineId,
     input,
   );
   if (credits.availableCount === 0 && status === null) return null;
@@ -342,7 +342,7 @@ export function ResetCredits({
           variant="outline"
           disabled={busy || !canManageProviders}
           onClick={() => {
-            if (readEnvironmentScope(environmentId, AuthProvidersManageScope)) setConfirming(true);
+            if (readMachineScope(machineId, AuthProvidersManageScope)) setConfirming(true);
           }}
         >
           {busy ? "Using…" : "Use reset"}
@@ -364,24 +364,24 @@ export function ResetCredits({
  * page for no decision-changing gain.
  */
 export function UsageLimitsSection({
-  selectedEnvironmentIds,
+  selectedMachineIds,
   hiddenProviders,
   now,
   cursorPrompt,
 }: {
-  readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
+  readonly selectedMachineIds: ReadonlySet<MachineId> | null;
   readonly hiddenProviders: ReadonlySet<UsageProviderKind>;
   readonly now: number;
   readonly cursorPrompt?: ReactNode;
 }) {
-  const presentations = useAtomValue(environmentPresentations.presentationsWithProvidersAtom);
+  const presentations = useAtomValue(machinePresentations.presentationsWithProvidersAtom);
   const hiddenDrivers = new Set<ServerProvider["driver"]>(
     [...hiddenProviders].map((provider) => PROVIDER_PRESENTATION[provider].driverKind),
   );
   const isVisible = (driver: ServerProvider["driver"]) => !hiddenDrivers.has(driver);
   const selected = new Map(
     [...presentations].flatMap(([id, presentation]) => {
-      if (selectedEnvironmentIds !== null && !selectedEnvironmentIds.has(id)) return [];
+      if (selectedMachineIds !== null && !selectedMachineIds.has(id)) return [];
       const config = presentation.serverConfig;
       if (hiddenDrivers.size === 0 || config === null) return [[id, presentation] as const];
       return [

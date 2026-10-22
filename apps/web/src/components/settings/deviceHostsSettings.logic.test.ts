@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { updateDeviceHosts } from "./deviceHostsSettings.logic";
 
-describe("device host changes across environments", () => {
+describe("device host changes across machines", () => {
   const shared = {
     kind: "ssh" as const,
     id: "shared",
@@ -10,14 +10,14 @@ describe("device host changes across environments", () => {
   };
   const local = { kind: "ssh" as const, id: "other", label: "Android", target: "julius@android" };
 
-  it("adds to differing host lists without losing environment-specific hosts, including on retry", () => {
-    const environments = [[], [local], [shared, local]];
-    const saved = environments.map((hosts) => updateDeviceHosts(hosts, shared, false));
+  it("adds to differing host lists without losing machine-specific hosts, including on retry", () => {
+    const machines = [[], [local], [shared, local]];
+    const saved = machines.map((hosts) => updateDeviceHosts(hosts, shared, false));
     expect(saved).toEqual([[shared], [local, shared], [shared, local]]);
     expect(saved.map((hosts) => updateDeviceHosts(hosts, shared, false))).toEqual(saved);
   });
 
-  // regression: #11541 device settings edits must apply to selected environments only
+  // regression: #11541 device settings edits must apply to selected machines only
   it("edits and removes the shared host while preserving unrelated hosts", () => {
     const edited = { ...shared, target: "julius@new-address" };
     const saved = [[shared], [local, shared]].map((hosts) =>
@@ -27,7 +27,7 @@ describe("device host changes across environments", () => {
     expect(saved.map((hosts) => updateDeviceHosts(hosts, edited, true))).toEqual([[], [local]]);
   });
 
-  it("recognizes a host added separately on another environment and preserves its local ID", () => {
+  it("recognizes a host added separately on another machine and preserves its local ID", () => {
     const remote = { ...shared, id: "remote-id" };
     const edited = { ...shared, target: "julius@new-address" };
     expect(updateDeviceHosts([remote, local], shared, false)).toEqual([remote, local]);
@@ -54,7 +54,7 @@ describe("device host changes across environments", () => {
     expect(updateDeviceHosts([sibling, shared], shared, true)).toEqual([sibling]);
   });
 
-  it("refuses an ambiguous destination on another environment instead of changing a sibling", () => {
+  it("refuses an ambiguous destination on another machine instead of changing a sibling", () => {
     const remote = { ...shared, id: "remote" };
     const sibling = { ...shared, id: "sibling" };
     expect(() => updateDeviceHosts([remote, sibling], shared, true)).toThrow("Multiple hosts");

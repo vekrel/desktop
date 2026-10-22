@@ -1,5 +1,5 @@
 import {
-  EnvironmentId,
+  MachineId,
   ThreadId,
   type DeviceServiceState,
   type ScopedThreadRef,
@@ -62,7 +62,7 @@ const deviceState: DeviceServiceState = {
 };
 let currentState = deviceState;
 vi.mock("~/state/device", () => ({
-  deviceEnvironment: { list: "list", open: "open", close: "close" },
+  deviceMachine: { list: "list", open: "open", close: "close" },
   useDeviceState: () => ({ state: currentState, loaded: true }),
 }));
 vi.mock("~/state/use-atom-command", () => ({
@@ -73,7 +73,7 @@ vi.mock("~/state/use-atom-command", () => ({
         ? mocks.close
         : () => Promise.resolve({ _tag: "Success", value: {} }),
 }));
-vi.mock("~/state/query", () => ({ formatEnvironmentQueryError: () => "Device failed" }));
+vi.mock("~/state/query", () => ({ formatMachineQueryError: () => "Device failed" }));
 vi.mock("~/rightPanelStore", () => ({
   useRightPanelStore: {
     getState: () => ({ openDevice: mocks.openDevice, closeSurface: mocks.closeSurface }),
@@ -92,15 +92,15 @@ vi.mock("~/components/preview/PreviewPanelShell", () => ({
 }));
 
 const threadA = {
-  environmentId: EnvironmentId.make("environment-a"),
+  machineId: MachineId.make("machine-a"),
   threadId: ThreadId.make("thread-1"),
 };
 // The panel stays mounted across both kinds of switch.
 const switches = [
-  ["another thread", { environmentId: threadA.environmentId, threadId: ThreadId.make("thread-2") }],
+  ["another thread", { machineId: threadA.machineId, threadId: ThreadId.make("thread-2") }],
   [
-    "the same thread id in another environment",
-    { ...threadA, environmentId: EnvironmentId.make("environment-b") },
+    "the same thread id in another machine",
+    { ...threadA, machineId: MachineId.make("machine-b") },
   ],
 ] as const;
 const threadB = switches[0][1];

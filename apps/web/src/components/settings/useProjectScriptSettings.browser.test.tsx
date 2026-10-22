@@ -1,7 +1,7 @@
 import { act, render } from "../../../test/render";
 import {
   DEFAULT_SERVER_SETTINGS,
-  EnvironmentId,
+  MachineId,
   ProjectId,
   type ProjectScript,
   type ResolvedKeybindingsConfig,
@@ -19,7 +19,7 @@ const commands = vi.hoisted(() => ({
 
 vi.mock(import("../../state/session"), async (original) => ({
   ...(await original()),
-  readEnvironmentScope: () => true,
+  readMachineScope: () => true,
 }));
 vi.mock(import("../../state/entities"), async (original) => ({
   ...(await original()),
@@ -29,12 +29,12 @@ vi.mock(import("../../state/server"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    serverEnvironment: {
-      ...actual.serverEnvironment,
+    serverMachine: {
+      ...actual.serverMachine,
       updateSettings: "updateSettings",
       upsertKeybinding: "upsertKeybinding",
       removeKeybinding: "removeKeybinding",
-    } as unknown as typeof actual.serverEnvironment,
+    } as unknown as typeof actual.serverMachine,
   };
 });
 vi.mock(import("../../state/use-atom-command"), async (original) => ({
@@ -44,7 +44,7 @@ vi.mock(import("../../state/use-atom-command"), async (original) => ({
 
 import { useProjectScriptSettings } from "./useProjectScriptSettings";
 
-const environmentId = EnvironmentId.make("remote");
+const machineId = MachineId.make("remote");
 const lint: ProjectScript = {
   id: "lint",
   name: "Lint",
@@ -88,17 +88,17 @@ function Probe(props: {
 
 async function renderSettings(
   keybindings: ResolvedKeybindingsConfig,
-  scope: "project" | "environment" = "project",
+  scope: "project" | "machine" = "project",
 ) {
   let settings: ProjectScriptSettings | undefined;
   const screen = await render(
     <Probe
       targets={[
         {
-          environmentId,
+          machineId,
           settings: {
             ...DEFAULT_SERVER_SETTINGS,
-            defaultProjectScripts: scope === "environment" ? [lint] : [],
+            defaultProjectScripts: scope === "machine" ? [lint] : [],
           },
           keybindings,
           ...(scope === "project"
@@ -134,7 +134,7 @@ function setup() {
 }
 
 describe("useProjectScriptSettings", () => {
-  it.each(["project", "environment"] as const)(
+  it.each(["project", "machine"] as const)(
     "preserves the shortcut for %s action name and command edits",
     async (scope) => {
       setup();
@@ -147,7 +147,7 @@ describe("useProjectScriptSettings", () => {
       expect(result._tag).toBe("Success");
       const scripts = [expect.objectContaining({ id: lint.id, ...changes })];
       expect(commands.updateSettings).toHaveBeenCalledExactlyOnceWith({
-        environmentId,
+        machineId,
         input: {
           patch:
             scope === "project"

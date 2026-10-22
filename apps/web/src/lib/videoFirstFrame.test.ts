@@ -12,7 +12,7 @@ function previewVideo(overrides: Partial<PreviewVideo> = {}): PreviewVideo {
     currentTime: 0,
     duration: 5,
     played: { length: 0, start: () => 0, end: () => 0 },
-    src: "https://environment.test/api/assets/signed/video.mp4?signature=example",
+    src: "https://machine.test/api/assets/signed/video.mp4?signature=example",
     ...overrides,
   };
 }
@@ -25,7 +25,7 @@ describe("prepareVideoFirstFrame", () => {
   ])(
     "distinguishes temporal fragments from encoded filename hashes: %s",
     (path, expectedPosition) => {
-      const video = previewVideo({ src: `https://environment.test/${path}` });
+      const video = previewVideo({ src: `https://machine.test/${path}` });
 
       prepareVideoFirstFrame(video);
 

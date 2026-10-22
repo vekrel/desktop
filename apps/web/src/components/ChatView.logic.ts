@@ -14,9 +14,9 @@ import { applyClaudePromptEffortPrefix, resolvePromptInjectedEffort } from "@vek
 import { getProviderModelCapabilities } from "../providerModels";
 import { sanitizeThreadErrorMessage } from "~/rpc/transportError";
 import type {
-  EnvironmentThread,
+  MachineThread,
   ThreadStructure,
-  EnvironmentThreadShell,
+  MachineThreadShell,
 } from "@vekrel/client-runtime/state/shell";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
@@ -25,7 +25,7 @@ import {
   type AssetCreateUrlResult,
   type ChatFileAttachment,
   type CommandId,
-  type EnvironmentId,
+  type MachineId,
   isProviderDriverKind,
   ProjectId,
   type MessageId,
@@ -46,7 +46,7 @@ import {
 } from "@vekrel/contracts";
 import { worktreeSetupAgentStarted } from "@vekrel/client-runtime/worktree-setup";
 import * as DateTime from "effect/DateTime";
-import { parseScopedThreadKey } from "@vekrel/client-runtime/environment";
+import { parseScopedThreadKey } from "@vekrel/client-runtime/machine";
 import { resolveAssetUrl } from "@vekrel/client-runtime/state/assets";
 import {
   squashAtomCommandFailure,
@@ -74,7 +74,7 @@ import {
 } from "../composerDraftStore";
 import * as Schema from "effect/Schema";
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { environmentThreadShells, environmentThreadDetails } from "../state/threads";
+import { machineThreadShells, machineThreadDetails } from "../state/threads";
 import { waitForAtomValue } from "../state/waitForAtomValue";
 import {
   filterTerminalContextsWithText,
@@ -105,13 +105,13 @@ import {
   type ProviderInstanceEntry,
 } from "../providerInstances";
 
-type ThreadProjection = EnvironmentThread["projection"];
+type ThreadProjection = MachineThread["projection"];
 type ThreadStructureRow = ThreadStructure["visibleTurnItems"][number];
 
 export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "t3code:last-invoked-script-by-project";
 export const MAX_HIDDEN_MOUNTED_TERMINAL_THREADS = 10;
 
-const ENVIRONMENT_RECONNECT_WARNING_GRACE_MS = 2_000;
+const MACHINE_RECONNECT_WARNING_GRACE_MS = 2_000;
 
 export function agentControlledBrowserCloseConfirmation(
   surfaces: readonly RightPanelSurface[],
@@ -419,13 +419,13 @@ export function resetHeldThreadTimeline(): void {
   lastReadyThreadKey = null;
 }
 
-export function threadKeysShareEnvironment(left: string | null, right: string | null): boolean {
+export function threadKeysShareMachine(left: string | null, right: string | null): boolean {
   if (left === null || right === null) {
     return false;
   }
   const leftRef = parseScopedThreadKey(left);
   const rightRef = parseScopedThreadKey(right);
-  return leftRef !== null && rightRef !== null && leftRef.environmentId === rightRef.environmentId;
+  return leftRef !== null && rightRef !== null && leftRef.machineId === rightRef.machineId;
 }
 
 export function isPaintOnlyThreadTimeline(
@@ -475,16 +475,16 @@ export function resolveDraftPromotionNavigationTarget(input: {
   return runStarted || startupStopped || messagePersisted ? input.serverThreadRef : null;
 }
 
-export function scheduleEnvironmentReconnectWarning(showWarning: () => void): () => void {
-  const timeoutId = globalThis.setTimeout(showWarning, ENVIRONMENT_RECONNECT_WARNING_GRACE_MS);
+export function scheduleMachineReconnectWarning(showWarning: () => void): () => void {
+  const timeoutId = globalThis.setTimeout(showWarning, MACHINE_RECONNECT_WARNING_GRACE_MS);
   return () => globalThis.clearTimeout(timeoutId);
 }
 
-export function hasEnvironmentReconnectWarningGraceElapsed(
-  activeEnvironmentId: EnvironmentId | null,
-  elapsedEnvironmentId: EnvironmentId | null,
+export function hasMachineReconnectWarningGraceElapsed(
+  activeMachineId: MachineId | null,
+  elapsedMachineId: MachineId | null,
 ): boolean {
-  return activeEnvironmentId !== null && activeEnvironmentId === elapsedEnvironmentId;
+  return activeMachineId !== null && activeMachineId === elapsedMachineId;
 }
 
 export function startNewThreadForProject(
@@ -530,7 +530,7 @@ export function buildLocalDraftThread(
   fallbackModelSelection: ModelSelection,
 ): Thread {
   const timestamp = DateTime.makeUnsafe(draftThread.createdAt);
-  return presentThreadShell(draftThread.environmentId, {
+  return presentThreadShell(draftThread.machineId, {
     id: threadId,
     projectId: draftThread.projectId,
     title: "New thread",
@@ -714,16 +714,16 @@ export function revokeBlobPreviewUrl(previewUrl: string | undefined): void {
 
 export async function resolveFileAttachmentUrl(input: {
   attachment: ChatFileAttachment;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   httpBaseUrl: string;
   createAssetUrl: (input: {
-    environmentId: EnvironmentId;
+    machineId: MachineId;
     input: AssetCreateUrlInput;
   }) => Promise<AtomCommandResult<AssetCreateUrlResult, unknown>>;
 }): Promise<string> {
   const { attachment } = input;
   const result = await input.createAssetUrl({
-    environmentId: input.environmentId,
+    machineId: input.machineId,
     input: {
       resource: {
         _tag: "attachment",
@@ -735,13 +735,13 @@ export async function resolveFileAttachmentUrl(input: {
   });
   if (result._tag === "Failure") throw squashAtomCommandFailure(result);
   const url = resolveAssetUrl(input.httpBaseUrl, result.value.relativeUrl);
-  if (url === null) throw new Error("The environment returned an invalid attachment URL.");
+  if (url === null) throw new Error("The machine returned an invalid attachment URL.");
   return url;
 }
 
 export async function prepareRevertedMessageAttachments(input: {
   message: ChatMessage;
-  environmentId: EnvironmentId;
+  machineId: MachineId;
   httpBaseUrl: string;
   createAssetUrl: Parameters<typeof resolveFileAttachmentUrl>[0]["createAssetUrl"];
 }): Promise<File[]> {
@@ -751,7 +751,7 @@ export async function prepareRevertedMessageAttachments(input: {
         throw new Error("This message has an attachment that cannot be restored.");
       }
       const result = await input.createAssetUrl({
-        environmentId: input.environmentId,
+        machineId: input.machineId,
         input: {
           resource: {
             _tag: "attachment",
@@ -763,7 +763,7 @@ export async function prepareRevertedMessageAttachments(input: {
       });
       if (result._tag === "Failure") throw squashAtomCommandFailure(result);
       const url = resolveAssetUrl(input.httpBaseUrl, result.value.relativeUrl);
-      if (url === null) throw new Error("The environment returned an invalid attachment URL.");
+      if (url === null) throw new Error("The machine returned an invalid attachment URL.");
       const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
       if (!response.ok) throw new Error(`Could not restore attachment: ${attachment.name}`);
       return new File([await response.blob()], attachment.name, { type: attachment.mimeType });
@@ -946,25 +946,25 @@ export function isBranchMismatchDismissedForSession(key: string | null): boolean
 // memory, a non-Git project would mount the strip and drop it on every visit.
 const sessionCheckoutIsRepo = new Map<string, boolean>();
 
-function checkoutIsRepoKey(environmentId: EnvironmentId, cwd: string): string {
-  return JSON.stringify([environmentId, cwd]);
+function checkoutIsRepoKey(machineId: MachineId, cwd: string): string {
+  return JSON.stringify([machineId, cwd]);
 }
 
 export function rememberCheckoutIsRepo(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   isRepo: boolean,
 ): void {
-  sessionCheckoutIsRepo.set(checkoutIsRepoKey(environmentId, cwd), isRepo);
+  sessionCheckoutIsRepo.set(checkoutIsRepoKey(machineId, cwd), isRepo);
 }
 
 export function recallCheckoutIsRepo(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string | null,
 ): boolean | undefined {
   return cwd === null
     ? undefined
-    : sessionCheckoutIsRepo.get(checkoutIsRepoKey(environmentId, cwd));
+    : sessionCheckoutIsRepo.get(checkoutIsRepoKey(machineId, cwd));
 }
 
 export function threadHasStarted(thread: Thread | null | undefined): boolean {
@@ -973,7 +973,7 @@ export function threadHasStarted(thread: Thread | null | undefined): boolean {
 
 export function threadShellHasStarted(
   shell:
-    | Pick<EnvironmentThreadShell, "latestRun" | "latestUserMessageAt" | "runtime">
+    | Pick<MachineThreadShell, "latestRun" | "latestUserMessageAt" | "runtime">
     | null
     | undefined,
 ): boolean {
@@ -984,7 +984,7 @@ export function threadShellHasStarted(
 }
 
 // Imported history has no session until its first prompt. Resolve its instance
-// through the environment's provider catalog before locking to a driver.
+// through the machine's provider catalog before locking to a driver.
 export function deriveLockedProvider(input: {
   thread: Thread | null | undefined;
   selectedProvider: string | null;
@@ -1065,7 +1065,7 @@ export async function waitForStartedServerThread(
   threadRef: ScopedThreadRef,
   timeoutMs = 1_000,
 ): Promise<boolean> {
-  const threadAtom = environmentThreadShells.threadShellAtom(threadRef);
+  const threadAtom = machineThreadShells.threadShellAtom(threadRef);
   return waitForAtomValue({
     registry: appAtomRegistry,
     atom: threadAtom,
@@ -1081,7 +1081,7 @@ export async function waitForRevertedMessage(
   revert: () => Promise<void>,
   timeoutMs = 120_000,
 ): Promise<void> {
-  const threadAtom = environmentThreadDetails.stateAtom(threadRef);
+  const threadAtom = machineThreadDetails.stateAtom(threadRef);
   const readProjection = () => Option.getOrNull(appAtomRegistry.get(threadAtom).data);
   const initial = readProjection();
   const providerThreadId = initial?.thread.activeProviderThreadId;
@@ -1437,7 +1437,7 @@ export function makeThreadErrorSetter(input: {
     if (
       serverThreadRef &&
       targetThreadId === routeThreadRef.threadId &&
-      serverThreadRef.environmentId === routeThreadRef.environmentId &&
+      serverThreadRef.machineId === routeThreadRef.machineId &&
       serverThreadRef.threadId === targetThreadId
     ) {
       input.setLocalServerErrorsByThreadKey((existing) => {
@@ -1632,7 +1632,7 @@ export function sendTitleFallbackLabels(snapshot: ComposerSendSnapshot) {
  * `updatedAt` and `lastVisitedAt` are passed live: the thread structure leaves them out.
  */
 export function presentThreadShellFromProjection(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   threadId: ThreadId,
   projection: ThreadStructure,
   live: {
@@ -1647,7 +1647,7 @@ export function presentThreadShellFromProjection(
     projection.runtimeRequests.findLast((request) => request.status === "pending") ?? null;
   // Direct links can hydrate detail before the thread enters the shell index.
   return {
-    ...presentThreadShell(environmentId, {
+    ...presentThreadShell(machineId, {
       ...projection.thread,
       lastVisitedAt,
       latestRunId: latestRun?.runId ?? null,

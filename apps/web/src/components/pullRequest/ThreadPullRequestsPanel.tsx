@@ -31,7 +31,7 @@ import { useShortcutModifierState } from "~/shortcutModifierState";
 import { useProjects, useServerConfigs, useThreadShell } from "~/state/entities";
 import { PullRequestChangeBreakdownStat } from "./PullRequestChangeBreakdownStat";
 import { PullRequestsUnavailableState } from "./PullRequestsUnavailableState";
-import { threadEnvironment } from "~/state/threads";
+import { threadMachine } from "~/state/threads";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { RelativeTime } from "~/components/RelativeTime";
 import { Button } from "../ui/button";
@@ -115,7 +115,7 @@ function LinkRowImpl({
   const actionEntry =
     projectId !== null && snapshot !== null && snapshot.state !== "merged"
       ? {
-          environmentId: threadRef.environmentId,
+          machineId: threadRef.machineId,
           projectId,
           host: link.host,
           repository: link.repository,
@@ -218,7 +218,7 @@ function LinkRowImpl({
               />
             ) : (
               <PullRequestChangeBreakdownStat
-                environmentId={threadRef.environmentId}
+                machineId={threadRef.machineId}
                 reference={{
                   projectId,
                   host: link.host,
@@ -361,11 +361,11 @@ const lineKey = (line: PullRequestListLine) =>
 
 export function ThreadPullRequestsPanel({ threadRef }: { threadRef: ScopedThreadRef }) {
   const configs = useServerConfigs();
-  if (configs.get(threadRef.environmentId)?.environment.capabilities.threadPullRequests !== true) {
+  if (configs.get(threadRef.machineId)?.machine.capabilities.threadPullRequests !== true) {
     return (
       <PullRequestsUnavailableState
         title="Linked pull requests unavailable"
-        error="This environment does not support multiple linked pull requests."
+        error="This machine does not support multiple linked pull requests."
       />
     );
   }
@@ -375,8 +375,8 @@ export function ThreadPullRequestsPanel({ threadRef }: { threadRef: ScopedThread
 function EnabledThreadPullRequestsPanel({ threadRef }: { threadRef: ScopedThreadRef }) {
   const thread = useThreadShell(threadRef);
   const projects = useProjects();
-  const environmentProjects = projects
-    .filter((project) => project.environmentId === threadRef.environmentId)
+  const machineProjects = projects
+    .filter((project) => project.machineId === threadRef.machineId)
     .toSorted((left, right) =>
       left.id === thread?.projectId ? -1 : right.id === thread?.projectId ? 1 : 0,
     );
@@ -394,13 +394,13 @@ function EnabledThreadPullRequestsPanel({ threadRef }: { threadRef: ScopedThread
   const speedMode =
     modifiers.shiftKey && !modifiers.metaKey && !modifiers.ctrlKey && !modifiers.altKey;
   const openLinkDialog = () => openLinkPullRequestDialog(threadRef);
-  const unlink = useAtomCommand(threadEnvironment.unlinkPullRequest, { reportFailure: true });
-  const watch = useAtomCommand(threadEnvironment.watchPullRequest, { reportFailure: true });
-  const capabilities = useServerConfigs().get(threadRef.environmentId)?.environment.capabilities;
+  const unlink = useAtomCommand(threadMachine.unlinkPullRequest, { reportFailure: true });
+  const watch = useAtomCommand(threadMachine.watchPullRequest, { reportFailure: true });
+  const capabilities = useServerConfigs().get(threadRef.machineId)?.machine.capabilities;
   const supportsWatch = capabilities?.threadPullRequestWatch === true;
   const handleUnlink = (link: ThreadPullRequestLink) => {
     void unlink({
-      environmentId: threadRef.environmentId,
+      machineId: threadRef.machineId,
       input: {
         threadId: threadRef.threadId,
         host: link.host,
@@ -411,7 +411,7 @@ function EnabledThreadPullRequestsPanel({ threadRef }: { threadRef: ScopedThread
   };
   const handleSetWatching = (link: ThreadPullRequestLink, watching: boolean) => {
     void watch({
-      environmentId: threadRef.environmentId,
+      machineId: threadRef.machineId,
       input: {
         threadId: threadRef.threadId,
         host: link.host,
@@ -424,7 +424,7 @@ function EnabledThreadPullRequestsPanel({ threadRef }: { threadRef: ScopedThread
 
   // Legend re-renders visible rows only when data or extraData changes, so everything the rows
   // read from outside their line goes in here.
-  const rowInputs = { speedMode, environmentProjects, capabilities, supportsWatch, thread };
+  const rowInputs = { speedMode, machineProjects, capabilities, supportsWatch, thread };
 
   if (linkCount === 0) {
     return (
@@ -458,7 +458,7 @@ function EnabledThreadPullRequestsPanel({ threadRef }: { threadRef: ScopedThread
               threadRef={threadRef}
               projectId={
                 capabilities?.pullRequests === true
-                  ? (findProjectForChangeRequest(environmentProjects, line.link)?.id ??
+                  ? (findProjectForChangeRequest(machineProjects, line.link)?.id ??
                     thread?.projectId ??
                     null)
                   : null

@@ -8,7 +8,7 @@ import { useRenderedAppearance, useTheme } from "~/hooks/useTheme";
 import { cn } from "~/lib/utils";
 import { useRightPanelStore } from "~/rightPanelStore";
 import { useProjectContentSearch } from "~/state/queries";
-import { readEnvironmentScope } from "~/state/session";
+import { readMachineScope } from "~/state/session";
 
 import { PierreEntryIcon } from "../chat/PierreEntryIcon";
 import { CommandPaletteContent } from "../CommandPaletteContent";
@@ -116,7 +116,7 @@ function OpenContentSearchDialog(props: {
   const [visibleCount, setVisibleCount] = useState(VISIBLE_MATCH_WINDOW);
 
   const search = useProjectContentSearch({
-    environmentId: target.environmentId,
+    machineId: target.machineId,
     cwd: target.cwd,
     query,
     caseSensitive,
@@ -157,7 +157,7 @@ function OpenContentSearchDialog(props: {
   };
 
   const openMatch = (match: ProjectContentMatch) => {
-    if (!canOpenMatches || !readEnvironmentScope(target.environmentId, AuthFilesystemReadScope)) {
+    if (!canOpenMatches || !readMachineScope(target.machineId, AuthFilesystemReadScope)) {
       return;
     }
     props.onOpenChange(false);
@@ -324,7 +324,7 @@ export function ProjectContentSearchDialog(props: ProjectContentSearchDialogProp
 
   return target ? (
     <OpenContentSearchDialog
-      key={`${target.environmentId}:${target.cwd}`}
+      key={`${target.machineId}:${target.cwd}`}
       onOpenChange={props.onOpenChange}
       target={target}
     />

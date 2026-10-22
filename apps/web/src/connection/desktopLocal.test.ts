@@ -1,11 +1,11 @@
-import { type DesktopEnvironmentBootstrap, PRIMARY_LOCAL_ENVIRONMENT_ID } from "@vekrel/contracts";
+import { type DesktopMachineBootstrap, PRIMARY_LOCAL_MACHINE_ID } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createDesktopSecondaryBootstrapsReader } from "./desktopLocal";
 
 describe("desktop local topology reads", () => {
   it("reuses snapshots when polling returns fresh objects for the same topology", () => {
-    const secondary: DesktopEnvironmentBootstrap = {
+    const secondary: DesktopMachineBootstrap = {
       id: "wsl:default",
       label: "WSL",
       runningDistro: "Ubuntu",
@@ -15,7 +15,7 @@ describe("desktop local topology reads", () => {
     };
     let entries = [secondary];
     const reader = createDesktopSecondaryBootstrapsReader(() => ({
-      getLocalEnvironmentBootstraps: () => entries.map((entry) => ({ ...entry })),
+      getLocalMachineBootstraps: () => entries.map((entry) => ({ ...entry })),
     }));
 
     const connected = reader.readSnapshot();
@@ -29,7 +29,7 @@ describe("desktop local topology reads", () => {
     expect(reader.readSnapshot()).toBe(empty);
   });
 
-  it.each<Partial<DesktopEnvironmentBootstrap>>([
+  it.each<Partial<DesktopMachineBootstrap>>([
     { id: "wsl:Debian" },
     { label: "Renamed backend" },
     { runningDistro: "Debian" },
@@ -37,7 +37,7 @@ describe("desktop local topology reads", () => {
     { wsBaseUrl: "ws://127.0.0.1:4001" },
     { bootstrapToken: "bootstrap-2" },
   ])("publishes bootstrap changes: %j", (change) => {
-    let secondary: DesktopEnvironmentBootstrap = {
+    let secondary: DesktopMachineBootstrap = {
       id: "wsl:default",
       label: "WSL",
       runningDistro: "Ubuntu",
@@ -46,7 +46,7 @@ describe("desktop local topology reads", () => {
       bootstrapToken: "bootstrap-1",
     };
     const reader = createDesktopSecondaryBootstrapsReader(() => ({
-      getLocalEnvironmentBootstraps: () => [{ ...secondary }],
+      getLocalMachineBootstraps: () => [{ ...secondary }],
     }));
     const before = reader.readSnapshot();
     secondary = { ...secondary, ...change };
@@ -65,10 +65,10 @@ describe("desktop local topology reads", () => {
     };
 
     const reader = createDesktopSecondaryBootstrapsReader(() => ({
-      getLocalEnvironmentBootstraps: () => [
+      getLocalMachineBootstraps: () => [
         {
           ...secondary,
-          id: PRIMARY_LOCAL_ENVIRONMENT_ID,
+          id: PRIMARY_LOCAL_MACHINE_ID,
           label: "Windows",
         },
         secondary,
@@ -87,7 +87,7 @@ describe("desktop local topology reads", () => {
     };
     let readBootstraps = () => [secondary];
     const reader = createDesktopSecondaryBootstrapsReader(() => ({
-      getLocalEnvironmentBootstraps: () => readBootstraps(),
+      getLocalMachineBootstraps: () => readBootstraps(),
     }));
 
     const connectedSnapshot = reader.readSnapshot();

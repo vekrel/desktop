@@ -1,6 +1,6 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import {
-  type EnvironmentId,
+  type MachineId,
   type ProjectListEntriesResult,
   ProjectReadFileError,
   type ProjectReadFileResult,
@@ -13,7 +13,7 @@ import { AsyncResult, Atom } from "effect/reactivity";
 
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import { useFilesystemReadAccess } from "~/state/filesystem";
-import { projectEnvironment } from "~/state/projects";
+import { projectMachine } from "~/state/projects";
 import { useProjectPathSearch } from "~/state/queries";
 import { executeAtomQuery } from "@vekrel/client-runtime/state/runtime";
 
@@ -25,11 +25,11 @@ const EMPTY_PROJECT_FILE_QUERY_ATOM = Atom.make(
   AsyncResult.initial<ProjectReadFileResult, never>(false),
 ).pipe(Atom.withLabel("project-file-query:empty"));
 export function optimisticFileAtom(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string,
 ) {
-  return projectEnvironment.optimisticFile({ environmentId, cwd, relativePath });
+  return projectMachine.optimisticFile({ machineId, cwd, relativePath });
 }
 
 // Dirty contents must survive a closed preview, including failed or unauthorized saves.
@@ -55,23 +55,23 @@ interface ProjectFileQueryState extends ProjectQueryState<ProjectReadFileResult>
 }
 
 function getProjectEntriesQueryAtom(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   directoryPath?: string,
 ) {
-  return projectEnvironment.listEntries({
-    environmentId,
+  return projectMachine.listEntries({
+    machineId,
     input: { cwd, ...(directoryPath !== undefined ? { directoryPath } : {}) },
   });
 }
 
 export function getProjectFileQueryAtom(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string | null,
 ) {
-  return projectEnvironment.readFile({
-    environmentId,
+  return projectMachine.readFile({
+    machineId,
     input: {
       cwd,
       relativePath: relativePath ?? EMPTY_PROJECT_FILE_PATH,
@@ -81,12 +81,12 @@ export function getProjectFileQueryAtom(
 }
 
 export function setProjectFileQueryData(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string,
   contents: string,
 ): void {
-  const atom = optimisticFileAtom(environmentId, cwd, relativePath);
+  const atom = optimisticFileAtom(machineId, cwd, relativePath);
   if (!unsavedFileMounts.has(atom)) {
     unsavedFileMounts.set(atom, appAtomRegistry.mount(atom));
   }
@@ -102,45 +102,45 @@ export function setProjectFileQueryData(
 }
 
 export function getOptimisticProjectFileQueryData(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string,
 ): ProjectReadFileResult | null {
-  return appAtomRegistry.get(optimisticFileAtom(environmentId, cwd, relativePath))?.data ?? null;
+  return appAtomRegistry.get(optimisticFileAtom(machineId, cwd, relativePath))?.data ?? null;
 }
 
 export function getProjectFileContents(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string,
 ): string | undefined {
-  const optimistic = getOptimisticProjectFileQueryData(environmentId, cwd, relativePath);
+  const optimistic = getOptimisticProjectFileQueryData(machineId, cwd, relativePath);
   if (optimistic) return optimistic.contents;
-  const result = appAtomRegistry.get(getProjectFileQueryAtom(environmentId, cwd, relativePath));
+  const result = appAtomRegistry.get(getProjectFileQueryAtom(machineId, cwd, relativePath));
   const data = Option.getOrUndefined(AsyncResult.value(result));
   return data?.exists === false ? undefined : data?.contents;
 }
 
 export function getUnsavedProjectFileQueryData(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string,
 ): ProjectReadFileResult | null {
-  const optimistic = appAtomRegistry.get(optimisticFileAtom(environmentId, cwd, relativePath));
+  const optimistic = appAtomRegistry.get(optimisticFileAtom(machineId, cwd, relativePath));
   return optimistic?.confirmedAgainst === undefined ? (optimistic?.data ?? null) : null;
 }
 
 export function confirmProjectFileQueryData(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string,
   contents: string,
 ): boolean {
-  const atom = optimisticFileAtom(environmentId, cwd, relativePath);
+  const atom = optimisticFileAtom(machineId, cwd, relativePath);
   const optimisticFile = appAtomRegistry.get(atom);
   if (optimisticFile?.data.contents !== contents) return false;
 
-  const queryAtom = getProjectFileQueryAtom(environmentId, cwd, relativePath);
+  const queryAtom = getProjectFileQueryAtom(machineId, cwd, relativePath);
   const confirmed = {
     ...optimisticFile,
     confirmedAgainst: appAtomRegistry.get(queryAtom),
@@ -160,21 +160,21 @@ export function confirmProjectFileQueryData(
 }
 
 export function resolveProjectFileQueryData(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string | null,
   data: ProjectReadFileResult | null,
 ): ProjectReadFileResult | null {
   if (relativePath === null) return data;
-  return appAtomRegistry.get(optimisticFileAtom(environmentId, cwd, relativePath))?.data ?? data;
+  return appAtomRegistry.get(optimisticFileAtom(machineId, cwd, relativePath))?.data ?? data;
 }
 
 export function clearProjectFileQueryData(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string,
 ): void {
-  const atom = optimisticFileAtom(environmentId, cwd, relativePath);
+  const atom = optimisticFileAtom(machineId, cwd, relativePath);
   appAtomRegistry.set(atom, null);
   releaseUnsavedFile(atom);
 }
@@ -191,14 +191,14 @@ function errorMessage(cause: unknown): string | null {
 const isProjectReadFileError = Schema.is(ProjectReadFileError);
 
 export function useProjectEntriesQuery(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   directoryPath?: string,
 ): ProjectQueryState<ProjectListEntriesResult> {
-  const fileAccess = useFilesystemReadAccess(environmentId);
+  const fileAccess = useFilesystemReadAccess(machineId);
   const { canReadFiles } = fileAccess;
   const atom = canReadFiles
-    ? getProjectEntriesQueryAtom(environmentId, cwd, directoryPath)
+    ? getProjectEntriesQueryAtom(machineId, cwd, directoryPath)
     : EMPTY_PROJECT_ENTRIES_QUERY_ATOM;
   const result = useAtomValue(atom);
   const refreshAtom = useAtomRefresh(atom);
@@ -221,7 +221,7 @@ export function useProjectEntriesQuery(
  * transferring the full workspace listing.
  */
 export function useProjectFilePickerQuery(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   query: string,
   limit: number,
@@ -229,7 +229,7 @@ export function useProjectFilePickerQuery(
 ) {
   const search = useProjectPathSearch(
     {
-      environmentId,
+      machineId,
       cwd,
       query,
       kind: "file",
@@ -248,19 +248,19 @@ export function useProjectFilePickerQuery(
 }
 
 export function useProjectFileQuery(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   cwd: string,
   relativePath: string | null,
   enabled = true,
 ): ProjectFileQueryState {
   // A media path is not skipped here: a folder named `assets.png` is only
   // knowable as a folder from the read failure.
-  const fileAccess = useFilesystemReadAccess(environmentId);
+  const fileAccess = useFilesystemReadAccess(machineId);
   const { canReadFiles } = fileAccess;
   const isQueryEnabled = enabled;
   const atom =
     enabled && canReadFiles
-      ? getProjectFileQueryAtom(environmentId, cwd, relativePath)
+      ? getProjectFileQueryAtom(machineId, cwd, relativePath)
       : EMPTY_PROJECT_FILE_QUERY_ATOM;
   const result = useAtomValue(atom);
   const refreshAtom = useAtomRefresh(atom);
@@ -268,7 +268,7 @@ export function useProjectFileQuery(
   const readData = Option.getOrNull(AsyncResult.value(result));
   const isMissing = readData?.exists === false;
   const optimisticResult = useAtomValue(
-    optimisticFileAtom(environmentId, cwd, relativePath ?? EMPTY_PROJECT_FILE_PATH),
+    optimisticFileAtom(machineId, cwd, relativePath ?? EMPTY_PROJECT_FILE_PATH),
   );
   const optimisticFile = relativePath === null ? null : optimisticResult;
   const cause = failureCause(result);

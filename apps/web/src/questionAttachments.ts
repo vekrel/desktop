@@ -1,24 +1,24 @@
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
-import type { EnvironmentId, ScopedThreadRef, ThreadId } from "@vekrel/contracts";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
+import type { MachineId, ScopedThreadRef, ThreadId } from "@vekrel/contracts";
 import { create } from "zustand";
 import { DraftId, useComposerDraftStore } from "./composerDraftStore";
 import { releaseDraftAttachments } from "./lib/attachmentUploadQueue";
 
 export function questionAttachmentDraftPrefix(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   threadId: ThreadId,
 ): string {
-  return `${encodeURIComponent(JSON.stringify(environmentId))}:question-${encodeURIComponent(JSON.stringify(threadId))}-`;
+  return `${encodeURIComponent(JSON.stringify(machineId))}:question-${encodeURIComponent(JSON.stringify(threadId))}-`;
 }
 
 export function questionAttachmentDraftId(
-  environmentId: EnvironmentId,
+  machineId: MachineId,
   threadId: ThreadId,
   requestId: string,
   questionId: string,
 ): DraftId {
   return DraftId.make(
-    `${questionAttachmentDraftPrefix(environmentId, threadId)}${encodeURIComponent(JSON.stringify([requestId, questionId]))}`,
+    `${questionAttachmentDraftPrefix(machineId, threadId)}${encodeURIComponent(JSON.stringify([requestId, questionId]))}`,
   );
 }
 

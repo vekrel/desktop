@@ -2,8 +2,8 @@ import { useAtomValue } from "@effect/atom-react";
 import { type ReactNode, useSyncExternalStore } from "react";
 
 import { cn } from "~/lib/utils";
-import { environmentIdsKey } from "~/state/environmentAtomList";
-import { environmentUpdateStatesAtom } from "~/state/server";
+import { machineIdsKey } from "~/state/machineAtomList";
+import { machineUpdateStatesAtom } from "~/state/server";
 import { useServerUpdate } from "../ServerUpdateAction";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
@@ -34,8 +34,8 @@ function useNow(intervalMs: number | null): number {
 
 function useUpdateRunMachineViews(run: UpdateEverythingRun): ReadonlyArray<UpdateRunMachineView> {
   const updateStates = useAtomValue(
-    environmentUpdateStatesAtom(
-      environmentIdsKey(run.machines.map(({ environmentId }) => environmentId)),
+    machineUpdateStatesAtom(
+      machineIdsKey(run.machines.map(({ machineId }) => machineId)),
     ),
   );
   return run.machines.map((machine, index) => ({
@@ -142,7 +142,7 @@ export function SidebarUpdateCapsule({
             </div>
           ) : null}
           {machines.map(({ machine, status }) => (
-            <div key={machine.environmentId} className="flex min-w-0 flex-col">
+            <div key={machine.machineId} className="flex min-w-0 flex-col">
               <div className="flex items-center justify-between gap-3">
                 <span className="truncate">{machine.label}</span>
                 <span

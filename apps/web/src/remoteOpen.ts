@@ -2,7 +2,7 @@ import type { ConnectionTarget } from "@vekrel/client-runtime/connection";
 import {
   REMOTE_CAPABLE_EDITOR_IDS,
   type EditorId,
-  type EnvironmentId,
+  type MachineId,
   type RemoteOpenTarget,
 } from "@vekrel/contracts";
 import * as Option from "effect/Option";
@@ -12,9 +12,9 @@ import { useAtomValue } from "@effect/atom-react";
 import { useEffect, useState } from "react";
 
 import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
-import { isLoopbackHostname } from "~/environments/primary/target";
+import { isLoopbackHostname } from "~/machines/primary/target";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
-import { environmentPresentations } from "~/state/presentation";
+import { machinePresentations } from "~/state/presentation";
 
 export interface RemoteOpenHost {
   readonly kind: "ssh-alias" | RemoteOpenTarget["kind"];
@@ -109,9 +109,9 @@ function remoteOpenStatesEqual(previous: RemoteOpenState, next: RemoteOpenState)
 // The presentation changes with every server config push and reconnect. This
 // keeps the previous resolution while it is equal, so subscribers re-render only
 // when where files open actually changes.
-const remoteOpenResolutionAtom = Atom.family((environmentId: EnvironmentId) =>
+const remoteOpenResolutionAtom = Atom.family((machineId: MachineId) =>
   Atom.make((get): RemoteOpenResolution => {
-    const presentation = get(environmentPresentations.presentationAtom(environmentId));
+    const presentation = get(machinePresentations.presentationAtom(machineId));
     const entry = presentation?.entry ?? null;
     if (entry === null) {
       return UNRESOLVED_REMOTE_OPEN;
@@ -133,19 +133,19 @@ const remoteOpenResolutionAtom = Atom.family((environmentId: EnvironmentId) =>
       remoteOpenStatesEqual(previous.state, next.state)
       ? previous
       : next;
-  }).pipe(Atom.withLabel(`remote-open-resolution:${environmentId}`)),
+  }).pipe(Atom.withLabel(`remote-open-resolution:${machineId}`)),
 );
 
 const UNRESOLVED_REMOTE_OPEN_ATOM = Atom.make(UNRESOLVED_REMOTE_OPEN);
 
-export function useRemoteOpenResolution(environmentId: EnvironmentId | null): RemoteOpenResolution {
+export function useRemoteOpenResolution(machineId: MachineId | null): RemoteOpenResolution {
   return useAtomValue(
-    environmentId === null ? UNRESOLVED_REMOTE_OPEN_ATOM : remoteOpenResolutionAtom(environmentId),
+    machineId === null ? UNRESOLVED_REMOTE_OPEN_ATOM : remoteOpenResolutionAtom(machineId),
   );
 }
 
-export function useRemoteOpenState(environmentId: EnvironmentId | null): RemoteOpenState {
-  return useRemoteOpenResolution(environmentId).state;
+export function useRemoteOpenState(machineId: MachineId | null): RemoteOpenState {
+  return useRemoteOpenResolution(machineId).state;
 }
 
 const REMOTE_FALLBACK_EDITORS: ReadonlyArray<EditorId> = ["vscode"];

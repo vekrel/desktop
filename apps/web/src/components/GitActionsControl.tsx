@@ -99,13 +99,13 @@ import {
   useVcsPullAction,
 } from "~/lib/sourceControlActions";
 import { useThreadProjection, useQuietThreadShell } from "~/state/entities";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
-import { useEnvironmentQuery } from "~/state/query";
-import { serverEnvironment } from "~/state/server";
-import { sourceControlEnvironment } from "~/state/sourceControl";
-import { threadEnvironment } from "~/state/threads";
+import { readMachineScope, useMachineScope } from "~/state/session";
+import { useMachineQuery } from "~/state/query";
+import { serverMachine } from "~/state/server";
+import { sourceControlMachine } from "~/state/sourceControl";
+import { threadMachine } from "~/state/threads";
 import { useAtomCommand } from "~/state/use-atom-command";
-import { vcsActionManager, vcsEnvironment } from "~/state/vcs";
+import { vcsActionManager, vcsMachine } from "~/state/vcs";
 import { randomUUID } from "~/lib/utils";
 import { resolvePathLinkTarget } from "@vekrel/shared/fileLinks";
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
@@ -162,19 +162,19 @@ interface InlineGitActionSuccess {
 const GIT_STATUS_WINDOW_REFRESH_DEBOUNCE_MS = 250;
 
 type RefreshVcsStatus = (target: {
-  readonly environmentId: ScopedThreadRef["environmentId"];
+  readonly machineId: ScopedThreadRef["machineId"];
   readonly input: { readonly cwd: string };
 }) => Promise<unknown>;
 
 function requestVcsStatusRefresh(
   refresh: RefreshVcsStatus,
-  environmentId: ScopedThreadRef["environmentId"] | null,
+  machineId: ScopedThreadRef["machineId"] | null,
   cwd: string | null,
 ): void {
-  if (environmentId === null || cwd === null) {
+  if (machineId === null || cwd === null) {
     return;
   }
-  void refresh({ environmentId, input: { cwd } });
+  void refresh({ machineId, input: { cwd } });
 }
 const RUNNING_SOURCE_CONTROL_ACTIONS = ["runStackedAction", "pull", "publishRepository"] as const;
 
@@ -453,7 +453,7 @@ function GitActionSuccessButtonContent({ success }: { success: InlineGitActionSu
 interface PublishRepositoryDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
-  readonly environmentId: ScopedThreadRef["environmentId"] | null;
+  readonly machineId: ScopedThreadRef["machineId"] | null;
   readonly threadRef: ScopedThreadRef | null;
   readonly gitCwd: string;
 }
@@ -461,11 +461,11 @@ interface PublishRepositoryDialogProps {
 function PublishRepositoryDialog(props: PublishRepositoryDialogProps) {
   const openLink = useOpenLink(props.threadRef);
   const navigate = useNavigate();
-  const sourceControlDiscovery = useEnvironmentQuery(
-    props.environmentId === null
+  const sourceControlDiscovery = useMachineQuery(
+    props.machineId === null
       ? null
-      : sourceControlEnvironment.discovery({
-          environmentId: props.environmentId,
+      : sourceControlMachine.discovery({
+          machineId: props.machineId,
           input: {},
         }),
   );
@@ -483,7 +483,7 @@ function PublishRepositoryDialog(props: PublishRepositoryDialogProps) {
     null,
   );
   const sourceControlScope = {
-    environmentId: props.environmentId,
+    machineId: props.machineId,
     cwd: props.gitCwd,
   };
   const publishRepositoryAction = useSourceControlPublishRepositoryAction(sourceControlScope);
@@ -967,19 +967,19 @@ export default function GitActionsControl({
   const ActionGroup = isPanel ? "div" : Group;
   const panelAnchorRef = useRef<HTMLDivElement | null>(null);
   const updateThreadMetadata = useAtomCommand(
-    threadEnvironment.updateMetadata,
+    threadMachine.updateMetadata,
     "thread branch metadata update",
   );
-  const activeEnvironmentId = activeThreadRef?.environmentId ?? null;
-  const successScopeKey = `${activeEnvironmentId ?? ""}\u0000${gitCwd ?? ""}`;
-  const canWriteSourceControl = useEnvironmentScope(
-    activeEnvironmentId,
+  const activeMachineId = activeThreadRef?.machineId ?? null;
+  const successScopeKey = `${activeMachineId ?? ""}\u0000${gitCwd ?? ""}`;
+  const canWriteSourceControl = useMachineScope(
+    activeMachineId,
     AuthSourceControlWriteScope,
   );
-  const canOperateThread = useEnvironmentScope(activeEnvironmentId, AuthOrchestrationOperateScope);
-  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(activeEnvironmentId));
+  const canOperateThread = useMachineScope(activeMachineId, AuthOrchestrationOperateScope);
+  const serverConfig = useAtomValue(serverMachine.configValueAtom(activeMachineId));
   const openInPreferredEditor = useOpenInPreferredEditor(
-    activeEnvironmentId,
+    activeMachineId,
     serverConfig?.availableEditors ?? [],
   );
   const threadToastData = activeThreadRef ? { threadRef: activeThreadRef } : undefined;
@@ -1008,7 +1008,7 @@ export default function GitActionsControl({
   const [inlineSuccess, setInlineSuccess] = useState<InlineGitActionSuccess | null>(null);
   const [pendingDefaultBranchAction, setPendingDefaultBranchAction] =
     useState<PendingDefaultBranchAction | null>(null);
-  const sourceControlScope = { environmentId: activeEnvironmentId, cwd: gitCwd };
+  const sourceControlScope = { machineId: activeMachineId, cwd: gitCwd };
   const vcsActionState = useAtomValue(vcsActionManager.stateAtom(sourceControlScope));
   const visibleInlineSuccess = inlineSuccess?.scopeKey === successScopeKey ? inlineSuccess : null;
 
@@ -1027,14 +1027,14 @@ export default function GitActionsControl({
 
     if (activeServerThread) {
       if (
-        !readEnvironmentScope(activeThreadRef.environmentId, AuthOrchestrationOperateScope) ||
+        !readMachineScope(activeThreadRef.machineId, AuthOrchestrationOperateScope) ||
         activeServerThread.branch === branch
       ) {
         return;
       }
 
       void updateThreadMetadata({
-        environmentId: activeThreadRef.environmentId,
+        machineId: activeThreadRef.machineId,
         input: {
           threadId: activeThreadRef.threadId,
           ...resolveThreadBranchMetadataPatch(branch, activeServerThread.branch),
@@ -1051,9 +1051,9 @@ export default function GitActionsControl({
     setDraftThreadContext(draftId ?? activeThreadRef, {
       branch,
       worktreePath: activeDraftThread.worktreePath,
-      environmentSelection: manualSelection
+      machineSelection: manualSelection
         ? "manual"
-        : (activeDraftThread.environmentSelection ??
+        : (activeDraftThread.machineSelection ??
           (activeDraftThread.branch ? "manual" : "auto")),
     });
   };
@@ -1070,15 +1070,15 @@ export default function GitActionsControl({
     persistThreadBranchSync(branchUpdate.branch, true);
   };
 
-  const gitStatusQuery = useEnvironmentQuery(
-    activeEnvironmentId !== null && gitCwd !== null
-      ? vcsEnvironment.status({
-          environmentId: activeEnvironmentId,
+  const gitStatusQuery = useMachineQuery(
+    activeMachineId !== null && gitCwd !== null
+      ? vcsMachine.status({
+          machineId: activeMachineId,
           input: { cwd: gitCwd },
         })
       : null,
   );
-  const refreshVcsStatus = useAtomCommand(vcsEnvironment.refreshStatus, {
+  const refreshVcsStatus = useAtomCommand(vcsMachine.refreshStatus, {
     reportFailure: false,
   });
   const { data: gitStatus, error: gitStatusError } = gitStatusQuery;
@@ -1181,7 +1181,7 @@ export default function GitActionsControl({
       }
       refreshTimeout = window.setTimeout(() => {
         refreshTimeout = null;
-        requestVcsStatusRefresh(refreshVcsStatus, activeEnvironmentId, gitCwd);
+        requestVcsStatusRefresh(refreshVcsStatus, activeMachineId, gitCwd);
       }, GIT_STATUS_WINDOW_REFRESH_DEBOUNCE_MS);
     };
     const handleVisibilityChange = () => {
@@ -1200,7 +1200,7 @@ export default function GitActionsControl({
       window.removeEventListener("focus", scheduleRefreshCurrentGitStatus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [activeEnvironmentId, gitCwd, refreshVcsStatus]);
+  }, [activeMachineId, gitCwd, refreshVcsStatus]);
 
   // Not an effect event: retained toast actions must stay bound to the checkout and
   // thread of the render that created them, not follow later selections.
@@ -1214,11 +1214,11 @@ export default function GitActionsControl({
     filePaths,
   }: RunGitActionWithToastInput) {
     if (
-      activeEnvironmentId === null ||
-      !readEnvironmentScope(activeEnvironmentId, AuthSourceControlWriteScope) ||
+      activeMachineId === null ||
+      !readMachineScope(activeMachineId, AuthSourceControlWriteScope) ||
       (featureBranch &&
         !isLocalDraftThread &&
-        !readEnvironmentScope(activeEnvironmentId, AuthOrchestrationOperateScope))
+        !readMachineScope(activeMachineId, AuthOrchestrationOperateScope))
     )
       return;
     const actionStatus = statusOverride ?? gitStatusForActions;
@@ -1661,7 +1661,7 @@ export default function GitActionsControl({
             )}
             <MenuSub
               onOpenChange={(open) => {
-                if (open) requestVcsStatusRefresh(refreshVcsStatus, activeEnvironmentId, gitCwd);
+                if (open) requestVcsStatusRefresh(refreshVcsStatus, activeMachineId, gitCwd);
               }}
             >
               <MenuSubTrigger density="touch" disabled={isGitActionRunning}>
@@ -1789,7 +1789,7 @@ export default function GitActionsControl({
               <Menu
                 onOpenChange={(open) => {
                   if (open) {
-                    requestVcsStatusRefresh(refreshVcsStatus, activeEnvironmentId, gitCwd);
+                    requestVcsStatusRefresh(refreshVcsStatus, activeMachineId, gitCwd);
                   }
                 }}
               >
@@ -2024,7 +2024,7 @@ export default function GitActionsControl({
       <PublishRepositoryDialog
         open={isPublishDialogOpen}
         onOpenChange={setIsPublishDialogOpen}
-        environmentId={activeEnvironmentId}
+        machineId={activeMachineId}
         threadRef={activeThreadRef}
         gitCwd={gitCwd}
       />

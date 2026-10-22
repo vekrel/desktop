@@ -3,7 +3,7 @@ import {
   createAtomCommandScheduler,
   createRuntimeCommand,
 } from "@vekrel/client-runtime/state/runtime";
-import type { DesktopSshEnvironmentTarget } from "@vekrel/contracts";
+import type { DesktopSshMachineTarget } from "@vekrel/contracts";
 import * as Effect from "effect/Effect";
 
 import { connectionAtomRuntime } from "./runtime";
@@ -23,12 +23,12 @@ export const connectPairing = createRuntimeCommand(connectionAtomRuntime, {
     ),
 });
 
-export const connectSshEnvironment = createRuntimeCommand(connectionAtomRuntime, {
+export const connectSshMachine = createRuntimeCommand(connectionAtomRuntime, {
   label: "web:connection:connect-ssh",
   scheduler: onboardingScheduler,
   concurrency: {
     mode: "serial",
-    key: (input: { readonly target: DesktopSshEnvironmentTarget }) => JSON.stringify(input.target),
+    key: (input: { readonly target: DesktopSshMachineTarget }) => JSON.stringify(input.target),
   },
   execute: (input: ConnectionOnboarding.SshConnectionInput) =>
     ConnectionOnboarding.ConnectionOnboarding.pipe(

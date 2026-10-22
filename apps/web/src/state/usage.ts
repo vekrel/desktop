@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import {
   AuthDiagnosticsReadScope,
   USAGE_CONTRACT_VERSION,
-  type EnvironmentId,
+  type MachineId,
   type UsageBucket,
   type UsageSummary,
   type UsageProviderKind,
@@ -14,14 +14,14 @@ import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { useState } from "react";
 
-import { mergeUsage, type EnvironmentUsage, type MergedUsage } from "@vekrel/shared/usageMerge";
+import { mergeUsage, type MachineUsage, type MergedUsage } from "@vekrel/shared/usageMerge";
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { environmentPresentations } from "./presentation";
-import { serverEnvironment } from "./server";
-import { environmentSession, readEnvironmentScope } from "./session";
+import { machinePresentations } from "./presentation";
+import { serverMachine } from "./server";
+import { machineSession, readMachineScope } from "./session";
 
-export interface EnvironmentUsageStatus {
-  readonly environmentId: EnvironmentId;
+export interface MachineUsageStatus {
+  readonly machineId: MachineId;
   readonly label: string;
   readonly isPending: boolean;
   readonly canReadDiagnostics: boolean;
@@ -32,14 +32,14 @@ export interface EnvironmentUsageStatus {
 }
 
 const usageByWindowAtom = Atom.family((windowKey: string) =>
-  Atom.make((get): readonly EnvironmentUsageStatus[] => {
+  Atom.make((get): readonly MachineUsageStatus[] => {
     const input = JSON.parse(windowKey) as UsageSummaryInput;
-    const presentations = get(environmentPresentations.presentationsAtom);
+    const presentations = get(machinePresentations.presentationsAtom);
 
-    const statuses: EnvironmentUsageStatus[] = [];
-    for (const [environmentId, presentation] of presentations) {
+    const statuses: MachineUsageStatus[] = [];
+    for (const [machineId, presentation] of presentations) {
       const isConnected = presentation.connection.phase === "connected";
-      const sessionResult = get(environmentSession.sessionStateAtom(environmentId));
+      const sessionResult = get(machineSession.sessionStateAtom(machineId));
       const access = resolveUsageAccess({
         connectionPhase: presentation.connection.phase,
         session: Option.getOrNull(AsyncResult.value(sessionResult)),
@@ -47,7 +47,7 @@ const usageByWindowAtom = Atom.family((windowKey: string) =>
       });
       if (!access.canReadDiagnostics) {
         statuses.push({
-          environmentId,
+          machineId,
           label: presentation.entry.target.label,
           isConnected,
           ...access,
@@ -56,19 +56,19 @@ const usageByWindowAtom = Atom.family((windowKey: string) =>
         });
         continue;
       }
-      const result = get(serverEnvironment.usageSummary({ environmentId, input }));
+      const result = get(serverMachine.usageSummary({ machineId, input }));
       const summary = Option.getOrNull(AsyncResult.value(result));
       statuses.push({
-        environmentId,
+        machineId,
         label: presentation.entry.target.label,
         isPending: result.waiting,
         canReadDiagnostics: true,
         isConnected,
-        error: result._tag === "Failure" ? "This environment could not report usage." : null,
+        error: result._tag === "Failure" ? "This machine could not report usage." : null,
         summary,
         needsCursorKeychainAccess: needsCursorKeychainAccess(
           summary,
-          get(serverEnvironment.providersValueAtom(environmentId)),
+          get(serverMachine.providersValueAtom(machineId)),
         ),
       });
     }
@@ -78,8 +78,8 @@ const usageByWindowAtom = Atom.family((windowKey: string) =>
 
 export interface UsageView {
   readonly merged: MergedUsage;
-  readonly environments: readonly EnvironmentUsageStatus[];
-  readonly selectedEnvironments: readonly EnvironmentUsageStatus[];
+  readonly machines: readonly MachineUsageStatus[];
+  readonly selectedMachines: readonly MachineUsageStatus[];
   readonly isPending: boolean;
   readonly shown: { readonly window: UsageSummaryInput; readonly merged: MergedUsage } | null;
   readonly isPartial: boolean;
@@ -87,15 +87,15 @@ export interface UsageView {
 }
 
 export function mergeAnsweredUsage(
-  environments: readonly EnvironmentUsageStatus[],
+  machines: readonly MachineUsageStatus[],
   keepBucket?: (bucket: UsageBucket) => boolean,
 ): MergedUsage {
-  const answered: EnvironmentUsage[] = environments.flatMap(({ environmentId, label, summary }) =>
+  const answered: MachineUsage[] = machines.flatMap(({ machineId, label, summary }) =>
     summary === null
       ? []
       : [
           {
-            environmentId,
+            machineId,
             label,
             summary:
               keepBucket === undefined
@@ -110,21 +110,21 @@ export function mergeAnsweredUsage(
 const NO_HIDDEN_PROVIDERS: ReadonlySet<UsageProviderKind> = new Set();
 
 function withoutProviders(
-  environments: readonly EnvironmentUsageStatus[],
+  machines: readonly MachineUsageStatus[],
   hiddenProviders: ReadonlySet<UsageProviderKind>,
-): readonly EnvironmentUsageStatus[] {
-  if (hiddenProviders.size === 0) return environments;
-  return environments.map((environment) =>
-    environment.summary === null
-      ? environment
+): readonly MachineUsageStatus[] {
+  if (hiddenProviders.size === 0) return machines;
+  return machines.map((machine) =>
+    machine.summary === null
+      ? machine
       : {
-          ...environment,
+          ...machine,
           summary: {
-            ...environment.summary,
-            buckets: environment.summary.buckets.filter(
+            ...machine.summary,
+            buckets: machine.summary.buckets.filter(
               (bucket) => !hiddenProviders.has(bucket.provider),
             ),
-            sources: environment.summary.sources.filter(
+            sources: machine.summary.sources.filter(
               (source) => !hiddenProviders.has(source.fingerprint.provider),
             ),
           },
@@ -133,26 +133,26 @@ function withoutProviders(
 }
 
 function deriveSelection(
-  environments: readonly EnvironmentUsageStatus[],
-  selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null,
+  machines: readonly MachineUsageStatus[],
+  selectedMachineIds: ReadonlySet<MachineId> | null,
   hiddenProviders: ReadonlySet<UsageProviderKind>,
 ) {
-  const selectedEnvironments =
-    selectedEnvironmentIds === null
-      ? environments
-      : environments.filter((environment) => selectedEnvironmentIds.has(environment.environmentId));
+  const selectedMachines =
+    selectedMachineIds === null
+      ? machines
+      : machines.filter((machine) => selectedMachineIds.has(machine.machineId));
   return {
-    environments,
-    selectedEnvironmentIds,
+    machines,
+    selectedMachineIds,
     hiddenProviders,
-    selectedEnvironments,
-    merged: mergeAnsweredUsage(withoutProviders(selectedEnvironments, hiddenProviders)),
+    selectedMachines,
+    merged: mergeAnsweredUsage(withoutProviders(selectedMachines, hiddenProviders)),
   };
 }
 
 export function useUsage(
   input: UsageSummaryInput,
-  selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null = null,
+  selectedMachineIds: ReadonlySet<MachineId> | null = null,
   hiddenProviders: ReadonlySet<UsageProviderKind> = NO_HIDDEN_PROVIDERS,
 ): UsageView {
   const windowKey = JSON.stringify({
@@ -164,49 +164,49 @@ export function useUsage(
     untilTime: input.untilTime,
   });
   const atom = usageByWindowAtom(windowKey);
-  const environments = useAtomValue(atom);
+  const machines = useAtomValue(atom);
   // The render-time sync below compares merged by identity, so the derivation is
   // held in state keyed on its inputs rather than rebuilt every render.
   const [derived, setDerived] = useState(() =>
-    deriveSelection(environments, selectedEnvironmentIds, hiddenProviders),
+    deriveSelection(machines, selectedMachineIds, hiddenProviders),
   );
   let current = derived;
   if (
-    derived.environments !== environments ||
-    derived.selectedEnvironmentIds !== selectedEnvironmentIds ||
+    derived.machines !== machines ||
+    derived.selectedMachineIds !== selectedMachineIds ||
     derived.hiddenProviders !== hiddenProviders
   ) {
-    current = deriveSelection(environments, selectedEnvironmentIds, hiddenProviders);
+    current = deriveSelection(machines, selectedMachineIds, hiddenProviders);
     setDerived(current);
   }
-  const { selectedEnvironments, merged } = current;
+  const { selectedMachines, merged } = current;
 
   const refresh = (nextInput?: UsageSummaryInput) =>
     refreshUsage({
       registry: appAtomRegistry,
-      server: serverEnvironment,
-      presentations: environmentPresentations,
-      environmentIds: selectedEnvironments
+      server: serverMachine,
+      presentations: machinePresentations,
+      machineIds: selectedMachines
         .filter(
-          (environment) =>
-            environment.canReadDiagnostics &&
-            readEnvironmentScope(environment.environmentId, AuthDiagnosticsReadScope),
+          (machine) =>
+            machine.canReadDiagnostics &&
+            readMachineScope(machine.machineId, AuthDiagnosticsReadScope),
         )
-        .map(({ environmentId }) => environmentId),
+        .map(({ machineId }) => machineId),
       input: nextInput ?? (JSON.parse(windowKey) as UsageSummaryInput),
     });
 
-  const answeredCount = selectedEnvironments.filter(
-    (environment) => environment.summary !== null,
+  const answeredCount = selectedMachines.filter(
+    (machine) => machine.summary !== null,
   ).length;
-  const stillReporting = selectedEnvironments.filter(
-    (environment) => environment.summary === null && environment.error === null,
+  const stillReporting = selectedMachines.filter(
+    (machine) => machine.summary === null && machine.error === null,
   ).length;
   const isPending = answeredCount === 0 && stillReporting > 0;
 
   const [lastAnswered, setLastAnswered] = useState<
     | (NonNullable<UsageView["shown"]> & {
-        readonly selection: typeof selectedEnvironmentIds;
+        readonly selection: typeof selectedMachineIds;
         readonly hidden: typeof hiddenProviders;
       })
     | null
@@ -215,18 +215,18 @@ export function useUsage(
     answeredCount > 0 &&
     (lastAnswered?.merged !== merged ||
       lastAnswered.window !== input ||
-      lastAnswered.selection !== selectedEnvironmentIds ||
+      lastAnswered.selection !== selectedMachineIds ||
       lastAnswered.hidden !== hiddenProviders)
   ) {
     setLastAnswered({
       window: input,
       merged,
-      selection: selectedEnvironmentIds,
+      selection: selectedMachineIds,
       hidden: hiddenProviders,
     });
   }
   const kept =
-    lastAnswered?.selection === selectedEnvironmentIds && lastAnswered.hidden === hiddenProviders
+    lastAnswered?.selection === selectedMachineIds && lastAnswered.hidden === hiddenProviders
       ? lastAnswered
       : null;
   const shown =
@@ -236,8 +236,8 @@ export function useUsage(
 
   return {
     merged,
-    environments,
-    selectedEnvironments,
+    machines,
+    selectedMachines,
     isPending,
     shown,
     isPartial: answeredCount > 0 && stillReporting > 0,

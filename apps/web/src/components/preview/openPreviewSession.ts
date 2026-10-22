@@ -1,5 +1,5 @@
 import type {
-  EnvironmentId,
+  MachineId,
   PreviewOpenInput,
   PreviewRuntime,
   PreviewSessionSnapshot,
@@ -21,7 +21,7 @@ import { applyPreviewServerSnapshot, rememberPreviewUrl } from "~/previewStateSt
 
 interface OpenPreviewSessionInput<E> {
   openPreview: (input: {
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly input: PreviewOpenInput;
   }) => Promise<AtomCommandResult<PreviewSessionSnapshot, E>>;
   threadRef: ScopedThreadRef;
@@ -42,9 +42,9 @@ export async function openPreviewSession<E>(
   if (defaults instanceof BrowserSettingsReadError) {
     return AsyncResult.failure(Cause.fail(defaults));
   }
-  const runtime = input.runtime ?? previewRuntimeFor(input.threadRef.environmentId);
+  const runtime = input.runtime ?? previewRuntimeFor(input.threadRef.machineId);
   const result = await input.openPreview({
-    environmentId: input.threadRef.environmentId,
+    machineId: input.threadRef.machineId,
     input: {
       threadId: input.threadRef.threadId,
       ...(input.url === undefined ? {} : { url: input.url }),

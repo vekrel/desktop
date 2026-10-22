@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import {
   createManagedRelayQueryManager,
-  deregisterManagedRelayEnvironment,
+  deregisterManagedRelayMachine,
   ManagedRelay,
   managedRelaySessionAtom,
   readManagedRelaySnapshotState,
@@ -12,9 +12,9 @@ import {
 } from "@vekrel/client-runtime/state/runtime";
 import type {
   RelayClientDeviceRecord,
-  RelayClientEnvironmentRecord,
+  RelayClientMachineRecord,
 } from "@vekrel/contracts/relay";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -37,39 +37,39 @@ const managedRelayQueryManager = createManagedRelayQueryManager(managedRelayAtom
 
 const managedRelayMutationScheduler = createAtomCommandScheduler();
 
-export const deregisterManagedRelayEnvironmentCommand = createRuntimeCommand(
+export const deregisterManagedRelayMachineCommand = createRuntimeCommand(
   managedRelayAtomRuntime,
   {
-    label: "web:managed-relay:deregister-environment",
+    label: "web:managed-relay:deregister-machine",
     scheduler: managedRelayMutationScheduler,
     concurrency: {
       mode: "serial",
-      key: (input: { readonly accountId: string; readonly environmentId: EnvironmentId }) =>
+      key: (input: { readonly accountId: string; readonly machineId: MachineId }) =>
         input.accountId,
     },
-    execute: (input, registry) => deregisterManagedRelayEnvironment(registry, input),
+    execute: (input, registry) => deregisterManagedRelayMachine(registry, input),
   },
 );
 
-const EMPTY_ENVIRONMENTS_ATOM = Atom.make(
-  AsyncResult.success<ReadonlyArray<RelayClientEnvironmentRecord>>([]),
-).pipe(Atom.keepAlive, Atom.withLabel("managed-relay:web:environments:null"));
+const EMPTY_MACHINES_ATOM = Atom.make(
+  AsyncResult.success<ReadonlyArray<RelayClientMachineRecord>>([]),
+).pipe(Atom.keepAlive, Atom.withLabel("managed-relay:web:machines:null"));
 
 const EMPTY_DEVICES_ATOM = Atom.make(
   AsyncResult.success<ReadonlyArray<RelayClientDeviceRecord>>([]),
 ).pipe(Atom.keepAlive, Atom.withLabel("managed-relay:web:devices:null"));
 
-export function useManagedRelayEnvironments() {
+export function useManagedRelayMachines() {
   const session = useAtomValue(managedRelaySessionAtom);
   const accountId = session?.accountId ?? null;
   const atom = accountId
-    ? managedRelayQueryManager.environmentsAtom(accountId)
-    : EMPTY_ENVIRONMENTS_ATOM;
+    ? managedRelayQueryManager.machinesAtom(accountId)
+    : EMPTY_MACHINES_ATOM;
   const result = useAtomValue(atom);
   const snapshot = readManagedRelaySnapshotState(result);
   useEffect(() => {
     if (snapshot.error) {
-      console.error("[t3-cloud] Relay environment listing failed", {
+      console.error("[t3-cloud] Relay machine listing failed", {
         message: snapshot.error,
         traceId: snapshot.errorTraceId,
       });
@@ -77,7 +77,7 @@ export function useManagedRelayEnvironments() {
   }, [snapshot.error, snapshot.errorTraceId]);
   const refresh = () => {
     if (accountId) {
-      managedRelayQueryManager.refreshEnvironments(appAtomRegistry, accountId);
+      managedRelayQueryManager.refreshMachines(appAtomRegistry, accountId);
     }
   };
 

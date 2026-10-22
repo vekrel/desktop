@@ -2,7 +2,7 @@ import {
   scopedProjectKey,
   scopedThreadKey,
   scopeProjectRef,
-} from "@vekrel/client-runtime/environment";
+} from "@vekrel/client-runtime/machine";
 import type { DesktopPreviewFavicon, ScopedProjectRef, ScopedThreadRef } from "@vekrel/contracts";
 import * as Option from "effect/Option";
 import { create } from "zustand";
@@ -15,7 +15,7 @@ import { usePreparedConnection } from "~/state/session";
 import {
   BROWSER_FAVICON_MAX_ALIASES_PER_ENTRY,
   type BrowserFaviconEntry,
-  canCanonicalizeFaviconWithoutEnvironment,
+  canCanonicalizeFaviconWithoutMachine,
   evictExcessFavicons,
   faviconKey,
   faviconStorageLocation,
@@ -180,7 +180,7 @@ export function registerFaviconProjectForThread(
   const state = useBrowserFaviconStore.getState();
   const current = state.projectRefByThreadKey[threadKey];
   if (
-    current?.environmentId === projectRef.environmentId &&
+    current?.machineId === projectRef.machineId &&
     current.projectId === projectRef.projectId
   ) {
     return;
@@ -198,8 +198,8 @@ export function registerFaviconProjectForThread(
 export function useFaviconProjectRefForThread(threadRef: ScopedThreadRef): ScopedProjectRef | null {
   const shell = useQuietThreadShell(threadRef);
   const shellProjectId = shell?.projectId ?? null;
-  const environmentId = threadRef.environmentId;
-  const shellProjectRef = shellProjectId ? scopeProjectRef(environmentId, shellProjectId) : null;
+  const machineId = threadRef.machineId;
+  const shellProjectRef = shellProjectId ? scopeProjectRef(machineId, shellProjectId) : null;
   const registered = useBrowserFaviconStore(
     (state) => state.projectRefByThreadKey[scopedThreadKey(threadRef)] ?? null,
   );
@@ -209,7 +209,7 @@ export function useFaviconProjectRefForThread(threadRef: ScopedThreadRef): Scope
 export function recordFaviconForProject(
   projectRef: ScopedProjectRef,
   favicon: DesktopPreviewFavicon,
-  environmentHostname: string | null,
+  machineHostname: string | null,
 ): boolean {
   if (!isStorableFaviconDataUrl(favicon.dataUrl) || !isValidFaviconCapturedAt(favicon.capturedAt)) {
     return false;
@@ -217,7 +217,7 @@ export function recordFaviconForProject(
   const location = faviconStorageLocation(
     scopedProjectKey(projectRef),
     favicon.pageUrl,
-    environmentHostname,
+    machineHostname,
   );
   if (!location) return false;
   const state = useBrowserFaviconStore.getState();
@@ -236,7 +236,7 @@ export function recordFaviconForThread(
   threadRef: ScopedThreadRef,
   favicon: DesktopPreviewFavicon,
   projectRef: ScopedProjectRef | null,
-  environmentHostname: string | undefined,
+  machineHostname: string | undefined,
 ): boolean {
   if (
     !isStorableFaviconDataUrl(favicon.dataUrl) ||
@@ -245,9 +245,9 @@ export function recordFaviconForThread(
   )
     return false;
   const hostname =
-    environmentHostname !== undefined
-      ? environmentHostname
-      : canCanonicalizeFaviconWithoutEnvironment(favicon.pageUrl)
+    machineHostname !== undefined
+      ? machineHostname
+      : canCanonicalizeFaviconWithoutMachine(favicon.pageUrl)
         ? null
         : undefined;
   if (
@@ -269,7 +269,7 @@ export function recordFaviconForThread(
 export function flushPendingFaviconsForThread(
   threadRef: ScopedThreadRef,
   projectRef: ScopedProjectRef,
-  environmentHostname: string | undefined,
+  machineHostname: string | undefined,
 ): boolean {
   const threadKey = scopedThreadKey(threadRef);
   const pending = useBrowserFaviconStore.getState().pendingByThreadKey[threadKey];
@@ -277,9 +277,9 @@ export function flushPendingFaviconsForThread(
   const remaining = Object.fromEntries(
     Object.entries(pending).filter(([, favicon]) => {
       const hostname =
-        environmentHostname !== undefined
-          ? environmentHostname
-          : canCanonicalizeFaviconWithoutEnvironment(favicon.pageUrl)
+        machineHostname !== undefined
+          ? machineHostname
+          : canCanonicalizeFaviconWithoutMachine(favicon.pageUrl)
             ? null
             : undefined;
       return hostname === undefined || !recordFaviconForProject(projectRef, favicon, hostname);
@@ -296,12 +296,12 @@ export function flushPendingFaviconsForThread(
 
 export function useFaviconForThreadUrl(threadRef: ScopedThreadRef, url: string): string | null {
   const projectRef = useFaviconProjectRefForThread(threadRef);
-  const preparedConnection = usePreparedConnection(threadRef.environmentId);
-  const environmentHostname = Option.isSome(preparedConnection)
+  const preparedConnection = usePreparedConnection(threadRef.machineId);
+  const machineHostname = Option.isSome(preparedConnection)
     ? new URL(preparedConnection.value.httpBaseUrl).hostname
     : null;
   return useBrowserFaviconStore((state) =>
-    lookupFavicon(state.byKey, projectRef, url, environmentHostname),
+    lookupFavicon(state.byKey, projectRef, url, machineHostname),
   );
 }
 
@@ -309,10 +309,10 @@ export function lookupFavicon(
   byKey: Record<string, BrowserFaviconEntry>,
   projectRef: ScopedProjectRef | null,
   url: string,
-  environmentHostname: string | null,
+  machineHostname: string | null,
 ): string | null {
   const key = projectRef
-    ? faviconKey(scopedProjectKey(projectRef), url, environmentHostname)
+    ? faviconKey(scopedProjectKey(projectRef), url, machineHostname)
     : null;
   if (!key) return null;
   const direct = byKey[key];

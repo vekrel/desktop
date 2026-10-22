@@ -1,4 +1,4 @@
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
 import {
   getNewProjectRepository,
   type NewProjectPublishTarget,
@@ -7,12 +7,12 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@vekrel/client-runtime/state/runtime";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 import { waitForProject } from "~/state/entities";
-import { projectEnvironment } from "~/state/projects";
-import { sourceControlEnvironment } from "~/state/sourceControl";
+import { projectMachine } from "~/state/projects";
+import { sourceControlMachine } from "~/state/sourceControl";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { useNewThreadHandler } from "./useHandleNewThread";
 
@@ -23,20 +23,20 @@ function errorMessage(error: unknown): string {
 }
 
 export function useNewProject() {
-  const createNew = useAtomCommand(projectEnvironment.createNew, { reportFailure: false });
-  const publishRepository = useAtomCommand(sourceControlEnvironment.publishRepository, {
+  const createNew = useAtomCommand(projectMachine.createNew, { reportFailure: false });
+  const publishRepository = useAtomCommand(sourceControlMachine.publishRepository, {
     reportFailure: false,
   });
   const handleNewThread = useNewThreadHandler();
 
   const publishNewRepository = async (input: {
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly workspaceRoot: string;
     readonly target: NewProjectPublishTarget;
   }) => {
     const { label } = input.target.definition;
     const result = await publishRepository({
-      environmentId: input.environmentId,
+      machineId: input.machineId,
       input: {
         cwd: input.workspaceRoot,
         provider: input.target.definition.kind,
@@ -66,12 +66,12 @@ export function useNewProject() {
   };
 
   return async (input: {
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly name: string;
     readonly publishTo: NewProjectPublishTarget | null;
   }): Promise<boolean> => {
     const result = await createNew({
-      environmentId: input.environmentId,
+      machineId: input.machineId,
       input: { name: input.name },
     });
     if (result._tag === "Failure") {
@@ -101,13 +101,13 @@ export function useNewProject() {
     );
     if (input.publishTo) {
       void publishNewRepository({
-        environmentId: input.environmentId,
+        machineId: input.machineId,
         workspaceRoot,
         target: input.publishTo,
       });
     }
 
-    const projectRef = scopeProjectRef(input.environmentId, projectId);
+    const projectRef = scopeProjectRef(input.machineId, projectId);
     // Drafts key off the project's stored path, so wait for the create event
     // to reach the store before opening one.
     const project = await waitForProject(projectRef).catch((error: unknown) => {

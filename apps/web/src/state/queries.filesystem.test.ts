@@ -1,4 +1,4 @@
-import { AuthFilesystemReadScope, EnvironmentId, type AuthSessionState } from "@vekrel/contracts";
+import { AuthFilesystemReadScope, MachineId, type AuthSessionState } from "@vekrel/contracts";
 import { beforeEach, expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
@@ -25,27 +25,27 @@ vi.mock("react", async (importOriginal) => ({
   useState: <A>(value: A) => [value, vi.fn()],
 }));
 vi.mock("./session", () => ({
-  environmentSession: { sessionStateAtom: () => state.sessionAtom },
+  machineSession: { sessionStateAtom: () => state.sessionAtom },
 }));
 vi.mock("./presentation", () => ({
-  useEnvironmentPresentation: () => ({
+  useMachinePresentation: () => ({
     isReady: true,
     presentation: { connection: { phase: state.phase, error: null } },
   }),
 }));
 vi.mock("./projects", () => ({
-  projectEnvironment: { searchEntries: () => state.searchAtom },
+  projectMachine: { searchEntries: () => state.searchAtom },
   projectContentSearch: (target: unknown) => {
     state.contentRequests(target);
     return state.contentAtom;
   },
 }));
 vi.mock("../rpc/atomRegistry", () => ({ appAtomRegistry: {} }));
-vi.mock("./orchestration", () => ({ orchestrationEnvironment: {} }));
-vi.mock("./threads", () => ({ useEnvironmentThread: vi.fn() }));
-vi.mock("./vcs", () => ({ vcsEnvironment: {} }));
+vi.mock("./orchestration", () => ({ orchestrationMachine: {} }));
+vi.mock("./threads", () => ({ useMachineThread: vi.fn() }));
+vi.mock("./vcs", () => ({ vcsMachine: {} }));
 vi.mock("./query", () => ({
-  useEnvironmentQuery: (atom: unknown) => ({
+  useMachineQuery: (atom: unknown) => ({
     data:
       atom === state.sessionAtom
         ? state.session
@@ -70,7 +70,7 @@ vi.mock("./query", () => ({
 import { useProjectContentSearch } from "./queries";
 
 const target = {
-  environmentId: EnvironmentId.make("test-environment"),
+  machineId: MachineId.make("test-machine"),
   cwd: "/repo",
   query: "src",
 };

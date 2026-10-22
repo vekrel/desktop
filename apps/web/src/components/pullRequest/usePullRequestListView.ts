@@ -1,7 +1,7 @@
 import { parsePullRequestQuery } from "@vekrel/client-runtime/pull-request-query";
 import {
   pullRequestHostOf,
-  type EnvironmentId,
+  type MachineId,
   type ProjectId,
   type PullRequestInvolvement,
   type PullRequestListFilters,
@@ -11,8 +11,8 @@ import {
 } from "@vekrel/contracts";
 import { useState } from "react";
 
-import { useAllEnvironmentShellsBootstrapped, useProjects } from "~/state/entities";
-import { useEnvironments } from "~/state/environments";
+import { useAllMachineShellsBootstrapped, useProjects } from "~/state/entities";
+import { useMachines } from "~/state/machines";
 import { useDebouncedValue } from "~/state/queries";
 import {
   applyPullRequestOverrides,
@@ -22,14 +22,14 @@ import {
   pullRequestDiffStatKey,
   pullRequestEntryKey,
   pullRequestEntryViewer,
-  pullRequestEnvironmentSetKey,
+  pullRequestMachineSetKey,
   pullRequestHostActions,
   resolveProjectScope,
-  resolveQueryEnvironmentIds,
-  resolveSelectedEnvironmentId,
+  resolveQueryMachineIds,
+  resolveSelectedMachineId,
   sortPullRequestGroups,
   withDiffStat,
-  type EnvironmentPullRequestEntry,
+  type MachinePullRequestEntry,
   type MergedPullRequestList,
   type PullRequestDiffStats,
   type PullRequestGroup,
@@ -37,64 +37,64 @@ import {
 } from "./pullRequestList.logic";
 import type { PullRequestExpectedHost } from "./PullRequestListFilters";
 import type { PullRequestListPreferences, PullRequestListSort } from "./pullRequestListPreferences";
-import { assignProjectsToEnvironments } from "./pullRequestProjectAssignment.logic";
+import { assignProjectsToMachines } from "./pullRequestProjectAssignment.logic";
 import { pullRequestFilterProjects } from "./pullRequestProjectFilter.logic";
 import { pullRequestListEntryId } from "./pullRequestListGroups.logic";
 
 export interface PullRequestsSearch extends PullRequestListPreferences {
-  readonly environmentId?: EnvironmentId;
+  readonly machineId?: MachineId;
   readonly projectId?: ProjectId;
   readonly host?: string;
   readonly repository?: string;
   readonly number?: number;
   readonly selectedProjectId?: ProjectId;
   readonly selectedHost?: string;
-  readonly selectedEnvironmentId?: EnvironmentId;
+  readonly selectedMachineId?: MachineId;
 }
 
 const SEARCH_DEBOUNCE_MS = 250;
 
 /** Which servers and projects the page reads, from the URL and what this client knows. */
 export function usePullRequestScope(search: PullRequestsSearch) {
-  const { environments } = useEnvironments();
+  const { machines } = useMachines();
   const allProjects = useProjects();
-  const projectsKnown = useAllEnvironmentShellsBootstrapped();
-  const capableEnvironments = environments
+  const projectsKnown = useAllMachineShellsBootstrapped();
+  const capableMachines = machines
     .filter(
-      (environment) => environment.serverConfig?.environment.capabilities.pullRequests === true,
+      (machine) => machine.serverConfig?.machine.capabilities.pullRequests === true,
     )
-    .toSorted((left, right) => left.environmentId.localeCompare(right.environmentId));
-  const scopedEnvironmentId =
-    capableEnvironments.find((environment) => environment.environmentId === search.environmentId)
-      ?.environmentId ?? null;
-  const knownEnvironmentIds = new Set(environments.map((environment) => environment.environmentId));
-  const environmentIds = capableEnvironments
+    .toSorted((left, right) => left.machineId.localeCompare(right.machineId));
+  const scopedMachineId =
+    capableMachines.find((machine) => machine.machineId === search.machineId)
+      ?.machineId ?? null;
+  const knownMachineIds = new Set(machines.map((machine) => machine.machineId));
+  const machineIds = capableMachines
     .filter(
-      (environment) =>
-        scopedEnvironmentId === null || environment.environmentId === scopedEnvironmentId,
+      (machine) =>
+        scopedMachineId === null || machine.machineId === scopedMachineId,
     )
-    .map((environment) => environment.environmentId);
-  const environmentKey = pullRequestEnvironmentSetKey(environmentIds);
-  const capabilityKnown = environments.some((environment) => environment.serverConfig !== null);
-  const pullRequestsSupported = environmentIds.length > 0;
+    .map((machine) => machine.machineId);
+  const machineKey = pullRequestMachineSetKey(machineIds);
+  const capabilityKnown = machines.some((machine) => machine.serverConfig !== null);
+  const pullRequestsSupported = machineIds.length > 0;
   const projects = allProjects.filter(
-    (project) => !project.isScratch && environmentIds.includes(project.environmentId),
+    (project) => !project.isScratch && machineIds.includes(project.machineId),
   );
-  const environmentLabels = new Map(
-    environments.map((environment) => [environment.environmentId, environment.label] as const),
+  const machineLabels = new Map(
+    machines.map((machine) => [machine.machineId, machine.label] as const),
   );
   const scopedProjectId = resolveProjectScope(search.projectId, projects, projectsKnown);
-  const scopedProject = findScopedProject(projects, scopedEnvironmentId, scopedProjectId);
-  const scopedProjects = pullRequestFilterProjects(projects, environmentLabels, scopedProject);
+  const scopedProject = findScopedProject(projects, scopedMachineId, scopedProjectId);
+  const scopedProjects = pullRequestFilterProjects(projects, machineLabels, scopedProject);
 
   const selectedHost = search.selectedHost ?? search.host;
   // A named server still connecting is kept named rather than falling back: falling back while it
   // is merely not ready yet would resolve the project against whatever other server has answered,
   // which can be the wrong one where two servers share a project id.
-  const selectedEnvironmentId = resolveSelectedEnvironmentId(
-    search.selectedEnvironmentId,
-    knownEnvironmentIds,
-    scopedEnvironmentId,
+  const selectedMachineId = resolveSelectedMachineId(
+    search.selectedMachineId,
+    knownMachineIds,
+    scopedMachineId,
   );
   const projectForRepository =
     search.repository === undefined
@@ -102,51 +102,51 @@ export function usePullRequestScope(search: PullRequestsSearch) {
       : findProjectForRepository(projects, {
           repository: search.repository,
           host: selectedHost,
-          selectedEnvironmentId,
+          selectedMachineId,
           scopedProjectId,
-          scopedEnvironmentId,
+          scopedMachineId,
         });
   const linkedProjectId = resolveProjectScope(search.selectedProjectId, projects, projectsKnown);
   const selectedProject =
     linkedProjectId === undefined && search.repository !== undefined
       ? projectForRepository
-      : findScopedProject(projects, selectedEnvironmentId, linkedProjectId ?? scopedProjectId);
-  const queryEnvironmentIds = resolveQueryEnvironmentIds(
-    environmentIds,
+      : findScopedProject(projects, selectedMachineId, linkedProjectId ?? scopedProjectId);
+  const queryMachineIds = resolveQueryMachineIds(
+    machineIds,
     projects,
     scopedProject,
     scopedProjectId,
     projectsKnown,
   );
-  const environmentQueries = ((): ReadonlyArray<{
-    readonly environmentId: EnvironmentId;
+  const machineQueries = ((): ReadonlyArray<{
+    readonly machineId: MachineId;
     readonly projectIds?: ReadonlyArray<ProjectId>;
   }> => {
-    const plain = queryEnvironmentIds.map((environmentId) => ({ environmentId }));
+    const plain = queryMachineIds.map((machineId) => ({ machineId }));
     if (!projectsKnown || scopedProjectId !== undefined) return plain;
-    const assignment = assignProjectsToEnvironments(
+    const assignment = assignProjectsToMachines(
       projects,
-      queryEnvironmentIds,
-      queryEnvironmentIds[0],
+      queryMachineIds,
+      queryMachineIds[0],
     );
-    const totals = new Map<EnvironmentId, number>();
+    const totals = new Map<MachineId, number>();
     for (const project of projects) {
-      totals.set(project.environmentId, (totals.get(project.environmentId) ?? 0) + 1);
+      totals.set(project.machineId, (totals.get(project.machineId) ?? 0) + 1);
     }
-    return queryEnvironmentIds.flatMap((environmentId) => {
-      const projectIds = assignment.get(environmentId);
+    return queryMachineIds.flatMap((machineId) => {
+      const projectIds = assignment.get(machineId);
       if (projectIds === undefined) return [];
-      if (projectIds.length === (totals.get(environmentId) ?? 0)) return [{ environmentId }];
-      return [{ environmentId, projectIds }];
+      if (projectIds.length === (totals.get(machineId) ?? 0)) return [{ machineId }];
+      return [{ machineId, projectIds }];
     });
   })();
-  const assignmentKey = environmentQueries
-    .map(({ environmentId, projectIds }) => `${environmentId}#${projectIds?.join("+") ?? "*"}`)
+  const assignmentKey = machineQueries
+    .map(({ machineId, projectIds }) => `${machineId}#${projectIds?.join("+") ?? "*"}`)
     .join("|");
   const linkedSelection =
     search.repository && search.number && selectedProject
       ? {
-          environmentId: selectedProject.environmentId,
+          machineId: selectedProject.machineId,
           repository: search.repository,
           number: search.number,
           projectId: selectedProject.id,
@@ -165,19 +165,19 @@ export function usePullRequestScope(search: PullRequestsSearch) {
   })();
 
   return {
-    capableEnvironments,
-    scopedEnvironmentId,
-    environmentKey,
+    capableMachines,
+    scopedMachineId,
+    machineKey,
     capabilityKnown,
     pullRequestsSupported,
     projects,
-    environmentLabels,
+    machineLabels,
     scopedProjectId,
     scopedProject,
     scopedProjects,
     selectedProject,
-    queryEnvironmentIds,
-    environmentQueries,
+    queryMachineIds,
+    machineQueries,
     assignmentKey,
     linkedSelection,
     expectedHosts,
@@ -236,7 +236,7 @@ export function usePullRequestDisplayGroups({
 }: {
   answered: MergedPullRequestList | null;
   host: string | undefined;
-  groups: ReadonlyArray<PullRequestGroup<EnvironmentPullRequestEntry>>;
+  groups: ReadonlyArray<PullRequestGroup<MachinePullRequestEntry>>;
   statsByRow: PullRequestDiffStats;
   overrides: ReadonlyMap<string, PullRequestListOverride>;
   state: PullRequestListState;

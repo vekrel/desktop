@@ -1,4 +1,4 @@
-import type { EnvironmentId, PullRequestRef, ScopedThreadRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef, ScopedThreadRef } from "@vekrel/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 import { type MouseEvent } from "react";
@@ -11,12 +11,12 @@ import { useOpenLink } from "../browser/useOpenLink";
 import { useClientSettings } from "../hooks/useSettings";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
 import { useRightPanelStore } from "../rightPanelStore";
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { readProjects, useProjects } from "../state/entities";
-import { environmentServerConfigsAtom, serverEnvironment } from "../state/server";
-import { usePrimaryEnvironmentId } from "../state/environments";
+import { machineServerConfigsAtom, serverMachine } from "../state/server";
+import { usePrimaryMachineId } from "../state/machines";
 
 export {
   parseChangeRequestUrl,
@@ -28,9 +28,9 @@ export {
 } from "@vekrel/shared/changeRequestUrl";
 
 export function findProjectForChangeRequest(
-  projects: ReadonlyArray<EnvironmentProject>,
+  projects: ReadonlyArray<MachineProject>,
   link: ChangeRequestLink,
-): EnvironmentProject | undefined {
+): MachineProject | undefined {
   return projects.find((project) => {
     const identity = project.repositoryIdentity;
     return (
@@ -41,26 +41,26 @@ export function findProjectForChangeRequest(
 }
 
 export function resolvePullRequestPreviewTarget({
-  environmentId,
+  machineId,
   projects,
   pullRequestsEnabled,
   url,
 }: {
-  environmentId: EnvironmentId | null;
-  projects: ReadonlyArray<EnvironmentProject>;
+  machineId: MachineId | null;
+  projects: ReadonlyArray<MachineProject>;
   pullRequestsEnabled: boolean;
   url: string;
-}): { environmentId: EnvironmentId; input: PullRequestRef } | null {
-  if (!pullRequestsEnabled || environmentId === null) return null;
+}): { machineId: MachineId; input: PullRequestRef } | null {
+  if (!pullRequestsEnabled || machineId === null) return null;
   const parsed = parseChangeRequestUrl(url);
   if (parsed === null) return null;
   const project = findProjectForChangeRequest(
-    projects.filter((candidate) => candidate.environmentId === environmentId),
+    projects.filter((candidate) => candidate.machineId === machineId),
     parsed,
   );
   if (project === undefined) return null;
   return {
-    environmentId,
+    machineId,
     input: {
       projectId: project.id,
       host: parsed.authority ?? parsed.host,
@@ -70,21 +70,21 @@ export function resolvePullRequestPreviewTarget({
   };
 }
 
-export function usePullRequestPreviewTarget(environmentId: EnvironmentId | null, url: string) {
+export function usePullRequestPreviewTarget(machineId: MachineId | null, url: string) {
   const projects = useProjects();
-  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
+  const serverConfig = useAtomValue(serverMachine.configValueAtom(machineId));
   return resolvePullRequestPreviewTarget({
-    environmentId,
+    machineId,
     projects,
-    pullRequestsEnabled: serverConfig?.environment.capabilities.pullRequests === true,
+    pullRequestsEnabled: serverConfig?.machine.capabilities.pullRequests === true,
     url,
   });
 }
 
 export function findProjectOnChangeRequestHost(
-  projects: ReadonlyArray<EnvironmentProject>,
+  projects: ReadonlyArray<MachineProject>,
   link: ChangeRequestLink,
-): EnvironmentProject | undefined {
+): MachineProject | undefined {
   const own = findProjectForChangeRequest(projects, link);
   if (own !== undefined) return own;
   return projects.find((project) => {
@@ -113,38 +113,38 @@ export function useOpenChangeRequestLink(
   >,
   targetUrl: string,
   targetThreadRef?: ScopedThreadRef,
-  targetEnvironmentId?: EnvironmentId,
+  targetMachineId?: MachineId,
 ) => boolean {
   const navigate = useNavigate();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const primaryMachineId = usePrimaryMachineId();
   const openInApp = useClientSettings((settings) => settings.pullRequestLinksOpenInApp);
-  return (event, targetUrl, targetThreadRef, targetEnvironmentId) => {
+  return (event, targetUrl, targetThreadRef, targetMachineId) => {
     if (!openInApp || shouldOpenPullRequestExternally(event)) return false;
     // Read at click time: every provider status push replaces the config map, and
     // subscribing would hand every rendered link a new handler. Projects likewise, so a
     // link can resolve against a snapshot that arrived after this handler was built.
-    const serverConfigs = appAtomRegistry.get(environmentServerConfigsAtom);
+    const serverConfigs = appAtomRegistry.get(machineServerConfigsAtom);
     const allProjects = readProjects();
     const resolvedThreadRef = targetThreadRef ?? threadRef;
     const resolvedPanelRef = panelRef ?? resolvedThreadRef;
     const parsed = parseChangeRequestUrl(targetUrl);
     if (parsed === null) return false;
-    const reads = (environmentId: string) =>
-      serverConfigs.get(environmentId as EnvironmentId)?.environment.capabilities.pullRequests ===
+    const reads = (machineId: string) =>
+      serverConfigs.get(machineId as MachineId)?.machine.capabilities.pullRequests ===
       true;
-    // Beside a thread the panel reads on that thread's environment, so a project from another
-    // one could not be read there whatever its remote says: two environments can hold the same
+    // Beside a thread the panel reads on that thread's machine, so a project from another
+    // one could not be read there whatever its remote says: two machines can hold the same
     // repository, and handing the panel the wrong one's id opens a surface that never loads.
     const projects = resolvedThreadRef
-      ? allProjects.filter((project) => project.environmentId === resolvedThreadRef.environmentId)
-      : targetEnvironmentId
-        ? allProjects.filter((project) => project.environmentId === targetEnvironmentId)
+      ? allProjects.filter((project) => project.machineId === resolvedThreadRef.machineId)
+      : targetMachineId
+        ? allProjects.filter((project) => project.machineId === targetMachineId)
         : allProjects
-            .filter((project) => reads(project.environmentId))
+            .filter((project) => reads(project.machineId))
             .toSorted(
               (left, right) =>
-                Number(right.environmentId === primaryEnvironmentId) -
-                Number(left.environmentId === primaryEnvironmentId),
+                Number(right.machineId === primaryMachineId) -
+                Number(left.machineId === primaryMachineId),
             );
     const exactProject = findProjectForChangeRequest(projects, parsed);
     const project =
@@ -153,27 +153,27 @@ export function useOpenChangeRequestLink(
         ? findProjectOnChangeRequestHost(
             projects.filter(
               (candidate) =>
-                serverConfigs.get(candidate.environmentId)?.environment.capabilities
+                serverConfigs.get(candidate.machineId)?.machine.capabilities
                   .threadPullRequests === true,
             ),
             parsed,
           )
         : undefined);
-    if (project === undefined || !reads(project.environmentId)) return false;
+    if (project === undefined || !reads(project.machineId)) return false;
     const repository =
-      serverConfigs.get(project.environmentId)?.environment.capabilities.threadPullRequests === true
+      serverConfigs.get(project.machineId)?.machine.capabilities.threadPullRequests === true
         ? parsed.repository
         : (sourceControlRepositorySelector(project.repositoryIdentity) ?? parsed.repository);
     event.preventDefault();
     event.stopPropagation();
     if (resolvedPanelRef) {
       useRightPanelStore.getState().openPullRequest(resolvedPanelRef, {
-        // The standalone PR panel has a synthetic ref; each tab keeps its real environment.
-        ...(resolvedPanelRef.environmentId === project.environmentId
+        // The standalone PR panel has a synthetic ref; each tab keeps its real machine.
+        ...(resolvedPanelRef.machineId === project.machineId
           ? {}
-          : { environmentId: project.environmentId }),
+          : { machineId: project.machineId }),
         projectId: project.id,
-        ...(serverConfigs.get(project.environmentId)?.environment.capabilities
+        ...(serverConfigs.get(project.machineId)?.machine.capabilities
           .threadPullRequests === true
           ? { host: parsed.authority ?? parsed.host }
           : {}),
@@ -192,7 +192,7 @@ export function useOpenChangeRequestLink(
             number: parsed.number,
             selectedHost: parsed.authority ?? parsed.host,
             selectedProjectId: project.id,
-            selectedEnvironmentId: project.environmentId,
+            selectedMachineId: project.machineId,
           }),
           replace: true,
         });
@@ -208,7 +208,7 @@ export function useOpenChangeRequestLink(
         number: parsed.number,
         selectedHost: parsed.authority ?? parsed.host,
         selectedProjectId: project.id,
-        selectedEnvironmentId: project.environmentId,
+        selectedMachineId: project.machineId,
       },
     });
     return true;

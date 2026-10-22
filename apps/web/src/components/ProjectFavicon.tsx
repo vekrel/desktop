@@ -1,4 +1,4 @@
-import type { EnvironmentProject } from "@vekrel/client-runtime/state/shell";
+import type { MachineProject } from "@vekrel/client-runtime/state/shell";
 import {
   getProjectFaviconResourceKey,
   isProjectFaviconFallbackUrl,
@@ -31,8 +31,8 @@ function DynamicProjectIconFallback() {
 // Every surface must pass the project record itself (or a snapshot spread from it)
 // so the saved title, favicon and icon override always travel together.
 export type ProjectFaviconProject = Pick<
-  EnvironmentProject,
-  "environmentId" | "workspaceRoot" | "title" | "faviconPath" | "projectIcon"
+  MachineProject,
+  "machineId" | "workspaceRoot" | "title" | "faviconPath" | "projectIcon"
 >;
 export function ProjectFavicon(input: {
   project: ProjectFaviconProject;
@@ -42,7 +42,7 @@ export function ProjectFavicon(input: {
   const { project } = input;
   const src = useAtomValue(
     projectFaviconUrlAtom({
-      environmentId: project.environmentId,
+      machineId: project.machineId,
       cwd: project.workspaceRoot,
       faviconPath: project.faviconPath,
     }),
@@ -96,7 +96,7 @@ export function ProjectFavicon(input: {
   }
 
   const cacheKey = getProjectFaviconResourceKey(
-    project.environmentId,
+    project.machineId,
     project.workspaceRoot,
     project.faviconPath,
   );

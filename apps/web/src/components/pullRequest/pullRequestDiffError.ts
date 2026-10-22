@@ -9,6 +9,6 @@ export function describePullRequestDiffError(error: string, providerName: string
 
   return {
     title: "Couldn't load the changes",
-    description: `The environment couldn't load this pull request's diff. Try again, or view the changes on ${providerName}.`,
+    description: `The machine couldn't load this pull request's diff. Try again, or view the changes on ${providerName}.`,
   };
 }

@@ -1,4 +1,4 @@
-import { EnvironmentId, type ThreadPullRequestLink } from "@vekrel/contracts";
+import { MachineId, type ThreadPullRequestLink } from "@vekrel/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -56,7 +56,7 @@ describe("surface shortcut typing contexts", () => {
 });
 
 describe("pull request tab snapshots", () => {
-  const environmentId = EnvironmentId.make("local");
+  const machineId = MachineId.make("local");
   const link: ThreadPullRequestLink = {
     host: "github.com",
     repository: "acme/api",
@@ -67,14 +67,14 @@ describe("pull request tab snapshots", () => {
     stack: null,
     snapshot: null,
   };
-  it("keeps unknown linked state authoritative and scopes matches to environment and host", () => {
-    const threads = [{ environmentId, pullRequests: [link] }];
-    expect(resolvePullRequestTabLink(threads, environmentId, "github.com", link)).toBe(link);
+  it("keeps unknown linked state authoritative and scopes matches to machine and host", () => {
+    const threads = [{ machineId, pullRequests: [link] }];
+    expect(resolvePullRequestTabLink(threads, machineId, "github.com", link)).toBe(link);
     expect(
-      resolvePullRequestTabLink(threads, EnvironmentId.make("remote"), "github.com", link),
+      resolvePullRequestTabLink(threads, MachineId.make("remote"), "github.com", link),
     ).toBeUndefined();
     expect(
-      resolvePullRequestTabLink(threads, environmentId, "github.enterprise.test", link),
+      resolvePullRequestTabLink(threads, machineId, "github.enterprise.test", link),
     ).toBeUndefined();
   });
   it("uses the newest snapshot when several threads link the same PR", () => {
@@ -90,8 +90,8 @@ describe("pull request tab snapshots", () => {
     const newer = { ...link, snapshot };
     expect(
       resolvePullRequestTabLink(
-        [{ environmentId, pullRequests: [link, newer] }],
-        environmentId,
+        [{ machineId, pullRequests: [link, newer] }],
+        machineId,
         "github.com",
         link,
       ),

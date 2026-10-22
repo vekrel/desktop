@@ -1,4 +1,4 @@
-import type { EnvironmentId, ThreadId, TurnItemId } from "@vekrel/contracts";
+import type { MachineId, ThreadId, TurnItemId } from "@vekrel/contracts";
 import {
   makeMcpAppHost,
   McpAppHostRefusal,
@@ -30,7 +30,7 @@ import { Button } from "~/components/ui/button";
 import { isElectron } from "~/env";
 import { cn } from "~/lib/utils";
 import { useTurnItemDetail } from "~/state/queries";
-import { mcpAppEnvironment } from "~/state/mcpApps";
+import { mcpAppMachine } from "~/state/mcpApps";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { observeResize } from "~/lib/observeResize";
 
@@ -63,7 +63,7 @@ function saveBlob(blob: Blob, name: string) {
 }
 
 export function McpAppFrame(props: {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly threadId: ThreadId;
   readonly conversationThreadId: ThreadId;
   readonly itemId: TurnItemId;
@@ -101,8 +101,8 @@ export function McpAppFrame(props: {
     disposition: "inline" as const,
     renderIntent: "mcp-app" as const,
   };
-  const asset = useAssetUrlState(props.environmentId, resource);
-  const refreshAsset = useAssetUrlRefresh(props.environmentId, resource);
+  const asset = useAssetUrlState(props.machineId, resource);
+  const refreshAsset = useAssetUrlRefresh(props.machineId, resource);
   // The frame keeps its first URL: a re-minted one would reload the app. A
   // cached URL near expiry is minted afresh first, since a frame cannot report
   // a failed load.
@@ -126,7 +126,7 @@ export function McpAppFrame(props: {
   }, [src, cachedUrl, cachedExpiresAt, refreshAsset]);
 
   const detail = useTurnItemDetail({
-    environmentId: props.environmentId,
+    machineId: props.machineId,
     threadId: props.threadId,
     itemId: props.itemId,
     revision: props.revision,
@@ -143,10 +143,10 @@ export function McpAppFrame(props: {
         }
       : undefined;
 
-  const callTool = useAtomCommand(mcpAppEnvironment.callTool, { reportFailure: false });
-  const toolInfo = useAtomCommand(mcpAppEnvironment.toolInfo, { reportFailure: false });
-  const readResource = useAtomCommand(mcpAppEnvironment.readResource, { reportFailure: false });
-  const updateModelContext = useAtomCommand(mcpAppEnvironment.updateModelContext, {
+  const callTool = useAtomCommand(mcpAppMachine.callTool, { reportFailure: false });
+  const toolInfo = useAtomCommand(mcpAppMachine.toolInfo, { reportFailure: false });
+  const readResource = useAtomCommand(mcpAppMachine.readResource, { reportFailure: false });
+  const updateModelContext = useAtomCommand(mcpAppMachine.updateModelContext, {
     reportFailure: false,
   });
   const [toolDefinition, setToolDefinition] = useState<unknown>(undefined);
@@ -225,7 +225,7 @@ export function McpAppFrame(props: {
     let cancelled = false;
     void latest.current
       .toolInfo({
-        environmentId: props.environmentId,
+        machineId: props.machineId,
         input: { threadId: props.threadId, itemId: props.itemId, name: app.tool },
       })
       .then((info) => {
@@ -236,7 +236,7 @@ export function McpAppFrame(props: {
     return () => {
       cancelled = true;
     };
-  }, [props.environmentId, props.threadId, props.itemId, app.tool]);
+  }, [props.machineId, props.threadId, props.itemId, app.tool]);
   // The bridge belongs to the captured document. A frame that navigates keeps
   // its window, so a second load stops the app rather than letting a page T3
   // never served pose as it.
@@ -294,8 +294,8 @@ export function McpAppFrame(props: {
     };
     const target = () => frameRef.current?.contentWindow ?? null;
     const scope = () => {
-      const { environmentId, threadId, itemId } = latest.current.props;
-      return { environmentId, input: { threadId, itemId } };
+      const { machineId, threadId, itemId } = latest.current.props;
+      return { machineId, input: { threadId, itemId } };
     };
     const host = makeMcpAppHost({
       app,
@@ -305,8 +305,8 @@ export function McpAppFrame(props: {
       post: (message) => target()?.postMessage(message, "*"),
       hostContext,
       callTool: async ({ name, arguments: args }) => {
-        const { environmentId, input } = scope();
-        const info = await latest.current.toolInfo({ environmentId, input: { ...input, name } });
+        const { machineId, input } = scope();
+        const info = await latest.current.toolInfo({ machineId, input: { ...input, name } });
         if (info._tag !== "Success") throw commandFailure(info);
         if (!info.value.callable) throw new McpAppHostRefusal("This app cannot call that tool.");
         if (!info.value.readOnly) {
@@ -316,16 +316,16 @@ export function McpAppFrame(props: {
           if (approved !== true) throw new McpAppHostRefusal("Declined by the user.");
         }
         const result = await latest.current.callTool({
-          environmentId,
+          machineId,
           input: { ...input, name, arguments: args },
         });
         if (result._tag !== "Success") throw commandFailure(result);
         return result.value;
       },
       readResource: async ({ uri }) => {
-        const { environmentId, input } = scope();
+        const { machineId, input } = scope();
         const result = await latest.current.readResource({
-          environmentId,
+          machineId,
           input: { ...input, uri },
         });
         if (result._tag !== "Success") throw commandFailure(result);
@@ -345,9 +345,9 @@ export function McpAppFrame(props: {
         await send(text);
       },
       updateModelContext: async (context) => {
-        const { environmentId, input } = scope();
+        const { machineId, input } = scope();
         const result = await latest.current.updateModelContext({
-          environmentId,
+          machineId,
           input: {
             ...input,
             ...context,
@@ -382,9 +382,9 @@ export function McpAppFrame(props: {
           if (file._tag === "embedded") {
             bytes = file.bytes;
           } else {
-            const { environmentId, input } = scope();
+            const { machineId, input } = scope();
             const read = await latest.current.readResource({
-              environmentId,
+              machineId,
               input: { ...input, uri: file.uri },
             });
             if (read._tag !== "Success") throw commandFailure(read);

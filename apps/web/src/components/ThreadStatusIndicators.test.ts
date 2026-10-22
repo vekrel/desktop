@@ -484,7 +484,7 @@ describe("threadChangeRequestSnapshotsAtom", () => {
   it.effect("retains snapshots while sidebar and chat consumers are unmounted", () =>
     Effect.gen(function* () {
       const registry = AtomRegistry.make();
-      const threadKey = "environment-1:thread-1";
+      const threadKey = "machine-1:thread-1";
       const snapshot = snapshotFor("feature/current", mergedFeaturePr());
 
       const unmount = registry.mount(threadChangeRequestSnapshotsAtom);

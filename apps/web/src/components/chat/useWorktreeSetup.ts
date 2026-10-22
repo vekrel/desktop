@@ -1,6 +1,6 @@
 import type { ThreadStructure } from "@vekrel/client-runtime/state/shell";
 import type {
-  EnvironmentId,
+  MachineId,
   RunId,
   ScopedThreadRef,
   ThreadId,
@@ -9,10 +9,10 @@ import type {
 import { workspacePreparationRetryRunIds } from "@vekrel/client-runtime/state/turn-item-presentation";
 import { useState } from "react";
 import { useStableCallback } from "../../hooks/useStableCallback";
-import { useEnvironmentQuery } from "../../state/query";
-import { threadEnvironment } from "../../state/threads";
+import { useMachineQuery } from "../../state/query";
+import { threadMachine } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { vcsEnvironment } from "../../state/vcs";
+import { vcsMachine } from "../../state/vcs";
 import { useTerminalUiStateStore } from "../../terminalUiStateStore";
 import type { Thread } from "../../types";
 import { resolveVisibleWorktreeSetup, resolveWorktreeSetupProgress } from "../ChatView.logic";
@@ -52,14 +52,14 @@ export function useWorktreeSetup(input: {
     sendQueuesBehindSetup,
     followUpSent,
   } = input;
-  const cancelWorktreeSetup = useAtomCommand(vcsEnvironment.cancelWorktreeSetup, {
+  const cancelWorktreeSetup = useAtomCommand(vcsMachine.cancelWorktreeSetup, {
     reportFailure: false,
   });
-  const retryWorkspacePreparation = useAtomCommand(threadEnvironment.retryWorkspacePreparation);
+  const retryWorkspacePreparation = useAtomCommand(threadMachine.retryWorkspacePreparation);
   const storeEnsureTerminal = useTerminalUiStateStore((state) => state.ensureTerminal);
   // The thread a send is setting up, recorded by begin() before the server knows it.
   const [startedSetup, setStartedSetup] = useState<{
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly threadId: ThreadId;
     readonly ownerKey: string;
   } | null>(null);
@@ -68,16 +68,16 @@ export function useWorktreeSetup(input: {
   // gap until the settled activity arrives on the thread projection.
   const [heldSnapshot, setHeldSnapshot] = useState<WorktreeSetupSnapshot | null>(null);
   const started = startedSetup !== null && startedSetup.ownerKey === ownerKey;
-  // Keep the sending environment during local draft setup; revisiting a
+  // Keep the sending machine during local draft setup; revisiting a
   // canonical thread subscribes by its durable identity.
   const target = started ? startedSetup : routeThreadRef;
   const runPreparing = activityRun?.status === "preparing";
-  const snapshotQuery = useEnvironmentQuery(
+  const snapshotQuery = useMachineQuery(
     started ||
       (activeThread?.id === routeThreadRef.threadId &&
         (localPreparing || runPreparing || activeThread.worktreePath !== null))
-      ? vcsEnvironment.worktreeSetup({
-          environmentId: target.environmentId,
+      ? vcsMachine.worktreeSetup({
+          machineId: target.machineId,
           input: { threadId: target.threadId },
         })
       : null,
@@ -146,14 +146,14 @@ export function useWorktreeSetup(input: {
 
   /** Records the thread a send is about to set up; null when the send needs none. */
   const begin = useStableCallback(
-    (thread: { readonly environmentId: EnvironmentId; readonly threadId: ThreadId } | null) =>
+    (thread: { readonly machineId: MachineId; readonly threadId: ThreadId } | null) =>
       setStartedSetup(thread === null ? null : { ...thread, ownerKey }),
   );
   /** Cancels a running setup. Resolves true once the server cancelled it. */
   const cancel = useStableCallback(async () => {
     if (!worktreeSetup || worktreeSetup.phase !== "running") return false;
     const result = await cancelWorktreeSetup({
-      environmentId: target.environmentId,
+      machineId: target.machineId,
       input: { threadId: worktreeSetup.threadId },
     });
     return result._tag === "Success" && result.value.cancelled;
@@ -163,7 +163,7 @@ export function useWorktreeSetup(input: {
     if (!threadRef || retryingWorkspacePreparationRunIds.has(runId)) return;
     retryingWorkspacePreparationRunIds.add(runId);
     void retryWorkspacePreparation({
-      environmentId: threadRef.environmentId,
+      machineId: threadRef.machineId,
       input: { threadId: threadRef.threadId, runId },
     }).finally(() => retryingWorkspacePreparationRunIds.delete(runId));
   });

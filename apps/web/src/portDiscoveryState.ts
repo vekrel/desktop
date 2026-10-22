@@ -2,13 +2,13 @@ import {
   CONFIGURED_LOCAL_SERVER_URLS_MAX_ITEMS,
   PREVIEW_URL_MAX_LENGTH,
   type DiscoveredLocalServer,
-  type EnvironmentId,
+  type MachineId,
   type ThreadId,
 } from "@vekrel/contracts";
 import { isLoopbackHost } from "@vekrel/shared/preview";
 
-import { previewEnvironment } from "./state/preview";
-import { useEnvironmentQuery } from "./state/query";
+import { previewMachine } from "./state/preview";
+import { useMachineQuery } from "./state/query";
 
 const EMPTY_PORTS: ReadonlyArray<DiscoveredLocalServer> = Object.freeze([]);
 
@@ -41,22 +41,22 @@ export function boundConfiguredLocalServerUrls(
 }
 
 function useDiscoveredPorts(
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   configuredUrls?: ReadonlyArray<string>,
 ): ReadonlyArray<DiscoveredLocalServer> {
-  return useDiscoveredPortsState(environmentId, configuredUrls).servers;
+  return useDiscoveredPortsState(machineId, configuredUrls).servers;
 }
 
 export function useDiscoveredPortsState(
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   configuredUrls?: ReadonlyArray<string>,
 ): DiscoveredPortsState {
   const boundedConfiguredUrls = boundConfiguredLocalServerUrls(configuredUrls);
-  const query = useEnvironmentQuery(
-    environmentId === null
+  const query = useMachineQuery(
+    machineId === null
       ? null
-      : previewEnvironment.discoveredServers({
-          environmentId,
+      : previewMachine.discoveredServers({
+          machineId,
           input: boundedConfiguredUrls.length ? { configuredUrls: boundedConfiguredUrls } : {},
         }),
   );
@@ -67,10 +67,10 @@ export function useDiscoveredPortsState(
 }
 
 export function useThreadDiscoveredPorts(input: {
-  readonly environmentId: EnvironmentId | null;
+  readonly machineId: MachineId | null;
   readonly threadId: ThreadId | null;
 }): ReadonlyArray<DiscoveredLocalServer> {
-  const ports = useDiscoveredPorts(input.environmentId);
+  const ports = useDiscoveredPorts(input.machineId);
   return input.threadId
     ? ports.filter((port) => port.terminal?.threadId === input.threadId)
     : EMPTY_PORTS;

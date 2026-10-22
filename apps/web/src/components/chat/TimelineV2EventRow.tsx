@@ -1,7 +1,7 @@
 import { WorkLogBlock } from "./WorkLog";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { useAtomValue } from "@effect/atom-react";
-import { environmentThreadDetails } from "../../state/threads";
+import { machineThreadDetails } from "../../state/threads";
 import {
   subagentGroupSummary,
   summarizeSubagentStatuses,
@@ -14,7 +14,7 @@ import { V2ItemInspector } from "./V2ItemInspector";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "../ui/collapsible";
 import {
   isV2LifecycleItem,
-  EnvironmentSubagentAvatar,
+  MachineSubagentAvatar,
   SubagentElapsed,
   V2LifecycleRow,
 } from "./V2LifecycleRow";
@@ -31,7 +31,7 @@ export function V2EventTimelineRow({ row }: { row: Extract<TimelineRow, { kind: 
   if (item.type === "secret_request") {
     return (
       <SecretRequestCard
-        environmentId={ctx.activeThreadEnvironmentId}
+        machineId={ctx.activeThreadMachineId}
         item={item}
         visibility={visibility}
       />
@@ -40,7 +40,7 @@ export function V2EventTimelineRow({ row }: { row: Extract<TimelineRow, { kind: 
   if (isV2LifecycleItem(item)) {
     return (
       <V2LifecycleRow
-        environmentId={ctx.activeThreadEnvironmentId}
+        machineId={ctx.activeThreadMachineId}
         item={item}
         resourceSummary={row.resourceSummary}
         createdAt={row.createdAt}
@@ -119,7 +119,7 @@ export function V2EventTimelineRow({ row }: { row: Extract<TimelineRow, { kind: 
           <div className={presentation.detail ? "mt-2" : undefined}>
             <V2ItemInspector
               projectedItem={row.projectedItem}
-              environmentId={ctx.activeThreadEnvironmentId}
+              machineId={ctx.activeThreadMachineId}
               cwd={ctx.markdownCwd}
               workspaceRoot={ctx.workspaceRoot}
               onOpenThread={ctx.onOpenThread}
@@ -194,7 +194,7 @@ export function V2EventTimelineRow({ row }: { row: Extract<TimelineRow, { kind: 
           <div className="mt-2">
             <V2ItemInspector
               projectedItem={row.projectedItem}
-              environmentId={ctx.activeThreadEnvironmentId}
+              machineId={ctx.activeThreadMachineId}
               cwd={ctx.markdownCwd}
               workspaceRoot={ctx.workspaceRoot}
               onOpenThread={ctx.onOpenThread}
@@ -223,8 +223,8 @@ const V2SubagentGroup = memo(function V2SubagentGroup({
     item.type === "subagent" ? [item] : [],
   );
   const liveAgents = useAtomValue(
-    environmentThreadDetails.threadAtom(
-      scopeThreadRef(ctx.activeThreadEnvironmentId, row.projectedItem.item.threadId),
+    machineThreadDetails.threadAtom(
+      scopeThreadRef(ctx.activeThreadMachineId, row.projectedItem.item.threadId),
     ),
     (thread) => thread?.projection.subagents,
   );
@@ -261,9 +261,9 @@ const V2SubagentGroup = memo(function V2SubagentGroup({
         >
           <span className="flex shrink-0 items-center -space-x-1.5" aria-hidden>
             {agents.slice(0, 3).map(({ item, status }) => (
-              <EnvironmentSubagentAvatar
+              <MachineSubagentAvatar
                 key={item.id}
-                environmentId={ctx.activeThreadEnvironmentId}
+                machineId={ctx.activeThreadMachineId}
                 providerInstanceId={item.providerInstanceId}
                 driver={item.driver}
                 status={agents.length === 1 ? status : undefined}
@@ -303,7 +303,7 @@ const V2SubagentGroup = memo(function V2SubagentGroup({
             <div className="mt-1 mb-1 rounded-lg border border-border/60 bg-card/30 p-1">
               {members.map((item) => (
                 <V2LifecycleRow
-                  environmentId={ctx.activeThreadEnvironmentId}
+                  machineId={ctx.activeThreadMachineId}
                   key={item.id}
                   item={item}
                   createdAt={row.createdAt}

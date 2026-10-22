@@ -1,9 +1,9 @@
 import { type ScopedThreadRef } from "@vekrel/contracts";
 import { resolveThreadLastVisitedAt } from "../Sidebar.logic";
-import { scopedThreadKey, scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey, scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { useEffect, useRef } from "react";
 import { useUiStateStore } from "../../uiStateStore";
-import { threadEnvironment } from "../../state/threads";
+import { threadMachine } from "../../state/threads";
 import { useThreadShell } from "../../state/entities";
 import { useAtomCommand } from "../../state/use-atom-command";
 
@@ -22,7 +22,7 @@ export function ThreadVisitWatermark(props: { readonly threadRef: ScopedThreadRe
   const activeThreadLocalLastVisitedAt = useUiStateStore(
     (store) => store.threadLastVisitedAtById[threadKey],
   );
-  const visitThreadMutation = useAtomCommand(threadEnvironment.visit, { reportFailure: false });
+  const visitThreadMutation = useAtomCommand(threadMachine.visit, { reportFailure: false });
   const lastDispatchedVisitRef = useRef<string | null>(null);
   const lastVisitDispatchAtRef = useRef(0);
 
@@ -48,7 +48,7 @@ export function ThreadVisitWatermark(props: { readonly threadRef: ScopedThreadRe
         lastDispatchedVisitRef.current = dispatchKey;
         lastVisitDispatchAtRef.current = Date.now();
         void visitThreadMutation({
-          environmentId: serverThread.environmentId,
+          machineId: serverThread.machineId,
           input: { threadId: serverThread.id, visitedAt: serverThread.updatedAt },
         });
       };
@@ -68,14 +68,14 @@ export function ThreadVisitWatermark(props: { readonly threadRef: ScopedThreadRe
     }
 
     markThreadVisited(
-      scopedThreadKey(scopeThreadRef(serverThread.environmentId, serverThread.id)),
+      scopedThreadKey(scopeThreadRef(serverThread.machineId, serverThread.id)),
       serverThread.updatedAt,
     );
   }, [
     activeThreadLocalLastVisitedAt,
     markThreadVisited,
     threadKey,
-    serverThread?.environmentId,
+    serverThread?.machineId,
     serverThread?.id,
     serverThread?.lastVisitedAt,
     serverThread?.latestRun?.completedAt,

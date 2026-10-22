@@ -13,38 +13,38 @@ import { ChevronRightIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { APP_VERSION } from "~/branding";
-import { environmentCatalog } from "~/connection/catalog";
-import { type EnvironmentPresentation, useRelayEnvironmentDiscovery } from "~/state/environments";
+import { machineCatalog } from "~/connection/catalog";
+import { type MachinePresentation, useRelayMachineDiscovery } from "~/state/machines";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 
 /**
- * What failed on the way to an environment, or null while it is connected, off,
+ * What failed on the way to a machine, or null while it is connected, off,
  * or has not failed. Reads the supervisor state itself so callers that only need
  * the headline do not re-render on every attempt.
  */
-export function useConnectionDiagnosis(environment: EnvironmentPresentation) {
-  const environmentId = environment.environmentId;
+export function useConnectionDiagnosis(machine: MachinePresentation) {
+  const machineId = machine.machineId;
   const state = Option.getOrElse(
-    AsyncResult.value(useAtomValue(environmentCatalog.stateAtom(environmentId))),
+    AsyncResult.value(useAtomValue(machineCatalog.stateAtom(machineId))),
     () => AVAILABLE_CONNECTION_STATE,
   );
-  const relayStatus = useRelayEnvironmentDiscovery().environments.get(environmentId)?.status;
-  const routes = connectionRoutes(environment.entry);
-  const relayOnly = routes.length === 1 && hasRelayRoute(environment.entry);
-  const phase = environment.connection.phase;
+  const relayStatus = useRelayMachineDiscovery().machines.get(machineId)?.status;
+  const routes = connectionRoutes(machine.entry);
+  const relayOnly = routes.length === 1 && hasRelayRoute(machine.entry);
+  const phase = machine.connection.phase;
   const diagnosis =
-    environment.entry.enabled && phase !== "connected" && phase !== "unsupported"
+    machine.entry.enabled && phase !== "connected" && phase !== "unsupported"
       ? presentConnectionDiagnosis({
-          hostLabel: environment.label,
+          hostLabel: machine.label,
           state,
           via: relayOnly ? "relay" : "direct",
           // With a direct route as well, the relay's health says nothing about the route in use.
           relayStatus: relayOnly ? Option.getOrNull(relayStatus ?? Option.none()) : null,
           clientVersion: APP_VERSION,
-          serverVersion: environment.serverConfig?.environment.serverVersion,
+          serverVersion: machine.serverConfig?.machine.serverVersion,
         })
       : null;
   return { diagnosis, state, relayOnly };
@@ -52,11 +52,11 @@ export function useConnectionDiagnosis(environment: EnvironmentPresentation) {
 
 /** The failure headline alone, for banners outside Settings. */
 export function ConnectionDiagnosisHeadline({
-  environment,
+  machine,
 }: {
-  readonly environment: EnvironmentPresentation;
+  readonly machine: MachinePresentation;
 }) {
-  return useConnectionDiagnosis(environment).diagnosis?.headline ?? null;
+  return useConnectionDiagnosis(machine).diagnosis?.headline ?? null;
 }
 
 const HOP_MARK = { ok: "✓", failed: "✕", unchecked: "–" } as const;

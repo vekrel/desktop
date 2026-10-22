@@ -1,4 +1,4 @@
-import { EnvironmentId, MessageId, ThreadId } from "@vekrel/contracts";
+import { MachineId, MessageId, ThreadId } from "@vekrel/contracts";
 import { serializeAssistantCitation } from "@vekrel/shared/assistantCitations";
 import type { ComponentProps } from "react";
 import { expect, it, vi } from "vite-plus/test";
@@ -26,7 +26,7 @@ vi.mock(import("../../state/use-atom-command"), async (importOriginal) => ({
 
 vi.mock(import("../../assets/assetUrls"), async (importOriginal) => ({
   ...(await importOriginal()),
-  useAssetUrls: ((_environmentId: never, resources: ReadonlyArray<{ attachmentId: string }>) =>
+  useAssetUrls: ((_machineId: never, resources: ReadonlyArray<{ attachmentId: string }>) =>
     resources.map((resource) => `https://assets.test/${resource.attachmentId}`)) as never,
 }));
 
@@ -39,7 +39,7 @@ function setup() {
 }
 
 const baseProps = {
-  environmentId: "environment:test" as never,
+  machineId: "machine:test" as never,
   optimisticMessages: [],
   threadId: "thread:test" as never,
   editingRunId: null,
@@ -56,7 +56,7 @@ it("previews assistant quotes as readable text and preserves the citation when e
   const quotedText = "Cache the parsed config per worktree.";
   const quote = serializeAssistantCitation({
     version: 1,
-    environmentId: EnvironmentId.make("environment:test"),
+    machineId: MachineId.make("machine:test"),
     threadId: ThreadId.make("thread:test"),
     messageId: MessageId.make("message:assistant"),
     text: quotedText,

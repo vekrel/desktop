@@ -1,4 +1,4 @@
-import { scopeThreadRef, scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef, scopedThreadKey } from "@vekrel/client-runtime/machine";
 import { ThreadId } from "@vekrel/contracts";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
@@ -9,8 +9,8 @@ import {
 } from "./terminalUiStateStore";
 
 const THREAD_ID = ThreadId.make("thread-1");
-const THREAD_REF = scopeThreadRef("environment-a" as never, THREAD_ID);
-const OTHER_THREAD_REF = scopeThreadRef("environment-b" as never, THREAD_ID);
+const THREAD_REF = scopeThreadRef("machine-a" as never, THREAD_ID);
+const OTHER_THREAD_REF = scopeThreadRef("machine-b" as never, THREAD_ID);
 
 describe("terminalUiStateStore actions", () => {
   beforeEach(() => {
@@ -47,7 +47,7 @@ describe("terminalUiStateStore actions", () => {
     ]);
   });
 
-  it("keeps state isolated per environment when raw thread ids collide", () => {
+  it("keeps state isolated per machine when raw thread ids collide", () => {
     const store = useTerminalUiStateStore.getState();
     store.setTerminalOpen(THREAD_REF, true);
     store.newTerminal(OTHER_THREAD_REF, "env-b-terminal");

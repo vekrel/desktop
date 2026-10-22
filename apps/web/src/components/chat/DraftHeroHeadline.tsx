@@ -1,7 +1,7 @@
 import type { DraftId } from "~/composerDraftStore";
 import { composerDraftHasUserContent, useComposerDraftStore } from "~/composerDraftStore";
-import { resolveEnvironmentMachineKind, type ScopedProjectRef } from "@vekrel/contracts";
-import { scopedProjectKey, scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { resolveMachineKind, type ScopedProjectRef } from "@vekrel/contracts";
+import { scopedProjectKey, scopeProjectRef } from "@vekrel/client-runtime/machine";
 import { isScratchProject } from "@vekrel/client-runtime/state/projects";
 import { FolderPlusIcon } from "lucide-react";
 import { useAtomValue } from "@effect/atom-react";
@@ -21,11 +21,11 @@ import {
 import {
   buildSidebarProjectPickerEntries,
   buildSidebarProjectSnapshots,
-  projectGroupsSpanEnvironments,
+  projectGroupsSpanMachines,
 } from "~/sidebarProjectGrouping";
 import { useProjects, useThreadShells } from "~/state/entities";
-import { useEnvironments, usePrimaryEnvironmentId } from "~/state/environments";
-import { ProjectEnvironmentBadge } from "../ProjectEnvironmentBadge";
+import { useMachines, usePrimaryMachineId } from "~/state/machines";
+import { ProjectMachineBadge } from "../ProjectMachineBadge";
 import { ProjectFavicon } from "../ProjectFavicon";
 import { sortLogicalProjectsForSidebar } from "../Sidebar.logic";
 import {
@@ -64,8 +64,8 @@ export function DraftHeroHeadline({
 }: DraftHeroHeadlineProps) {
   const projects = useProjects();
   const threads = useThreadShells();
-  const { environments } = useEnvironments();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const { machines } = useMachines();
+  const primaryMachineId = usePrimaryMachineId();
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const projectSortOrder = useClientSettings((settings) => settings.sidebarProjectSortOrder);
   const setLogicalProjectDraftThreadId = useComposerDraftStore(
@@ -75,33 +75,33 @@ export function DraftHeroHeadline({
   const applyStickyState = useComposerDraftStore((store) => store.applyStickyState);
   const setModelSelection = useComposerDraftStore((store) => store.setModelSelection);
   const openAddProject = () => openCommandPalette({ open: "add-project" });
-  const { scratchEnvironmentId, scratchWorkspaceRootFor, openScratchProject } = useScratchProject();
+  const { scratchMachineId, scratchWorkspaceRootFor, openScratchProject } = useScratchProject();
   const openProjectDraft = useNewThreadHandler();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
   const pickerFilter = useComboboxFilter();
 
-  const environmentLabelById = new Map(
-    environments.map((environment) => [environment.environmentId, environment.label] as const),
+  const machineLabelById = new Map(
+    machines.map((machine) => [machine.machineId, machine.label] as const),
   );
   const projectGroups = sortLogicalProjectsForSidebar(
     buildSidebarProjectSnapshots({
       projects,
       settings: projectGroupingSettings,
-      primaryEnvironmentId,
-      resolveEnvironmentLabel: (environmentId) => environmentLabelById.get(environmentId) ?? null,
+      primaryMachineId,
+      resolveMachineLabel: (machineId) => machineLabelById.get(machineId) ?? null,
     }),
     threads,
     projectSortOrder,
   );
-  const showProjectEnvironments = projectGroupsSpanEnvironments(projectGroups);
-  const environmentMachineById = new Map(
-    environments.map(
-      (environment) =>
+  const showProjectMachines = projectGroupsSpanMachines(projectGroups);
+  const machineById = new Map(
+    machines.map(
+      (machine) =>
         [
-          environment.environmentId,
-          resolveEnvironmentMachineKind(environment.serverConfig),
+          machine.machineId,
+          resolveMachineKind(machine.serverConfig),
         ] as const,
     ),
   );
@@ -127,20 +127,20 @@ export function DraftHeroHeadline({
   const shouldShowProjectMenu = canChooseProject;
   const menuEntries = projectPickerEntries.filter(
     ({ targetProject }) =>
-      !isScratchProject(targetProject, scratchWorkspaceRootFor(targetProject.environmentId)),
+      !isScratchProject(targetProject, scratchWorkspaceRootFor(targetProject.machineId)),
   );
   const activeProject =
     activeProjectRef === null
       ? null
       : (projects.find(
           (project) =>
-            project.environmentId === activeProjectRef.environmentId &&
+            project.machineId === activeProjectRef.machineId &&
             project.id === activeProjectRef.projectId,
         ) ?? null);
-  const scratchTargetEnvironmentId = scratchEnvironmentId(
-    activeProjectRef?.environmentId ?? primaryEnvironmentId,
+  const scratchTargetMachineId = scratchMachineId(
+    activeProjectRef?.machineId ?? primaryMachineId,
   );
-  const scratchWorkspaceRoot = scratchWorkspaceRootFor(scratchTargetEnvironmentId);
+  const scratchWorkspaceRoot = scratchWorkspaceRootFor(scratchTargetMachineId);
   const isScratchDraft =
     activeProject !== null && isScratchProject(activeProject, scratchWorkspaceRoot);
 
@@ -161,10 +161,10 @@ export function DraftHeroHeadline({
 
   // The picker can change the draft's target while the no-project home is
   // still being opened; a stale continuation must not retarget it again.
-  const latestTargetRef = useRef({ draftId, activeProjectKey, scratchTargetEnvironmentId });
+  const latestTargetRef = useRef({ draftId, activeProjectKey, scratchTargetMachineId });
   useEffect(() => {
-    latestTargetRef.current = { draftId, activeProjectKey, scratchTargetEnvironmentId };
-  }, [activeProjectKey, scratchTargetEnvironmentId, draftId]);
+    latestTargetRef.current = { draftId, activeProjectKey, scratchTargetMachineId };
+  }, [activeProjectKey, scratchTargetMachineId, draftId]);
   // An empty draft instead opens the chosen project's own draft, like starting a new thread there:
   // moving it would replace that draft and strand whatever it holds, such as the browser tabs of
   // the no-project draft.
@@ -175,25 +175,25 @@ export function DraftHeroHeadline({
     latestTargetRef.current = {
       draftId,
       activeProjectKey: logicalProjectKey,
-      scratchTargetEnvironmentId: project.environmentId,
+      scratchTargetMachineId: project.machineId,
     };
     const currentDraft = getComposerDraft(draftId);
     if (!composerDraftHasUserContent(currentDraft)) {
-      void openProjectDraft(scopeProjectRef(project.environmentId, project.id));
+      void openProjectDraft(scopeProjectRef(project.machineId, project.id));
       return;
     }
     setLogicalProjectDraftThreadId(
       logicalProjectKey,
-      scopeProjectRef(project.environmentId, project.id),
+      scopeProjectRef(project.machineId, project.id),
       draftId,
     );
     if (!hasExplicitComposerModelSelection(currentDraft)) {
       applyStickyState(draftId);
-      const environmentSettings = environments.find(
-        (environment) => environment.environmentId === project.environmentId,
+      const machineSettings = machines.find(
+        (machine) => machine.machineId === project.machineId,
       )?.serverConfig?.settings;
-      const defaultModelSelection = environmentSettings
-        ? resolveProjectSettings(environmentSettings, project.id, project).settings
+      const defaultModelSelection = machineSettings
+        ? resolveProjectSettings(machineSettings, project.id, project).settings
             .defaultModelSelection
         : project.defaultModelSelection;
       if (defaultModelSelection) {
@@ -204,17 +204,17 @@ export function DraftHeroHeadline({
     }
   };
   const startScratch = async (): Promise<boolean> => {
-    if (scratchTargetEnvironmentId === null || isScratchDraft) {
+    if (scratchTargetMachineId === null || isScratchDraft) {
       return false;
     }
-    const requested = { draftId, activeProjectKey, scratchTargetEnvironmentId };
-    const project = await openScratchProject(scratchTargetEnvironmentId);
+    const requested = { draftId, activeProjectKey, scratchTargetMachineId };
+    const project = await openScratchProject(scratchTargetMachineId);
     const latest = latestTargetRef.current;
     if (
       !project ||
       latest.draftId !== requested.draftId ||
       latest.activeProjectKey !== requested.activeProjectKey ||
-      latest.scratchTargetEnvironmentId !== requested.scratchTargetEnvironmentId
+      latest.scratchTargetMachineId !== requested.scratchTargetMachineId
     ) {
       return false;
     }
@@ -292,11 +292,11 @@ export function DraftHeroHeadline({
                   </TooltipTrigger>
                   <TooltipPopup side="top">{item.label}</TooltipPopup>
                 </Tooltip>
-                {entry && showProjectEnvironments ? (
-                  <ProjectEnvironmentBadge
+                {entry && showProjectMachines ? (
+                  <ProjectMachineBadge
                     group={entry.group}
-                    primaryEnvironmentId={primaryEnvironmentId}
-                    machineByEnvironmentId={environmentMachineById}
+                    primaryMachineId={primaryMachineId}
+                    machineByMachineId={machineById}
                   />
                 ) : null}
               </ComboboxItem>

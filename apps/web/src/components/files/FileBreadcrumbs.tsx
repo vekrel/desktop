@@ -1,6 +1,6 @@
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { Spinner } from "~/components/ui/spinner";
-import type { EnvironmentId } from "@vekrel/contracts";
+import type { MachineId } from "@vekrel/contracts";
 import { ArrowLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -33,7 +33,7 @@ import { useProjectEntriesQuery } from "./projectFilesQueryState";
 
 interface FileBreadcrumbsProps {
   readonly cwd: string;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   /** Moves the browser to a folder crumb; `""` is the workspace root. */
   readonly onNavigateFolder: (relativePath: string) => void;
   readonly onOpenFile: (relativePath: string) => void;
@@ -77,7 +77,7 @@ function BreadcrumbMenuContent(props: {
   readonly cwd: string;
   readonly currentFilePath: string;
   readonly directoryPath: string;
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly onDirectoryChange: (path: string) => void;
   readonly onOpenChange: (open: boolean) => void;
   readonly onOpenFile: (path: string) => void;
@@ -85,11 +85,11 @@ function BreadcrumbMenuContent(props: {
   readonly rootPath: string;
   readonly workspaceMutationId: string | null;
 }) {
-  const entriesQuery = useProjectEntriesQuery(props.environmentId, props.cwd, props.directoryPath);
+  const entriesQuery = useProjectEntriesQuery(props.machineId, props.cwd, props.directoryPath);
   useWorkspaceMutationRefresh({
     mutationId: props.workspaceMutationId,
     refresh: entriesQuery.refresh,
-    resourceKey: `files:${props.environmentId}:${props.cwd}`,
+    resourceKey: `files:${props.machineId}:${props.cwd}`,
   });
   const { resolvedTheme } = useTheme();
   const entries = entriesQuery.data?.entries ?? [];
@@ -253,7 +253,7 @@ function FolderContentsMenu(props: FileBreadcrumbsProps & { readonly crumb: File
           cwd={props.cwd}
           currentFilePath={props.relativePath}
           directoryPath={directoryPath}
-          environmentId={props.environmentId}
+          machineId={props.machineId}
           onDirectoryChange={setDirectoryPath}
           onOpenChange={handleOpenChange}
           onOpenFile={props.onOpenFile}

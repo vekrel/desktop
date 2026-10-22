@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
-  EnvironmentId,
+  MachineId,
   ProviderDriverKind,
   ProviderInstanceId,
   type ServerProvider,
@@ -9,7 +9,7 @@ import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
 
 import {
-  buildLocalEnvironmentUpdateGroups,
+  buildLocalMachineUpdateGroups,
   canOneClickUpdateProviderCandidate,
   collectProviderUpdateOutcomeSnapshots,
   collectUpdatedProviderSnapshots,
@@ -21,9 +21,9 @@ import {
   isProviderUpdateCandidate,
   isProviderSettingsUpdateCandidate,
   providerUpdateNotificationKey,
-  resolveEnvironmentUpdateRowStatus,
-  type LocalEnvironmentProvidersInput,
-  type LocalEnvironmentUpdateGroup,
+  resolveMachineUpdateRowStatus,
+  type LocalMachineProvidersInput,
+  type LocalMachineUpdateGroup,
   type LocalProviderUpdateOutcome,
   type ProviderUpdateCandidate,
   type ProviderUpdateSidebarPillView,
@@ -363,11 +363,11 @@ describe("provider update launch notification logic", () => {
     const fulfilledOutcome = (
       isPrimary: boolean,
       snapshot: ServerProvider | null,
-      environment = "env",
+      machine = "env",
     ): PromiseSettledResult<LocalProviderUpdateOutcome> => ({
       status: "fulfilled",
       value: {
-        environmentId: environment as LocalProviderUpdateOutcome["environmentId"],
+        machineId: machine as LocalProviderUpdateOutcome["machineId"],
         isPrimary,
         driver: snapshot?.driver ?? driver("codex"),
         instanceId: snapshot?.instanceId ?? instanceId("codex"),
@@ -415,41 +415,41 @@ describe("provider update launch notification logic", () => {
     });
   });
 
-  describe("per-environment update grouping", () => {
-    const environment = (
+  describe("per-machine update grouping", () => {
+    const machine = (
       input: {
-        readonly environmentId: string;
+        readonly machineId: string;
         readonly providers: ReadonlyArray<ServerProvider>;
-      } & Partial<Omit<LocalEnvironmentProvidersInput, "environmentId" | "providers">>,
-    ): LocalEnvironmentProvidersInput => ({
-      environmentId: input.environmentId as EnvironmentId,
-      label: input.label ?? input.environmentId,
+      } & Partial<Omit<LocalMachineProvidersInput, "machineId" | "providers">>,
+    ): LocalMachineProvidersInput => ({
+      machineId: input.machineId as MachineId,
+      label: input.label ?? input.machineId,
       isPrimary: input.isPrimary ?? false,
       connectionState: input.connectionState ?? "ready",
       providers: input.providers,
     });
 
     it("flags settling while a secondary backend is still connecting", () => {
-      const result = buildLocalEnvironmentUpdateGroups([
-        environment({
-          environmentId: "env-windows",
+      const result = buildLocalMachineUpdateGroups([
+        machine({
+          machineId: "env-windows",
           isPrimary: true,
           providers: [provider({ driver: driver("codex") })],
         }),
-        environment({ environmentId: "env-wsl", connectionState: "connecting", providers: [] }),
+        machine({ machineId: "env-wsl", connectionState: "connecting", providers: [] }),
       ]);
 
       expect(result.isAnySettling).toBe(true);
       expect(
-        result.groups.find((group) => group.environmentId === ("env-wsl" as EnvironmentId))
+        result.groups.find((group) => group.machineId === ("env-wsl" as MachineId))
           ?.isSettling,
       ).toBe(true);
     });
   });
 
-  describe("resolveEnvironmentUpdateRowStatus", () => {
-    const group: LocalEnvironmentUpdateGroup = {
-      environmentId: "env-wsl" as EnvironmentId,
+  describe("resolveMachineUpdateRowStatus", () => {
+    const group: LocalMachineUpdateGroup = {
+      machineId: "env-wsl" as MachineId,
       label: "WSL",
       isPrimary: false,
       isSettling: false,
@@ -471,7 +471,7 @@ describe("provider update launch notification logic", () => {
 
     it("prefers a transport error", () => {
       expect(
-        resolveEnvironmentUpdateRowStatus({
+        resolveMachineUpdateRowStatus({
           group,
           error: "boom",
           result: succeededResult,
@@ -518,7 +518,7 @@ describe("getProviderUpdateRunToastView", () => {
     providerDriver: string,
     result: Parameters<typeof getProviderUpdateRunToastView>[0][number]["result"],
   ) => ({
-    environmentId: EnvironmentId.make(machineLabel),
+    machineId: MachineId.make(machineLabel),
     machineLabel,
     driver: driver(providerDriver),
     instanceId: instanceId(providerDriver),

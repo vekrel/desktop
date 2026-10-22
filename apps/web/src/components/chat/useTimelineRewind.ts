@@ -1,17 +1,17 @@
-import type { EnvironmentThreadShell, ThreadStructure } from "@vekrel/client-runtime/state/shell";
+import type { MachineThreadShell, ThreadStructure } from "@vekrel/client-runtime/state/shell";
 import type { ComposerThreadTarget } from "../../composerDraftStore";
 import type { ComposerHandleRef } from "../../composerHandleContext";
 import type { SessionPhase } from "../../types";
 import { useStableCallback } from "../../hooks/useStableCallback";
 import {
   AuthOrchestrationOperateScope,
-  type EnvironmentId,
+  type MachineId,
   type MessageId,
   type ScopedThreadRef,
   type ThreadId,
   type RunId,
 } from "@vekrel/contracts";
-import { scopeThreadRef } from "@vekrel/client-runtime/environment";
+import { scopeThreadRef } from "@vekrel/client-runtime/machine";
 import { useNavigate } from "@tanstack/react-router";
 import {
   isAtomCommandInterrupted,
@@ -23,23 +23,23 @@ import { type ChatMessage } from "../../types";
 import { newThreadId } from "~/lib/utils";
 import { buildThreadRouteParams } from "../../threadRoutes";
 import { useComposerDraftStore } from "../../composerDraftStore";
-import { threadEnvironment } from "../../state/threads";
+import { threadMachine } from "../../state/threads";
 import { waitForThreadShell } from "../../state/entities";
 import { openRevertConfirm } from "./ChatOverlayHosts";
-import { assetEnvironment } from "../../state/assets";
-import { readEnvironmentScope } from "../../state/session";
+import { assetMachine } from "../../state/assets";
+import { readMachineScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import { useAtomQueryRunner } from "../../state/use-atom-query-runner";
 import { rewindToMessage } from "./chatViewSend";
 import { makeThreadErrorSetter } from "../ChatView.logic";
 interface TimelineRewindInput {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly routeThreadRef: ScopedThreadRef;
   readonly routeThreadKey: string;
   readonly currentRouteThreadKeyRef: { readonly current: string | null };
   readonly serverProjection: ThreadStructure | null;
-  readonly activeThread: EnvironmentThreadShell | undefined;
+  readonly activeThread: MachineThreadShell | undefined;
   readonly timelineMessages: ReadonlyArray<ChatMessage>;
   readonly paintOnlyDisplayedTimeline: boolean;
   readonly phase: SessionPhase;
@@ -47,8 +47,8 @@ interface TimelineRewindInput {
   readonly isSendBusy: boolean;
   readonly isRevertingCheckpoint: boolean;
   readonly supportsConversationRollback: boolean;
-  readonly activeEnvironmentUnavailable: boolean;
-  readonly activeEnvironmentUnavailableLabel: string | null;
+  readonly activeMachineUnavailable: boolean;
+  readonly activeMachineUnavailableLabel: string | null;
   readonly promptRef: { current: string };
   readonly composerRef: ComposerHandleRef;
   readonly composerDraftTarget: ComposerThreadTarget;
@@ -61,7 +61,7 @@ interface TimelineRewindInput {
  */
 export function useTimelineRewind(input: TimelineRewindInput) {
   const {
-    environmentId,
+    machineId,
     routeThreadRef,
     routeThreadKey,
     currentRouteThreadKeyRef,
@@ -74,23 +74,23 @@ export function useTimelineRewind(input: TimelineRewindInput) {
     isSendBusy,
     isRevertingCheckpoint,
     supportsConversationRollback,
-    activeEnvironmentUnavailable,
-    activeEnvironmentUnavailableLabel,
+    activeMachineUnavailable,
+    activeMachineUnavailableLabel,
     promptRef,
     composerRef,
     composerDraftTarget,
     setThreadError,
   } = input;
   const navigate = useNavigate();
-  const createAttachmentAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, {
+  const createAttachmentAssetUrl = useAtomQueryRunner(assetMachine.createUrl, {
     reportFailure: false,
     refresh: true,
   });
 
-  const revertThreadCheckpoint = useOrchestrationCommand(threadEnvironment.revertCheckpoint, {
+  const revertThreadCheckpoint = useOrchestrationCommand(threadMachine.revertCheckpoint, {
     reportFailure: false,
   });
-  const forkThreadFromRun = useAtomCommand(threadEnvironment.forkFromRun, {
+  const forkThreadFromRun = useAtomCommand(threadMachine.forkFromRun, {
     reportFailure: false,
   });
 
@@ -104,7 +104,7 @@ export function useTimelineRewind(input: TimelineRewindInput) {
       !localApi ||
       !activeThread ||
       isRevertingCheckpoint ||
-      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)
+      !readMachineScope(machineId, AuthOrchestrationOperateScope)
     )
       return;
     const message = timelineMessages.find((message) => message.id === messageId);
@@ -117,10 +117,10 @@ export function useTimelineRewind(input: TimelineRewindInput) {
       );
       return;
     }
-    if (activeEnvironmentUnavailable && activeEnvironmentUnavailableLabel) {
+    if (activeMachineUnavailable && activeMachineUnavailableLabel) {
       setThreadError(
         activeThread.id,
-        `Reconnect ${activeEnvironmentUnavailableLabel} before reverting checkpoints.`,
+        `Reconnect ${activeMachineUnavailableLabel} before reverting checkpoints.`,
       );
       return;
     }
@@ -139,7 +139,7 @@ export function useTimelineRewind(input: TimelineRewindInput) {
     setThreadError(activeThread.id, null);
     const rewind = await rewindToMessage({
       message,
-      environmentId,
+      machineId,
       routeThreadRef,
       threadId: activeThread.id,
       turnCount,
@@ -180,10 +180,10 @@ export function useTimelineRewind(input: TimelineRewindInput) {
     readonly scopeId: string;
   }) => {
     if (!activeThread || isRevertingCheckpoint) return;
-    if (activeEnvironmentUnavailable && activeEnvironmentUnavailableLabel) {
+    if (activeMachineUnavailable && activeMachineUnavailableLabel) {
       setThreadError(
         activeThread.id,
-        `Reconnect ${activeEnvironmentUnavailableLabel} before reverting checkpoints.`,
+        `Reconnect ${activeMachineUnavailableLabel} before reverting checkpoints.`,
       );
       return;
     }
@@ -205,7 +205,7 @@ export function useTimelineRewind(input: TimelineRewindInput) {
     }));
     setThreadError(activeThread.id, null);
     const result = await revertThreadCheckpoint({
-      environmentId,
+      machineId,
       input: {
         threadId: activeThread.id,
         checkpointId: input.checkpointId,
@@ -230,11 +230,11 @@ export function useTimelineRewind(input: TimelineRewindInput) {
     readonly sourceThreadId: ThreadId;
     readonly runId: RunId;
   }) => {
-    if (!activeThread || activeEnvironmentUnavailable) return;
+    if (!activeThread || activeMachineUnavailable) return;
     const targetThreadId = newThreadId();
-    const targetThreadRef = scopeThreadRef(environmentId, targetThreadId);
+    const targetThreadRef = scopeThreadRef(machineId, targetThreadId);
     const result = await forkThreadFromRun({
-      environmentId,
+      machineId,
       input: {
         sourceThreadId: input.sourceThreadId,
         targetThreadId,
@@ -261,7 +261,7 @@ export function useTimelineRewind(input: TimelineRewindInput) {
       return;
     }
     await navigate({
-      to: "/$environmentId/$threadId",
+      to: "/$machineId/$threadId",
       params: buildThreadRouteParams(targetThreadRef),
     });
   };

@@ -1,5 +1,5 @@
-import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/environment";
-import { EnvironmentId, ProjectId, ThreadId } from "@vekrel/contracts";
+import { scopeProjectRef, scopeThreadRef } from "@vekrel/client-runtime/machine";
+import { MachineId, ProjectId, ThreadId } from "@vekrel/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { DraftId, useComposerDraftStore } from "../../composerDraftStore";
@@ -45,8 +45,8 @@ const storage = vi.hoisted(() => {
   return storage;
 });
 
-const environmentId = EnvironmentId.make("snap-shot-environment");
-const projectRef = scopeProjectRef(environmentId, ProjectId.make("snap-shot-project"));
+const machineId = MachineId.make("snap-shot-machine");
+const projectRef = scopeProjectRef(machineId, ProjectId.make("snap-shot-project"));
 
 // Tests stub globals and spy on module exports freely; disposing restores all of them.
 function setup(): Disposable {
@@ -95,7 +95,7 @@ describe("window capture target resolution", () => {
   it("follows a draft to its promoted server thread", () => {
     using _env = setup();
     const draftId = DraftId.make("snap-shot-draft");
-    const promotedRef = scopeThreadRef(environmentId, ThreadId.make("snap-shot-promoted-thread"));
+    const promotedRef = scopeThreadRef(machineId, ThreadId.make("snap-shot-promoted-thread"));
     const store = useComposerDraftStore.getState();
     store.setProjectDraftThreadId(projectRef, draftId, {
       threadId: ThreadId.make("snap-shot-draft-thread"),
@@ -107,9 +107,9 @@ describe("window capture target resolution", () => {
 });
 
 describe("open question delivery", () => {
-  const threadRef = scopeThreadRef(environmentId, ThreadId.make("question-thread"));
-  const first = questionAttachmentDraftId(environmentId, threadRef.threadId, "request-1", "q1");
-  const second = questionAttachmentDraftId(environmentId, threadRef.threadId, "request-1", "q2");
+  const threadRef = scopeThreadRef(machineId, ThreadId.make("question-thread"));
+  const first = questionAttachmentDraftId(machineId, threadRef.threadId, "request-1", "q1");
+  const second = questionAttachmentDraftId(machineId, threadRef.threadId, "request-1", "q2");
   const request = { draftId: first, requestKeys: [first, second] };
   const capture = {
     id: "12345678-1234-1234-1234-123456789abc",
@@ -208,7 +208,7 @@ describe("durable snapshot delivery", () => {
     "retains a capture on quota failure and retries without duplicates (staged: %s)",
     async (staged) => {
       using _env = setup();
-      const target = scopeThreadRef(environmentId, ThreadId.make("quota-thread"));
+      const target = scopeThreadRef(machineId, ThreadId.make("quota-thread"));
       const capture = {
         id: "12345678-1234-1234-1234-123456789abc",
         name: "window.png",
@@ -265,11 +265,11 @@ describe("durable snapshot delivery", () => {
 
 describe("snapshot destination ownership", () => {
   it.each(["unmount", "blur", "disabled animations"])(
-    "keeps the original environment and thread after %s",
+    "keeps the original machine and thread after %s",
     async (reason) => {
       using _env = setup();
-      const original = scopeThreadRef(environmentId, ThreadId.make("original"));
-      const next = scopeThreadRef(EnvironmentId.make("another-environment"), ThreadId.make("next"));
+      const original = scopeThreadRef(machineId, ThreadId.make("original"));
+      const next = scopeThreadRef(MachineId.make("another-machine"), ThreadId.make("next"));
       const targets = new Map<string, Promise<typeof original | null>>();
       let current = original;
       const resolveTarget = async () => current;

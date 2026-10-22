@@ -1,6 +1,6 @@
 import type { WorktreeSetupSnapshot } from "@vekrel/contracts";
 import {
-  type EnvironmentId,
+  type MachineId,
   type MessageId,
   type OrchestrationV2TurnItem,
   type RunAttemptId,
@@ -31,7 +31,7 @@ export interface TimelineRowSharedState {
   workspaceRoot: string | undefined;
   skills: ReadonlyArray<Pick<ServerProviderSkill, "name" | "displayName">>;
   runs: ReadonlyArray<HandoffTimelineRun>;
-  activeThreadEnvironmentId: EnvironmentId;
+  activeThreadMachineId: MachineId;
   onRevertToTurnCount: (targetTurnCount: number, messageId: MessageId) => void;
   onUseArtifactTemplate: (template: CodexArtifactTemplate) => void;
   onSendAppMessage: ((text: string) => Promise<void>) | undefined;

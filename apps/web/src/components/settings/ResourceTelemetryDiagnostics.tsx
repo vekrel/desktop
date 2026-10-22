@@ -1,5 +1,5 @@
 import { ProcessSignalActions } from "./ProcessSignalActions";
-import { AuthEnvironmentMaintainScope } from "@vekrel/contracts";
+import { AuthMachineMaintainScope } from "@vekrel/contracts";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import {
   ActivityIcon,
@@ -14,7 +14,7 @@ import {
 import { ChevronDown, ChevronRight } from "lucide";
 import type {
   BackgroundBooleanState,
-  EnvironmentId,
+  MachineId,
   ResourceAttributionEntry,
   ResourceTelemetryAggregate,
   ResourceTelemetryHistoryBucket,
@@ -41,8 +41,8 @@ import {
 import { cn } from "../../lib/utils";
 import { formatBytes } from "../../lib/formatBytes";
 import { ensureLocalApi } from "../../localApi";
-import { serverEnvironment } from "../../state/server";
-import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { serverMachine } from "../../state/server";
+import { readMachineScope, useMachineScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useRelativeTimeState } from "../../hooks/useRelativeTimeState";
 import { Button } from "../ui/button";
@@ -507,12 +507,12 @@ function canSignalProcess(process: ResourceTelemetryProcess): boolean {
 
 function ProcessActions({
   process,
-  canMaintainEnvironment,
+  canMaintainMachine,
   signalingKeys,
   onSignal,
 }: {
   process: ResourceTelemetryProcess;
-  canMaintainEnvironment: boolean;
+  canMaintainMachine: boolean;
   signalingKeys: ReadonlySet<string>;
   onSignal: (process: ResourceTelemetryProcess, signal: ServerProcessSignal) => void;
 }) {
@@ -522,7 +522,7 @@ function ProcessActions({
   const isSignaling = signalingKeys.has(processIdentityKey(process));
   return (
     <ProcessSignalActions
-      disabled={!canMaintainEnvironment || isSignaling}
+      disabled={!canMaintainMachine || isSignaling}
       onSignal={(signal) => onSignal(process, signal)}
     />
   );
@@ -530,12 +530,12 @@ function ProcessActions({
 
 function ProcessTable({
   processes,
-  canMaintainEnvironment,
+  canMaintainMachine,
   signalingKeys,
   onSignal,
 }: {
   processes: ReadonlyArray<ResourceTelemetryProcess>;
-  canMaintainEnvironment: boolean;
+  canMaintainMachine: boolean;
   signalingKeys: ReadonlySet<string>;
   onSignal: (process: ResourceTelemetryProcess, signal: ServerProcessSignal) => void;
 }) {
@@ -641,7 +641,7 @@ function ProcessTable({
                 <td className="px-2 py-2 text-right sm:pr-4">
                   <ProcessActions
                     process={process}
-                    canMaintainEnvironment={canMaintainEnvironment}
+                    canMaintainMachine={canMaintainMachine}
                     signalingKeys={signalingKeys}
                     onSignal={onSignal}
                   />
@@ -805,44 +805,44 @@ function AttributionTable({ entries }: { entries: ReadonlyArray<ResourceAttribut
 }
 
 export function ResourceTelemetryDiagnostics({
-  environmentId,
+  machineId,
 }: {
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
 }) {
   const [windowMs, setWindowMs] = useState(15 * 60_000);
   const selectedWindow =
     HISTORY_WINDOWS.find((option) => option.windowMs === windowMs) ?? HISTORY_WINDOWS[1];
-  const canMaintainEnvironment = useEnvironmentScope(environmentId, AuthEnvironmentMaintainScope);
-  const telemetry = useResourceTelemetry(environmentId);
+  const canMaintainMachine = useMachineScope(machineId, AuthMachineMaintainScope);
+  const telemetry = useResourceTelemetry(machineId);
   const retryTelemetry = telemetry.retry;
   const history = useResourceTelemetryHistory(
     {
       windowMs: selectedWindow.windowMs,
       bucketMs: selectedWindow.bucketMs,
     },
-    environmentId,
+    machineId,
   );
-  const signalServerProcess = useAtomCommand(serverEnvironment.signalProcess, {
+  const signalServerProcess = useAtomCommand(serverMachine.signalProcess, {
     reportFailure: false,
   });
   const [signalingKeys, setSignalingKeys] = useState<ReadonlySet<string>>(() => new Set());
   const signalingKeysRef = useRef<ReadonlySet<string>>(new Set());
-  const environmentIdRef = useRef(environmentId);
+  const machineIdRef = useRef(machineId);
   useEffect(() => {
-    environmentIdRef.current = environmentId;
+    machineIdRef.current = machineId;
     return () => {
-      environmentIdRef.current = null;
+      machineIdRef.current = null;
     };
-  }, [environmentId]);
+  }, [machineId]);
   const [isRetrying, setIsRetrying] = useState(false);
   const snapshot = telemetry.data;
   const allT3 = snapshot?.groups.allT3;
 
   const signalProcess = async (process: ResourceTelemetryProcess, signal: ServerProcessSignal) => {
-    const targetEnvironmentId = environmentIdRef.current;
+    const targetMachineId = machineIdRef.current;
     if (
-      targetEnvironmentId === null ||
-      !readEnvironmentScope(targetEnvironmentId, AuthEnvironmentMaintainScope)
+      targetMachineId === null ||
+      !readMachineScope(targetMachineId, AuthMachineMaintainScope)
     )
       return;
     const identityKey = processIdentityKey(process);
@@ -879,14 +879,14 @@ export function ResourceTelemetryDiagnostics({
       }
     }
     if (
-      environmentIdRef.current !== targetEnvironmentId ||
-      !readEnvironmentScope(targetEnvironmentId, AuthEnvironmentMaintainScope)
+      machineIdRef.current !== targetMachineId ||
+      !readMachineScope(targetMachineId, AuthMachineMaintainScope)
     ) {
       clearSignaling();
       return;
     }
     void signalServerProcess({
-      environmentId: targetEnvironmentId,
+      machineId: targetMachineId,
       input: {
         pid: process.identity.pid,
         startTimeMs: process.identity.startTimeMs,
@@ -921,10 +921,10 @@ export function ResourceTelemetryDiagnostics({
   };
 
   const retryCollector = () => {
-    const environmentId = environmentIdRef.current;
+    const machineId = machineIdRef.current;
     if (
-      environmentId === null ||
-      !readEnvironmentScope(environmentId, AuthEnvironmentMaintainScope)
+      machineId === null ||
+      !readMachineScope(machineId, AuthMachineMaintainScope)
     )
       return;
     setIsRetrying(true);
@@ -1256,7 +1256,7 @@ export function ResourceTelemetryDiagnostics({
         <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-xs/5">
           <ProcessTable
             processes={snapshot?.processes ?? []}
-            canMaintainEnvironment={canMaintainEnvironment}
+            canMaintainMachine={canMaintainMachine}
             signalingKeys={signalingKeys}
             onSignal={signalProcess}
           />

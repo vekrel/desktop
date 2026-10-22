@@ -73,7 +73,7 @@ function OpenProjectFilePicker(props: ProjectFilePickerProps & { target: ActiveP
   const [query, setQuery] = useState("");
   const [highlightedItemValue, setHighlightedItemValue] = useState<string | null>(null);
   const result = useProjectFilePickerQuery(
-    target.environmentId,
+    target.machineId,
     target.cwd,
     query,
     PROJECT_FILE_PICKER_RESULT_LIMIT,

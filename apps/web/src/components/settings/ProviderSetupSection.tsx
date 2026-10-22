@@ -7,7 +7,7 @@ import {
 import {
   ANTIGRAVITY_AUTH_METHODS,
   type AntigravityAuthMethod,
-  type EnvironmentId,
+  type MachineId,
   type ProviderInstanceId,
   type ServerProvider,
 } from "@vekrel/contracts";
@@ -15,8 +15,8 @@ import { useRef, useState } from "react";
 import { Trash2Icon } from "lucide-react";
 
 import { ensureLocalApi } from "../../localApi";
-import { useEnvironmentQuery } from "../../state/query";
-import { serverEnvironment } from "../../state/server";
+import { useMachineQuery } from "../../state/query";
+import { serverMachine } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -24,8 +24,8 @@ import { SettingsRow } from "./settingsLayout";
 import { ProviderAuthenticationSection } from "./ProviderAuthenticationSection";
 
 interface ProviderSetupSectionProps {
-  readonly environmentId: EnvironmentId;
-  readonly environmentLabel: string;
+  readonly machineId: MachineId;
+  readonly machineLabel: string;
   readonly instanceId: ProviderInstanceId;
   readonly provider: ServerProvider | undefined;
   readonly binaryPath?: string | undefined;
@@ -53,12 +53,12 @@ export function ProviderSetupSection(props: ProviderSetupSectionProps) {
     >
       <SettingsRow
         className="@max-lg/setup:[&>div:first-child]:flex @max-lg/setup:[&>div:first-child]:items-stretch @max-lg/setup:[&>div:first-child]:gap-3"
-        title="Environment"
+        title="Machine"
         description="Device that runs this provider."
         control={
           <div className="flex min-w-0 flex-col gap-2 sm:items-end">
             <span className="text-muted-foreground [overflow-wrap:anywhere]">
-              {props.environmentLabel}
+              {props.machineLabel}
             </span>
             {!props.enabled && !props.readOnly ? (
               <Button size="sm" variant="outline" onClick={props.onEnable}>
@@ -73,13 +73,13 @@ export function ProviderSetupSection(props: ProviderSetupSectionProps) {
       ) : props.provider?.setup === undefined ? (
         <SettingsRow
           title="Update required"
-          description="Update this environment to manage Antigravity."
+          description="Update this machine to manage Antigravity."
         />
       ) : (
         <ProviderSetupActions
-          key={`${props.environmentId}:${props.instanceId}`}
-          environmentId={props.environmentId}
-          environmentLabel={props.environmentLabel}
+          key={`${props.machineId}:${props.instanceId}`}
+          machineId={props.machineId}
+          machineLabel={props.machineLabel}
           instanceId={props.instanceId}
           provider={props.provider}
           binaryPath={props.binaryPath}
@@ -92,29 +92,29 @@ export function ProviderSetupSection(props: ProviderSetupSectionProps) {
 }
 
 function ProviderSetupActions({
-  environmentId,
-  environmentLabel,
+  machineId,
+  machineLabel,
   instanceId,
   provider,
   enabled,
   binaryPath,
 }: Pick<
   ProviderSetupSectionProps,
-  "environmentId" | "environmentLabel" | "instanceId" | "enabled" | "binaryPath"
+  "machineId" | "machineLabel" | "instanceId" | "enabled" | "binaryPath"
 > & {
   readonly provider: ServerProvider;
   readonly authMethod: AntigravityAuthMethod;
 }) {
-  const target = { environmentId, input: { instanceId } };
-  const authQuery = useEnvironmentQuery(serverEnvironment.providerAuthState(target));
-  const installQuery = useEnvironmentQuery(serverEnvironment.providerInstallState(target));
+  const target = { machineId, input: { instanceId } };
+  const authQuery = useMachineQuery(serverMachine.providerAuthState(target));
+  const installQuery = useMachineQuery(serverMachine.providerInstallState(target));
   const auth = authQuery.data;
   const installation = installQuery.data;
   const commandOptions = { reportFailure: false, reportDefect: false };
-  const startInstall = useAtomCommand(serverEnvironment.startProviderInstall, commandOptions);
-  const cancelInstall = useAtomCommand(serverEnvironment.cancelProviderInstall, commandOptions);
+  const startInstall = useAtomCommand(serverMachine.startProviderInstall, commandOptions);
+  const cancelInstall = useAtomCommand(serverMachine.cancelProviderInstall, commandOptions);
   const removeInstall = useAtomCommand(
-    serverEnvironment.removeProviderInstallation,
+    serverMachine.removeProviderInstallation,
     commandOptions,
   );
   const [pendingLabel, setPendingLabel] = useState<string | null>(null);
@@ -176,7 +176,7 @@ function ProviderSetupActions({
 
   async function removeRuntime() {
     const confirmed = await ensureLocalApi().dialogs.confirm(
-      `Remove the downloaded Antigravity runtime from ${environmentLabel}? Google sign-in and thread history are kept.`,
+      `Remove the downloaded Antigravity runtime from ${machineLabel}? Google sign-in and thread history are kept.`,
     );
     if (confirmed) {
       await runCommand("Removing runtime", () => removeInstall(target));
@@ -202,7 +202,7 @@ function ProviderSetupActions({
             ) : null}
             {!installed && !provider.setup?.canInstall ? (
               <p className="text-muted-foreground">
-                Automatic installation unavailable. Set a binary path or use another environment.
+                Automatic installation unavailable. Set a binary path or use another machine.
               </p>
             ) : null}
           </div>
@@ -246,7 +246,7 @@ function ProviderSetupActions({
                       const operationId = installation.operationId;
                       if (!operationId) return;
                       void runCommand("Cancelling installation", () =>
-                        cancelInstall({ environmentId, input: { instanceId, operationId } }),
+                        cancelInstall({ machineId, input: { instanceId, operationId } }),
                       );
                     }}
                   >
@@ -299,8 +299,8 @@ function ProviderSetupActions({
       />
 
       <ProviderAuthenticationSection
-        environmentId={environmentId}
-        environmentLabel={environmentLabel}
+        machineId={machineId}
+        machineLabel={machineLabel}
         instanceId={instanceId}
         provider={provider}
         readOnly={false}

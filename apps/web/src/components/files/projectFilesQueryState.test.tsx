@@ -1,6 +1,6 @@
 import {
   AuthFilesystemReadScope,
-  EnvironmentId,
+  MachineId,
   type AuthSessionState,
   ProjectReadFileError,
   type ProjectReadFileResult,
@@ -19,11 +19,11 @@ const authorizationMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("~/state/session", () => ({
-  environmentSession: { sessionStateAtom: () => authorizationMocks.sessionAtom },
+  machineSession: { sessionStateAtom: () => authorizationMocks.sessionAtom },
 }));
 
 vi.mock("~/state/presentation", () => ({
-  useEnvironmentPresentation: () => ({
+  useMachinePresentation: () => ({
     isReady: true,
     presentation: { connection: { phase: authorizationMocks.phase, error: null } },
   }),
@@ -90,7 +90,7 @@ vi.mock("react", async (importOriginal) => {
 });
 
 vi.mock("~/state/projects", () => ({
-  projectEnvironment: projectMocks,
+  projectMachine: projectMocks,
 }));
 
 vi.mock("~/state/queries", () => ({
@@ -100,7 +100,7 @@ vi.mock("~/state/queries", () => ({
 import { useWorkspaceMutationRefresh } from "~/hooks/useWorkspaceMutationRefresh";
 import { useProjectEntriesQuery, useProjectFileQuery } from "./projectFilesQueryState";
 
-const environmentId = EnvironmentId.make("environment-1");
+const machineId = MachineId.make("machine-1");
 
 function deferred<A>() {
   let resolve!: (value: A) => void;
@@ -145,12 +145,12 @@ describe("project query refresh", () => {
     atomHooks.registry = registry;
     projectMocks.optimisticFile.mockReturnValue(Atom.make({ data: file("cached contents") }));
     try {
-      const query = useProjectFileQuery(environmentId, "/repo", "src/preview.ts");
+      const query = useProjectFileQuery(machineId, "/repo", "src/preview.ts");
       expect(projectMocks.readFile).not.toHaveBeenCalled();
       expect(query.data).toBeNull();
       expect(query.error).toBe("This connection cannot read host files.");
       expect(query.isPending).toBe(false);
-      const entries = useProjectEntriesQuery(environmentId, "/repo");
+      const entries = useProjectEntriesQuery(machineId, "/repo");
       expect(projectMocks.listEntries).not.toHaveBeenCalled();
       expect(entries.data).toBeNull();
       expect(entries.error).toBe("This connection cannot read host files.");
@@ -179,13 +179,13 @@ describe("project query refresh", () => {
 
     const render = (mutationId: string | null) => {
       reactHooks.beginRender();
-      const query = useProjectFileQuery(environmentId, "/repo", "src/preview.ts");
+      const query = useProjectFileQuery(machineId, "/repo", "src/preview.ts");
       expect(query.readError).toBeNull();
       renderedContents = query.data?.contents ?? null;
       useWorkspaceMutationRefresh({
         mutationId,
         refresh: query.refresh,
-        resourceKey: "file:environment-1:/repo:src/preview.ts",
+        resourceKey: "file:machine-1:/repo:src/preview.ts",
       });
     };
 
@@ -246,7 +246,7 @@ describe("project query refresh", () => {
       for (const [label, result, isFile, isNotFile, data] of states) {
         registry.set(readAtom, result);
         reactHooks.beginRender();
-        const query = useProjectFileQuery(environmentId, "/repo", "src/preview.ts");
+        const query = useProjectFileQuery(machineId, "/repo", "src/preview.ts");
         expect(query.isFile, label).toBe(isFile);
         expect(query.isNotFile, label).toBe(isNotFile);
         expect(query.data, label).toBe(data);

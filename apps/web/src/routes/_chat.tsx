@@ -10,8 +10,8 @@ import { useClientSettings, useLegacySidebarEnabled } from "../hooks/useSettings
 import { openCommandPalette } from "../commandPaletteBus";
 import { useProjects } from "../state/entities";
 import { isPreviewAvailableFor } from "../browser/previewRuntime";
-import { usePrimaryEnvironmentId } from "../state/environments";
-import { useEnvironmentScope } from "../state/session";
+import { usePrimaryMachineId } from "../state/machines";
+import { useMachineScope } from "../state/session";
 import { selectProjectGroupingSettings } from "../logicalProject";
 import { buildSidebarProjectSnapshots } from "../sidebarProjectGrouping";
 import { dispatchPreviewAction } from "../components/preview/previewActionBus";
@@ -35,21 +35,21 @@ function ChatRouteGlobalShortcuts() {
   const selectedThreadKeysSize = useThreadSelectionStore((state) => state.selectedThreadKeys.size);
   const { activeDraftThread, activeThread, defaultProjectRef, handleNewThread, routeThreadRef } =
     useHandleNewThread();
-  const canOperatePreview = useEnvironmentScope(
-    routeThreadRef?.environmentId ?? null,
+  const canOperatePreview = useMachineScope(
+    routeThreadRef?.machineId ?? null,
     AuthPreviewOperateScope,
   );
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const legacySidebarEnabled = useLegacySidebarEnabled();
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const projects = useProjects();
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const { scratchEnvironmentId, startScratchThread } = useScratchProject();
+  const primaryMachineId = usePrimaryMachineId();
+  const { scratchMachineId, startScratchThread } = useScratchProject();
   const projectGroupCount = buildSidebarProjectSnapshots({
     projects,
     settings: projectGroupingSettings,
-    primaryEnvironmentId,
-    resolveEnvironmentLabel: () => null,
+    primaryMachineId,
+    resolveMachineLabel: () => null,
   }).length;
   const terminalOpen = useTerminalUiStateStore((state) =>
     routeThreadRef
@@ -101,13 +101,13 @@ function ChatRouteGlobalShortcuts() {
       }
 
       if (command === "chat.newWithoutProject") {
-        const environmentId = scratchEnvironmentId(
-          activeThread?.environmentId ?? activeDraftThread?.environmentId ?? primaryEnvironmentId,
+        const machineId = scratchMachineId(
+          activeThread?.machineId ?? activeDraftThread?.machineId ?? primaryMachineId,
         );
-        if (environmentId === null) return;
+        if (machineId === null) return;
         event.preventDefault();
         event.stopPropagation();
-        void startScratchThread(environmentId);
+        void startScratchThread(machineId);
         return;
       }
 
@@ -131,7 +131,7 @@ function ChatRouteGlobalShortcuts() {
         event.preventDefault();
         event.stopPropagation();
         if (!routeThreadRef || (!canOperatePreview && !previewOpen)) return;
-        if (!isPreviewAvailableFor(routeThreadRef.environmentId)) {
+        if (!isPreviewAvailableFor(routeThreadRef.machineId)) {
           toastManager.add(
             stackedThreadToast({
               type: "info",
@@ -182,10 +182,10 @@ function ChatRouteGlobalShortcuts() {
     keybindings,
     defaultProjectRef,
     previewOpen,
-    primaryEnvironmentId,
+    primaryMachineId,
     projectGroupCount,
     routeThreadRef,
-    scratchEnvironmentId,
+    scratchMachineId,
     selectedThreadKeysSize,
     startScratchThread,
     legacySidebarEnabled,

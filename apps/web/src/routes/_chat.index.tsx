@@ -1,5 +1,5 @@
 import { RefreshIcon } from "~/components/ui/refresh-icon";
-import { scopeProjectRef } from "@vekrel/client-runtime/environment";
+import { scopeProjectRef } from "@vekrel/client-runtime/machine";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
@@ -14,19 +14,19 @@ import { WorkspacePageHeader } from "../components/WorkspacePageHeader";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import {
   readProject,
-  useAllEnvironmentShellsBootstrapped,
+  useAllMachineShellsBootstrapped,
   useProjects,
   useThreadShells,
 } from "../state/entities";
-import { useEnvironments } from "../state/environments";
+import { useMachines } from "../state/machines";
 
 function ChatIndexRouteView() {
   const { authGateState } = Route.useRouteContext();
-  const { environments, isReady } = useEnvironments();
+  const { machines, isReady } = useMachines();
 
   if (authGateState.status === "hosted-static") {
     if (!isReady) return null;
-    if (environments.length === 0) return <HostedEmptyState />;
+    if (machines.length === 0) return <HostedEmptyState />;
   }
 
   return <IndexDraftLanding />;
@@ -35,7 +35,7 @@ function ChatIndexRouteView() {
 function IndexDraftLanding() {
   const projects = useProjects();
   const threads = useThreadShells();
-  const bootstrapped = useAllEnvironmentShellsBootstrapped();
+  const bootstrapped = useAllMachineShellsBootstrapped();
   const handleNewThread = useNewThreadHandler();
   const router = useRouter();
   // Read at effect time: this page stays mounted while a navigation away from
@@ -53,7 +53,7 @@ function IndexDraftLanding() {
     if (mostRecentProject === null || startedAttemptRef.current === attempt || !isStillOnIndex()) {
       return;
     }
-    const projectRef = scopeProjectRef(mostRecentProject.environmentId, mostRecentProject.id);
+    const projectRef = scopeProjectRef(mostRecentProject.machineId, mostRecentProject.id);
     if (readProject(projectRef) === null) {
       return;
     }
@@ -81,7 +81,7 @@ function IndexDraftLanding() {
       />
     ) : null;
   }
-  // A pending environment cannot prove the workspace is empty.
+  // A pending machine cannot prove the workspace is empty.
   return bootstrapped ? <NoProjectsHero /> : null;
 }
 

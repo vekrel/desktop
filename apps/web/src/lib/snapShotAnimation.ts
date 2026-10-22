@@ -1,4 +1,4 @@
-import { scopedThreadKey } from "@vekrel/client-runtime/environment";
+import { scopedThreadKey } from "@vekrel/client-runtime/machine";
 import type { ScopedThreadRef, SnapShotSource } from "@vekrel/contracts";
 
 import type { DraftId } from "../composerDraftStore";

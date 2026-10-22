@@ -1,4 +1,4 @@
-import { EnvironmentId, ProviderInstanceId, ScheduledTaskId } from "@vekrel/contracts";
+import { MachineId, ProviderInstanceId, ScheduledTaskId } from "@vekrel/contracts";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -40,8 +40,8 @@ function createSettingsRouter(initialEntry = "/settings/general") {
     getParentRoute: () => settings,
     path: "providers",
     validateSearch: (raw: Record<string, unknown>) => ({
-      ...(typeof raw.environmentId === "string" && raw.environmentId.trim()
-        ? { environmentId: EnvironmentId.make(raw.environmentId) }
+      ...(typeof raw.machineId === "string" && raw.machineId.trim()
+        ? { machineId: MachineId.make(raw.machineId) }
         : {}),
       ...(typeof raw.instanceId === "string" && raw.instanceId.trim()
         ? { instanceId: ProviderInstanceId.make(raw.instanceId) }
@@ -81,7 +81,7 @@ function createSettingsRouter(initialEntry = "/settings/general") {
 }
 
 describe("settings scope navigation", () => {
-  it("clears a checkout when selecting all environments and all projects", async () => {
+  it("clears a checkout when selecting all machines and all projects", async () => {
     const router = createSettingsRouter();
     await router.navigate({ to: "/settings/general", search: checkoutSearch, hash: "old-setting" });
     await router.navigate({
@@ -157,35 +157,35 @@ describe("settings scope navigation", () => {
     },
   );
 
-  it("honors an explicit provider environment and drops its instance on category navigation", async () => {
+  it("honors an explicit provider machine and drops its instance on category navigation", async () => {
     const router = createSettingsRouter();
     await router.navigate({ to: "/settings/general", search: checkoutSearch });
     await router.navigate({
       to: "/settings/providers",
       search: {
-        environmentId: EnvironmentId.make("provider-server"),
+        machineId: MachineId.make("provider-server"),
         instanceId: ProviderInstanceId.make("codex-work"),
       },
     });
     expect(router.state.location.search).toEqual({
       machine: "provider-server",
-      environmentId: "provider-server",
+      machineId: "provider-server",
       instanceId: "codex-work",
     });
     await router.navigate({ to: "/settings/general", hash: "" });
     expect(router.state.location.search).toEqual({ machine: "provider-server" });
   });
 
-  it("preserves the environment from an initially loaded legacy provider URL", async () => {
+  it("preserves the machine from an initially loaded legacy provider URL", async () => {
     const router = createSettingsRouter(
-      "/settings/providers?environmentId=provider-server&instanceId=codex-work",
+      "/settings/providers?machineId=provider-server&instanceId=codex-work",
     );
     await router.load();
     await router.navigate({ to: "/settings/general" });
     expect(router.state.location.search).toEqual({ machine: "provider-server" });
   });
 
-  it("retains an explicit unavailable target rather than reviving the previous environment", async () => {
+  it("retains an explicit unavailable target rather than reviving the previous machine", async () => {
     const router = createSettingsRouter();
     await router.navigate({ to: "/settings/general", search: { machine: "online" } });
     await router.navigate({ to: "/settings/general", search: { machine: "removed" } });
@@ -194,12 +194,12 @@ describe("settings scope navigation", () => {
       resolveSettingsScope(
         router.state.location.search,
         [],
-        [{ environmentId: EnvironmentId.make("online"), label: "Online" }],
+        [{ machineId: MachineId.make("online"), label: "Online" }],
       ),
     ).toMatchObject({
       kind: "unavailable",
-      reason: "environment-missing",
-      environmentIds: [],
+      reason: "machine-missing",
+      machineIds: [],
     });
   });
 
@@ -242,18 +242,18 @@ describe("settings scope navigation", () => {
 });
 
 describe("scheduled task scope navigation", () => {
-  it("opens a task link on its owning environment, then clears the task when changing filters", async () => {
+  it("opens a task link on its owning machine, then clears the task when changing filters", async () => {
     const router = createSettingsRouter();
     await router.navigate({
       to: "/settings/scheduled-tasks",
       search: {
-        environmentId: EnvironmentId.make("remote-server"),
+        machineId: MachineId.make("remote-server"),
         taskId: ScheduledTaskId.make("task-1"),
       },
     });
     expect(router.state.matches.at(-1)?.search).toEqual({
       machine: "remote-server",
-      environmentId: "remote-server",
+      machineId: "remote-server",
       taskId: "task-1",
     });
     await router.navigate({

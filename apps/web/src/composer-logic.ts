@@ -1,7 +1,7 @@
 import type { ClientSettings } from "@vekrel/contracts/settings";
 import type {
   AssistantCitation,
-  EnvironmentId,
+  MachineId,
   ResolvedKeybindingsConfig,
 } from "@vekrel/contracts";
 import type { ComposerPathSearchTarget } from "@vekrel/client-runtime/state/threads";
@@ -31,12 +31,12 @@ export interface ComposerTrigger {
 export function isPathSuggestionCurrent(
   searchTarget: ComposerPathSearchTarget,
   trigger: ComposerTrigger | null,
-  environmentId: EnvironmentId | null,
+  machineId: MachineId | null,
   cwd: string | null,
 ) {
   return (
     trigger?.kind === "path" &&
-    searchTarget.environmentId === environmentId &&
+    searchTarget.machineId === machineId &&
     searchTarget.cwd === cwd &&
     searchTarget.query === trigger.query.trim()
   );

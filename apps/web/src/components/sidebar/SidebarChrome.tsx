@@ -3,15 +3,15 @@ import type { ReactNode } from "react";
 import { memo } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 
-import { useEnvironmentIdentificationMode } from "../../hooks/useSettings";
+import { useMachineIdentificationMode } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
-import { usePullRequestsSupported } from "../../state/environments";
+import { usePullRequestsSupported } from "../../state/machines";
 import { T3Wordmark } from "../T3Wordmark";
 import {
-  resolveEnvironmentIdentificationPillLabel,
+  resolveMachineIdentificationPillLabel,
   resolveSidebarStageBackdropVariant,
   SidebarStageBackdrop,
-  useEnvironmentStageLabel,
+  useMachineStageLabel,
 } from "../SidebarStageBackdrop";
 import { Badge } from "../ui/badge";
 import {
@@ -36,15 +36,15 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
 }: {
   isElectron: boolean;
 }) {
-  const stageLabel = useEnvironmentStageLabel();
-  const environmentIdentificationMode = useEnvironmentIdentificationMode();
+  const stageLabel = useMachineStageLabel();
+  const machineIdentificationMode = useMachineIdentificationMode();
   const backdropVariant = resolveSidebarStageBackdropVariant(
     stageLabel,
-    environmentIdentificationMode === "artwork",
+    machineIdentificationMode === "artwork",
   );
   const pillLabel =
-    environmentIdentificationMode === "pill"
-      ? resolveEnvironmentIdentificationPillLabel(stageLabel)
+    machineIdentificationMode === "pill"
+      ? resolveMachineIdentificationPillLabel(stageLabel)
       : null;
 
   return (
@@ -66,7 +66,7 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
         <SidebarBrand onBackdrop={backdropVariant !== null} />
         {pillLabel ? (
           <div className="ml-1 flex h-7 items-center">
-            <Badge data-environment-identification="pill" size="sm" variant="secondary">
+            <Badge data-machine-identification="pill" size="sm" variant="secondary">
               {pillLabel}
             </Badge>
           </div>

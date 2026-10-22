@@ -1,10 +1,10 @@
-import type { EnvironmentId, PullRequestRef } from "@vekrel/contracts";
+import type { MachineId, PullRequestRef } from "@vekrel/contracts";
 import { create } from "zustand";
 
 import { pullRequestReviewKey } from "../pullRequestReviewStore";
 
 export interface GuideRunWatch {
-  readonly environmentId: EnvironmentId;
+  readonly machineId: MachineId;
   readonly reference: PullRequestRef;
   readonly title: string | null;
   readonly previousGuideAt: string | null;
@@ -31,8 +31,8 @@ interface GuideRunStoreState {
   readonly requestOpen: (key: string | null) => void;
 }
 
-export function guideRunKey(environmentId: EnvironmentId, reference: PullRequestRef): string {
-  return `${environmentId}:${pullRequestReviewKey(reference)}`;
+export function guideRunKey(machineId: MachineId, reference: PullRequestRef): string {
+  return `${machineId}:${pullRequestReviewKey(reference)}`;
 }
 
 export const useGuideRunStore = create<GuideRunStoreState>()((set) => ({
@@ -46,7 +46,7 @@ export const useGuideRunStore = create<GuideRunStoreState>()((set) => ({
     })),
   watch: (watch) =>
     set((state) => {
-      const key = guideRunKey(watch.environmentId, watch.reference);
+      const key = guideRunKey(watch.machineId, watch.reference);
       if (state.watches[key] !== undefined) return state;
       return { watches: { ...state.watches, [key]: watch } };
     }),

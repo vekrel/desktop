@@ -1,7 +1,7 @@
-import type { EnvironmentId, SshDeviceHostConfig } from "@vekrel/contracts";
+import type { MachineId, SshDeviceHostConfig } from "@vekrel/contracts";
 
-export interface DeviceHostEnvironment {
-  readonly environmentId: EnvironmentId;
+export interface DeviceHostMachine {
+  readonly machineId: MachineId;
   readonly label: string;
   readonly hosts: ReadonlyArray<SshDeviceHostConfig>;
 }
@@ -9,7 +9,7 @@ export interface DeviceHostEnvironment {
 export interface DeviceHostGroup {
   readonly host: SshDeviceHostConfig;
   readonly members: Array<{
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly label: string;
     readonly host: SshDeviceHostConfig;
   }>;
@@ -17,14 +17,14 @@ export interface DeviceHostGroup {
 
 /** Only combine matching configurations; ambiguous identities keep their machine's list. */
 export function groupDeviceHosts(
-  environments: ReadonlyArray<DeviceHostEnvironment>,
+  machines: ReadonlyArray<DeviceHostMachine>,
 ): ReadonlyArray<DeviceHostGroup> | null {
   const groups = new Map<string, DeviceHostGroup>();
   const identities = new Map<string, string>();
   const configurations = new Map<string, string>();
-  for (const environment of environments) {
+  for (const machine of machines) {
     const destinations = new Set<string>();
-    for (const host of environment.hosts) {
+    for (const host of machine.hosts) {
       const destination = JSON.stringify([host.target, host.port, host.identityFile]);
       const configuration = JSON.stringify([host.label, host.target, host.port, host.identityFile]);
       const previousConfiguration = identities.get(host.id);
@@ -41,8 +41,8 @@ export function groupDeviceHosts(
       identities.set(host.id, configuration);
       configurations.set(host.target, configuration);
       const member = {
-        environmentId: environment.environmentId,
-        label: environment.label,
+        machineId: machine.machineId,
+        label: machine.label,
         host,
       };
       if (group) group.members.push(member);
@@ -66,7 +66,7 @@ export function updateDeviceHosts(
     const matches = hosts.filter((candidate) => sameDestination(candidate, destination));
     if (matches.length > 1) {
       throw new Error(
-        "Multiple hosts match this SSH destination. Select the environment to edit its hosts.",
+        "Multiple hosts match this SSH destination. Select the machine to edit its hosts.",
       );
     }
     return matches[0];

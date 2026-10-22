@@ -1,7 +1,7 @@
 import {
   ClaudeSettings,
   CodexSettings,
-  type ExecutionEnvironmentPlatformOs,
+  type ExecutionMachinePlatformOs,
   type ServerProvider,
   type ServerSettings,
 } from "@vekrel/contracts";
@@ -15,7 +15,7 @@ const SAFE_SHELL_BINARY_PATTERN = /^[A-Za-z0-9_./:\\-]+$/;
 function quoteProviderBinary(
   binaryPath: string,
   fallback: string,
-  platform: ExecutionEnvironmentPlatformOs,
+  platform: ExecutionMachinePlatformOs,
 ): string {
   if (
     SAFE_SHELL_BINARY_PATTERN.test(binaryPath) &&
@@ -90,7 +90,7 @@ const NATIVE_INSTALL_COMMANDS = {
 
 export function resolveOnboardingProviderInstallCommand(
   driver: keyof typeof NATIVE_INSTALL_COMMANDS,
-  platform: ExecutionEnvironmentPlatformOs,
+  platform: ExecutionMachinePlatformOs,
 ): string {
   const commands = NATIVE_INSTALL_COMMANDS[driver];
   return platform === "windows" ? commands.windows : commands.posix;
@@ -99,7 +99,7 @@ export function resolveOnboardingProviderInstallCommand(
 export function resolveOnboardingProviderLoginCommand(
   provider: ServerProvider,
   settings: ServerSettings,
-  platform: ExecutionEnvironmentPlatformOs,
+  platform: ExecutionMachinePlatformOs,
 ): string {
   const instance = settings.providerInstances[provider.instanceId];
 

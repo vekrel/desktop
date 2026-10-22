@@ -1,16 +1,16 @@
 import { useAtomValue } from "@effect/atom-react";
-import { AuthSettingsWriteScope, type EnvironmentId, sessionGrantsScope } from "@vekrel/contracts";
+import { AuthSettingsWriteScope, type MachineId, sessionGrantsScope } from "@vekrel/contracts";
 import { ChevronDownIcon, PlusIcon, RotateCcwIcon, XIcon } from "lucide-react";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { useRef, useState } from "react";
 
 import { cn } from "../../lib/utils";
-import { environmentPresentations } from "../../state/presentation";
-import { serverEnvironment } from "../../state/server";
-import { environmentSession, readEnvironmentScope } from "../../state/session";
+import { machinePresentations } from "../../state/presentation";
+import { serverMachine } from "../../state/server";
+import { machineSession, readMachineScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
-import type { EnvironmentUsageStatus } from "../../state/usage";
+import type { MachineUsageStatus } from "../../state/usage";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -43,9 +43,9 @@ import {
 } from "./usagePriceTargets";
 
 const priceTargetsAtom = Atom.make((get): readonly UsagePriceTarget[] =>
-  [...get(environmentPresentations.presentationsAtom)].map(([environmentId, environment]) => {
-    const settings = get(serverEnvironment.settingsValueAtom(environmentId));
-    const session = get(environmentSession.sessionStateAtom(environmentId));
+  [...get(machinePresentations.presentationsAtom)].map(([machineId, machine]) => {
+    const settings = get(serverMachine.settingsValueAtom(machineId));
+    const session = get(machineSession.sessionStateAtom(machineId));
     const sessionData = Option.getOrNull(AsyncResult.value(session));
     const access =
       session._tag === "Failure"
@@ -58,19 +58,19 @@ const priceTargetsAtom = Atom.make((get): readonly UsagePriceTarget[] =>
             ? "granted"
             : "denied";
     return {
-      environmentId,
-      label: environment.entry.target.label,
+      machineId,
+      label: machine.entry.target.label,
       prices: settings?.usagePriceOverrides ?? null,
       aliases:
-        environment.serverConfig?.environment.capabilities.usageModelAliases === true
+        machine.serverConfig?.machine.capabilities.usageModelAliases === true
           ? (settings?.usageModelAliases ?? null)
           : null,
       unavailable:
-        environment.connection.phase !== "connected"
+        machine.connection.phase !== "connected"
           ? "Offline"
           : settings === null
             ? "Prices not loaded"
-            : environment.serverConfig?.environment.capabilities.usagePriceOverrides !== true
+            : machine.serverConfig?.machine.capabilities.usagePriceOverrides !== true
               ? "Update server to edit prices"
               : access === "pending"
                 ? "Checking permissions…"
@@ -84,37 +84,37 @@ const priceTargetsAtom = Atom.make((get): readonly UsagePriceTarget[] =>
 type SaveAttempt = {
   readonly drafts: readonly UsagePriceDraft[];
   readonly destinations: readonly {
-    readonly environmentId: EnvironmentId;
+    readonly machineId: MachineId;
     readonly label: string;
   }[];
   readonly results: ReadonlyMap<
-    EnvironmentId,
+    MachineId,
     UsagePriceWriteResult | { readonly status: "saving" }
   >;
 };
 
 export function UsagePriceOverrides({
   usage,
-  initialSelectedEnvironmentIds,
+  initialSelectedMachineIds,
   initialModel,
   onOpenChange,
 }: {
-  readonly usage: readonly EnvironmentUsageStatus[];
-  readonly initialSelectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
+  readonly usage: readonly MachineUsageStatus[];
+  readonly initialSelectedMachineIds: ReadonlySet<MachineId> | null;
   readonly initialModel?: string | undefined;
   readonly onOpenChange: (open: boolean) => void;
 }) {
-  const environments = useAtomValue(priceTargetsAtom);
-  const [selectedIds, setSelectedIds] = useState(initialSelectedEnvironmentIds);
-  const selected = environments.filter(
-    (environment) => selectedIds === null || selectedIds.has(environment.environmentId),
+  const machines = useAtomValue(priceTargetsAtom);
+  const [selectedIds, setSelectedIds] = useState(initialSelectedMachineIds);
+  const selected = machines.filter(
+    (machine) => selectedIds === null || selectedIds.has(machine.machineId),
   );
   const [drafts, setDrafts] = useState<readonly UsagePriceDraft[]>(() =>
     initialModel === undefined ||
     selected.some(
-      (environment) =>
-        Object.hasOwn(environment.prices ?? {}, initialModel) ||
-        Object.hasOwn(environment.aliases ?? {}, initialModel),
+      (machine) =>
+        Object.hasOwn(machine.prices ?? {}, initialModel) ||
+        Object.hasOwn(machine.aliases ?? {}, initialModel),
     )
       ? []
       : [{ id: "new:initial", model: initialModel, isNew: true, values: {} }],
@@ -123,12 +123,12 @@ export function UsagePriceOverrides({
   const [attempt, setAttempt] = useState<SaveAttempt | null>(null);
   const focusRowRef = useRef<string | null>(null);
   const nextRowId = useRef(0);
-  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: false });
+  const updateSettings = useAtomCommand(serverMachine.updateSettings, { reportFailure: false });
   const customModels = [
     ...new Set(
-      selected.flatMap((environment) => [
-        ...Object.keys(environment.prices ?? {}),
-        ...Object.keys(environment.aliases ?? {}),
+      selected.flatMap((machine) => [
+        ...Object.keys(machine.prices ?? {}),
+        ...Object.keys(machine.aliases ?? {}),
       ]),
     ),
   ].sort();
@@ -136,10 +136,10 @@ export function UsagePriceOverrides({
     ...new Set([
       ...customModels,
       ...usage
-        .filter((environment) =>
-          selected.some((target) => target.environmentId === environment.environmentId),
+        .filter((machine) =>
+          selected.some((target) => target.machineId === machine.machineId),
         )
-        .flatMap((environment) => environment.summary?.buckets.map((bucket) => bucket.model) ?? []),
+        .flatMap((machine) => machine.summary?.buckets.map((bucket) => bucket.model) ?? []),
     ]),
   ].sort();
   const newModels = new Set(
@@ -173,18 +173,18 @@ export function UsagePriceOverrides({
   }
   const failedDestinations =
     attempt?.destinations.filter(
-      (destination) => attempt.results.get(destination.environmentId)?.status === "failed",
+      (destination) => attempt.results.get(destination.machineId)?.status === "failed",
     ) ?? [];
   const locked = pending || failedDestinations.length > 0;
   const hasChanges = stagedDrafts.length > 0;
   const destinationLabel =
-    selected.length === 1 ? selected[0]!.label : `${selected.length} environments`;
-  const selectionLabel = selectedIds === null ? "All environments" : destinationLabel;
+    selected.length === 1 ? selected[0]!.label : `${selected.length} machines`;
+  const selectionLabel = selectedIds === null ? "All machines" : destinationLabel;
   const discard = () => {
     setDrafts([]);
     setAttempt(null);
   };
-  const selectEnvironments = (ids: ReadonlySet<EnvironmentId> | null) => {
+  const selectMachines = (ids: ReadonlySet<MachineId> | null) => {
     setSelectedIds(ids);
     setAttempt(null);
   };
@@ -228,12 +228,12 @@ export function UsagePriceOverrides({
     if (destinations.length === 0 || edits.length === 0) return;
     const targets = destinations.map(
       (destination) =>
-        environments.find(
-          (environment) => environment.environmentId === destination.environmentId,
-        ) ?? { ...destination, prices: null, aliases: null, unavailable: "Environment removed" },
+        machines.find(
+          (machine) => machine.machineId === destination.machineId,
+        ) ?? { ...destination, prices: null, aliases: null, unavailable: "Machine removed" },
     );
     const changes = new Map(
-      targets.map((target) => [target.environmentId, usagePriceTableChanges(target, edits)]),
+      targets.map((target) => [target.machineId, usagePriceTableChanges(target, edits)]),
     );
     setPending(true);
     setAttempt((previous) => ({
@@ -241,7 +241,7 @@ export function UsagePriceOverrides({
       destinations: retry && previous ? previous.destinations : targets,
       results: new Map([
         ...(retry && previous ? previous.results : []),
-        ...targets.map((target) => [target.environmentId, { status: "saving" } as const] as const),
+        ...targets.map((target) => [target.machineId, { status: "saving" } as const] as const),
       ]),
     }));
     let failed = false;
@@ -249,19 +249,19 @@ export function UsagePriceOverrides({
       targets: targets.map((target) => ({
         ...target,
         unavailable:
-          target.unavailable ?? [...changes.get(target.environmentId)!.errors.values()][0] ?? null,
+          target.unavailable ?? [...changes.get(target.machineId)!.errors.values()][0] ?? null,
       })),
       changes: new Map([...changes].map(([id, plan]) => [id, plan.changes])),
       write: async (input) =>
-        readEnvironmentScope(input.environmentId, AuthSettingsWriteScope)
+        readMachineScope(input.machineId, AuthSettingsWriteScope)
           ? updateSettings(input)
           : { _tag: "Failure" },
-      onResult: (environmentId, result) => {
+      onResult: (machineId, result) => {
         if (result.status === "failed") failed = true;
         setAttempt((previous) =>
           previous === null
             ? null
-            : { ...previous, results: new Map(previous.results).set(environmentId, result) },
+            : { ...previous, results: new Map(previous.results).set(machineId, result) },
         );
       },
     });
@@ -280,7 +280,7 @@ export function UsagePriceOverrides({
         <DialogHeader>
           <DialogTitle>Custom model prices</DialogTitle>
           <DialogDescription>
-            Prices and mappings apply to all past and future usage on the environments you select.
+            Prices and mappings apply to all past and future usage on the machines you select.
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
@@ -304,28 +304,28 @@ export function UsagePriceOverrides({
                   <MenuCheckboxItem
                     checked={selectedIds === null}
                     closeOnClick={false}
-                    onCheckedChange={(checked) => selectEnvironments(checked ? null : new Set())}
+                    onCheckedChange={(checked) => selectMachines(checked ? null : new Set())}
                   >
-                    All environments
+                    All machines
                   </MenuCheckboxItem>
                   <MenuSeparator />
-                  {environments.map((environment) => (
+                  {machines.map((machine) => (
                     <MenuCheckboxItem
-                      key={environment.environmentId}
-                      checked={selectedIds === null || selectedIds.has(environment.environmentId)}
+                      key={machine.machineId}
+                      checked={selectedIds === null || selectedIds.has(machine.machineId)}
                       closeOnClick={false}
                       onCheckedChange={(checked) => {
-                        const next = new Set(selected.map((target) => target.environmentId));
-                        if (checked) next.add(environment.environmentId);
-                        else next.delete(environment.environmentId);
-                        selectEnvironments(next.size === environments.length ? null : next);
+                        const next = new Set(selected.map((target) => target.machineId));
+                        if (checked) next.add(machine.machineId);
+                        else next.delete(machine.machineId);
+                        selectMachines(next.size === machines.length ? null : next);
                       }}
                     >
                       <span className="flex min-w-0 items-center gap-3">
-                        <span className="min-w-0 flex-1 truncate">{environment.label}</span>
-                        {environment.unavailable ? (
+                        <span className="min-w-0 flex-1 truncate">{machine.label}</span>
+                        {machine.unavailable ? (
                           <span className="text-xs text-muted-foreground">
-                            {environment.unavailable}
+                            {machine.unavailable}
                           </span>
                         ) : null}
                       </span>
@@ -338,9 +338,9 @@ export function UsagePriceOverrides({
           </div>
           {selected.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {environments.length === 0
-                ? "Connect an environment to set model prices."
-                : "Select an environment to see and change its model prices."}
+              {machines.length === 0
+                ? "Connect a machine to set model prices."
+                : "Select a machine to see and change its model prices."}
             </p>
           ) : (
             <>
@@ -383,8 +383,8 @@ export function UsagePriceOverrides({
                       <TableRow>
                         <TableCell colSpan={7} className="text-center whitespace-normal">
                           <p className="py-6 text-muted-foreground">
-                            {selected.some((environment) => environment.prices === null)
-                              ? "Some environment prices are unavailable."
+                            {selected.some((machine) => machine.prices === null)
+                              ? "Some machine prices are unavailable."
                               : "No custom prices or mappings. Add a row to set one."}
                           </p>
                         </TableCell>
@@ -550,7 +550,7 @@ export function UsagePriceOverrides({
                 {models
                   .filter((model) =>
                     selected.every(
-                      (environment) => !Object.hasOwn(environment.aliases ?? {}, model),
+                      (machine) => !Object.hasOwn(machine.aliases ?? {}, model),
                     ),
                   )
                   .map((model) => (
@@ -561,7 +561,7 @@ export function UsagePriceOverrides({
                 Blank cache rates use the input price. Enter 0 for free tokens. A mapped model’s
                 usage counts as the model it maps to.
                 {selected.length > 1
-                  ? " Mixed cells keep each environment’s rate until you edit them."
+                  ? " Mixed cells keep each machine’s rate until you edit them."
                   : ""}
               </p>
             </>
@@ -569,9 +569,9 @@ export function UsagePriceOverrides({
           {attempt ? (
             <div role="status" className="grid gap-1 text-xs">
               {attempt.destinations.map((destination) => {
-                const result = attempt.results.get(destination.environmentId);
+                const result = attempt.results.get(destination.machineId);
                 return (
-                  <div key={destination.environmentId} className="flex justify-between gap-3">
+                  <div key={destination.machineId} className="flex justify-between gap-3">
                     <span className="truncate text-muted-foreground">{destination.label}</span>
                     <span
                       className={

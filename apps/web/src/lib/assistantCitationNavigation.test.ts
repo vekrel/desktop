@@ -1,4 +1,4 @@
-import { EnvironmentId, MessageId, ThreadId, type AssistantCitation } from "@vekrel/contracts";
+import { MachineId, MessageId, ThreadId, type AssistantCitation } from "@vekrel/contracts";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -14,7 +14,7 @@ import {
 
 const citation: AssistantCitation = {
   version: 1,
-  environmentId: EnvironmentId.make("environment-one"),
+  machineId: MachineId.make("machine-one"),
   threadId: ThreadId.make("thread-one"),
   messageId: MessageId.make("assistant-one"),
   text: "first line\n\tsecond line (with a #hash & spaces) 🚀",
@@ -24,9 +24,9 @@ const citation: AssistantCitation = {
   suffix: "\nAfter.",
 };
 
-function createCitationRouter(initialEntry = "/environment-one/thread-one") {
+function createCitationRouter(initialEntry = "/machine-one/thread-one") {
   const root = createRootRoute();
-  const thread = createRoute({ getParentRoute: () => root, path: "/$environmentId/$threadId" });
+  const thread = createRoute({ getParentRoute: () => root, path: "/$machineId/$threadId" });
   return createRouter({
     routeTree: root.addChildren([thread]),
     history: createMemoryHistory({ initialEntries: [initialEntry] }),
@@ -44,8 +44,8 @@ describe("assistant citation navigation", () => {
       const reloaded = createCitationRouter(href);
       await reloaded.load();
       await reloaded.navigate({
-        to: "/$environmentId/$threadId",
-        params: { environmentId: citation.environmentId, threadId: citation.threadId },
+        to: "/$machineId/$threadId",
+        params: { machineId: citation.machineId, threadId: citation.threadId },
         hash: true,
         replace: true,
       });

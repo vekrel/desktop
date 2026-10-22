@@ -6,7 +6,7 @@ import {
 
 import type { ComposerImageAttachment } from "~/composerDraftStore";
 import { usePreviewAvailable } from "~/browser/previewRuntime";
-import { useEnvironmentScope } from "~/state/session";
+import { useMachineScope } from "~/state/session";
 
 import { PreviewPanelShell, type PreviewPanelMode } from "./PreviewPanelShell";
 import { PreviewView } from "./PreviewView";
@@ -31,8 +31,8 @@ export function PreviewPanel({
   visible,
   onSendAnnotation,
 }: Props) {
-  const available = usePreviewAvailable(threadRef.environmentId);
-  const canOperatePreview = useEnvironmentScope(threadRef.environmentId, AuthPreviewOperateScope);
+  const available = usePreviewAvailable(threadRef.machineId);
+  const canOperatePreview = useMachineScope(threadRef.machineId, AuthPreviewOperateScope);
   if (!canOperatePreview || !available) {
     return (
       <PreviewPanelShell mode={mode}>

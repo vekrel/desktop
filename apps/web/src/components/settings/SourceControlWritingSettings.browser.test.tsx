@@ -31,20 +31,20 @@ vi.mock(import("./useScopedSettings"), async (original) => ({
 vi.mock(import("./SettingsScopeContext"), async (original) => ({
   ...(await original()),
   useSettingsScope: (() => ({
-    scope: { kind: "all", environmentIds: [] },
-    environment: null,
-    connectedEnvironments: [],
+    scope: { kind: "all", machineIds: [] },
+    machine: null,
+    connectedMachines: [],
     targets: state.styles.map((style) => ({
       settings: { ...DEFAULT_UNIFIED_SETTINGS, sourceControlWritingStyle: style },
     })),
     target: null,
   })) as never,
 }));
-vi.mock(import("../../state/environments"), async (original) => ({
+vi.mock(import("../../state/machines"), async (original) => ({
   ...(await original()),
-  useEnvironmentProviders: () => new Map(),
+  useMachineProviders: () => new Map(),
 }));
-// The real row reads write permission and overrides from live environment state; this
+// The real row reads write permission and overrides from live machine state; this
 // suite is about how the section writes mixed writing styles.
 vi.mock(import("./settingsLayout"), async (original) => ({
   ...(await original()),
@@ -75,13 +75,13 @@ async function setup() {
     {
       ...DEFAULT_UNIFIED_SETTINGS.sourceControlWritingStyle,
       mode: "custom",
-      customInstructions: "First environment instructions",
+      customInstructions: "First machine instructions",
       followChangeRequestTemplates: true,
     },
     {
       ...DEFAULT_UNIFIED_SETTINGS.sourceControlWritingStyle,
       mode: "custom",
-      customInstructions: "Second environment instructions",
+      customInstructions: "Second machine instructions",
       followChangeRequestTemplates: false,
     },
   ];
@@ -94,7 +94,7 @@ async function setup() {
 }
 
 describe("mixed source control instructions", () => {
-  it("resets mixed template preferences without replacing each environment's instructions", async () => {
+  it("resets mixed template preferences without replacing each machine's instructions", async () => {
     await using _screen = await setup();
     const initialInstructions = state.styles.map(({ mode, customInstructions }) => ({
       mode,

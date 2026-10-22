@@ -1,0 +1,59 @@
+import {
+  connectionStatusText,
+  type MachineConnectionPresentation,
+} from "@vekrel/client-runtime/connection";
+
+export interface SavedCloudMachineConnectionPresentation {
+  readonly buttonLabel: string;
+  readonly statusText: string;
+  readonly tone: "connected" | "connecting" | "error" | "idle";
+}
+
+export function presentSavedCloudMachineConnection(
+  connection: MachineConnectionPresentation,
+): SavedCloudMachineConnectionPresentation {
+  switch (connection.phase) {
+    case "connected":
+      return {
+        buttonLabel: "Connected",
+        statusText: connectionStatusText(connection),
+        tone: "connected",
+      };
+    case "connecting":
+      return {
+        buttonLabel: "Connecting…",
+        statusText: connectionStatusText(connection),
+        tone: "connecting",
+      };
+    case "reconnecting":
+      return {
+        buttonLabel: "Reconnecting…",
+        statusText: connectionStatusText(connection),
+        tone: "connecting",
+      };
+    case "unsupported":
+      return {
+        buttonLabel: "Client not supported",
+        statusText: connectionStatusText(connection),
+        tone: "idle",
+      };
+    case "error":
+      return {
+        buttonLabel: "Connection failed",
+        statusText: connectionStatusText(connection),
+        tone: "error",
+      };
+    case "offline":
+      return {
+        buttonLabel: "Offline",
+        statusText: connectionStatusText(connection),
+        tone: "idle",
+      };
+    case "available":
+      return {
+        buttonLabel: "Not connected",
+        statusText: connectionStatusText(connection),
+        tone: "idle",
+      };
+  }
+}

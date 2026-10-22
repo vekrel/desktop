@@ -1,9 +1,9 @@
 import {
   AuthOrchestrationOperateScope,
-  EnvironmentId,
+  MachineId,
   ProjectId,
   ThreadId,
-  type AuthEnvironmentScope,
+  type AuthMachineScope,
   type EditorId,
   type ThreadLinkedPullRequest,
 } from "@vekrel/contracts";
@@ -31,30 +31,30 @@ vi.mock(import("../state/use-atom-query-runner"), async (original) => ({
   useAtomQueryRunner: (() => state.search) as never,
 }));
 vi.mock(import("../state/use-atom-command"), async (original) => {
-  const { threadEnvironment } = await import("../state/threads");
+  const { threadMachine } = await import("../state/threads");
   return {
     ...(await original()),
     useAtomCommand: ((command: unknown) =>
-      command === threadEnvironment.updateMetadata
+      command === threadMachine.updateMetadata
         ? state.updateMetadata
         : state.openEditor) as never,
   };
 });
 vi.mock(import("../state/session"), async (original) => {
   const { useSyncExternalStore } = await import("react");
-  const readEnvironmentScope = (id: EnvironmentId | null, scope: AuthEnvironmentScope) =>
+  const readMachineScope = (id: MachineId | null, scope: AuthMachineScope) =>
     id !== null &&
-    (scope !== AuthOrchestrationOperateScope || id !== threadRef.environmentId || state.allowed);
+    (scope !== AuthOrchestrationOperateScope || id !== threadRef.machineId || state.allowed);
   return {
     ...(await original()),
-    readEnvironmentScope,
-    useEnvironmentScope: (id: EnvironmentId | null, scope: AuthEnvironmentScope) =>
+    readMachineScope,
+    useMachineScope: (id: MachineId | null, scope: AuthMachineScope) =>
       useSyncExternalStore(
         (listener) => {
           state.listeners.add(listener);
           return () => state.listeners.delete(listener);
         },
-        () => readEnvironmentScope(id, scope),
+        () => readMachineScope(id, scope),
       ),
   };
 });
@@ -65,9 +65,9 @@ vi.mock(import("../state/server"), async (original) => {
   const config = Atom.make(() => serverConfig);
   return {
     ...actual,
-    serverEnvironment: { ...actual.serverEnvironment, configValueAtom: (() => config) as never },
-    environmentServerConfigsAtom: Atom.make(
-      () => new Map([[threadRef.environmentId, serverConfig]]),
+    serverMachine: { ...actual.serverMachine, configValueAtom: (() => config) as never },
+    machineServerConfigsAtom: Atom.make(
+      () => new Map([[threadRef.machineId, serverConfig]]),
     ) as never,
   };
 });
@@ -75,7 +75,7 @@ vi.mock(import("../state/entities"), async (original) => ({
   ...(await original()),
   readThreadShell: (() => ({ linkedPullRequest: state.linkedPullRequest })) as never,
   useProjects: (() => [
-    { id: linkedPullRequest.projectId, environmentId: threadRef.environmentId },
+    { id: linkedPullRequest.projectId, machineId: threadRef.machineId },
   ]) as never,
 }));
 vi.mock(import("../remoteOpen"), async (original) => ({
@@ -114,7 +114,7 @@ vi.mock(import("~/lib/openPullRequestLink"), async (original) => ({
 import ChatMarkdown from "./ChatMarkdown";
 
 const threadRef = {
-  environmentId: EnvironmentId.make("selected"),
+  machineId: MachineId.make("selected"),
   threadId: ThreadId.make("thread"),
 };
 const linkedPullRequest: ThreadLinkedPullRequest = {
@@ -127,7 +127,7 @@ const serverConfig = {
   availableEditors: ["vscode", "file-manager"] as readonly EditorId[],
   shellRevealInFileManager: true,
   shellRevealInFileManagerKind: "xdg-open",
-  environment: { platform: { os: "linux" }, capabilities: { threadPullRequestLinking: true } },
+  machine: { platform: { os: "linux" }, capabilities: { threadPullRequestLinking: true } },
 };
 
 function setup() {
@@ -271,7 +271,7 @@ it.each(["link-to-thread", "unlink-from-thread"])(
     await screen.openContextMenu();
     await vi.waitFor(() =>
       expect(state.updateMetadata).toHaveBeenCalledExactlyOnceWith({
-        environmentId: threadRef.environmentId,
+        machineId: threadRef.machineId,
         input: {
           threadId: threadRef.threadId,
           linkedPullRequest: action === "link-to-thread" ? linkedPullRequest : null,

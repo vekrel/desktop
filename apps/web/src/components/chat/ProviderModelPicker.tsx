@@ -1,7 +1,7 @@
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   type ProviderInstanceId,
-  type EnvironmentId,
+  type MachineId,
   type ProviderDriverKind,
   type ResolvedKeybindingsConfig,
 } from "@vekrel/contracts";
@@ -28,7 +28,7 @@ import { useComposerMenuProps } from "./composerEventScope";
 import { shortcutLabelForCommand } from "../../keybindings";
 
 export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
-  environmentId: EnvironmentId | null;
+  machineId: MachineId | null;
   activeInstanceId: ProviderInstanceId;
   model: string;
   selectedModels?: ReadonlyArray<{ instanceId: ProviderInstanceId; model: string }>;
@@ -281,7 +281,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
         touchBackdrop
       >
         <ModelPickerContent
-          environmentId={props.environmentId}
+          machineId={props.machineId}
           activeInstanceId={activeInstanceId}
           model={props.model}
           {...(props.selectedModels !== undefined ? { selectedModels: props.selectedModels } : {})}

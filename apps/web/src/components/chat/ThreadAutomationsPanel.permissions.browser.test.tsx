@@ -1,11 +1,11 @@
-import { EnvironmentId, ThreadId, ScheduledTaskId, type ScheduledTask } from "@vekrel/contracts";
+import { MachineId, ThreadId, ScheduledTaskId, type ScheduledTask } from "@vekrel/contracts";
 import { expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({ allowed: true, toggle: vi.fn(), run: vi.fn() }));
 vi.mock(import("../../state/session"), async (importOriginal) => ({
   ...(await importOriginal()),
-  useEnvironmentScope: () => state.allowed,
-  readEnvironmentScope: () => state.allowed,
+  useMachineScope: () => state.allowed,
+  readMachineScope: () => state.allowed,
 }));
 // The panel reads the run permission through an atom; the grant is the boundary under test.
 vi.mock(import("@effect/atom-react"), async (importOriginal) => ({
@@ -17,21 +17,21 @@ vi.mock(import("@tanstack/react-router"), async (importOriginal) => ({
   useNavigate: () => vi.fn(),
 }));
 vi.mock(import("../../state/use-atom-command"), async (importOriginal) => {
-  const { serverEnvironment } = await import("../../state/server");
+  const { serverMachine } = await import("../../state/server");
   return {
     ...(await importOriginal()),
     useAtomCommand: ((command: unknown) =>
-      command === serverEnvironment.setScheduledTaskEnabled ? state.toggle : state.run) as never,
+      command === serverMachine.setScheduledTaskEnabled ? state.toggle : state.run) as never,
   };
 });
 vi.mock(import("../../state/query"), async (importOriginal) => ({
   ...(await importOriginal()),
-  useEnvironmentQuery: (() => ({ data: { tasks: [task] }, error: null })) as never,
+  useMachineQuery: (() => ({ data: { tasks: [task] }, error: null })) as never,
 }));
 
 import { act, render as renderUi } from "../../../test/render";
 import { ThreadAutomationsPanel } from "./ThreadAutomationsPanel";
-const environmentId = EnvironmentId.make("remote");
+const machineId = MachineId.make("remote");
 const threadId = ThreadId.make("thread");
 const task = {
   id: ScheduledTaskId.make("task"),
@@ -54,7 +54,7 @@ async function setup() {
     await act(
       async () =>
         await screen.rerender(
-          <ThreadAutomationsPanel environmentId={environmentId} threadId={threadId} />,
+          <ThreadAutomationsPanel machineId={machineId} threadId={threadId} />,
         ),
     );
   }
@@ -62,8 +62,8 @@ async function setup() {
   const byLabel = (label: string) =>
     container.querySelector<HTMLElement>(`[aria-label="${label}"]`)!;
 
-  const environment = stack.move();
-  return { renderPanel, byLabel, [Symbol.asyncDispose]: () => environment.disposeAsync() };
+  const machine = stack.move();
+  return { renderPanel, byLabel, [Symbol.asyncDispose]: () => machine.disposeAsync() };
 }
 it.each([true, false])("runs scheduled work only with task permission (%s)", async (allowed) => {
   await using fixture = await setup();

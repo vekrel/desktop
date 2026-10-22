@@ -37,17 +37,17 @@ vi.mock(import("../state/preview"), async (original) => {
   const actual = await original();
   return {
     ...actual,
-    previewEnvironment: { ...actual.previewEnvironment, open: state.openPreview as never },
+    previewMachine: { ...actual.previewMachine, open: state.openPreview as never },
   };
 });
-// The remote environment is catalogued and its shell is live.
+// The remote machine is catalogued and its shell is live.
 vi.mock(import("../connection/catalog"), async (original) => {
   const actual = await original();
   const { Atom } = await import("effect/reactivity");
   return {
     ...actual,
-    environmentCatalog: {
-      ...actual.environmentCatalog,
+    machineCatalog: {
+      ...actual.machineCatalog,
       catalogValueAtom: Atom.make({ isReady: true, entries: new Map([["remote", {}]]) }) as never,
     },
   };
@@ -58,7 +58,7 @@ vi.mock(import("../state/shell"), async (original) => {
   const live = Atom.make({ status: "live" });
   return {
     ...actual,
-    environmentShell: { ...actual.environmentShell, stateValueAtom: (() => live) as never },
+    machineShell: { ...actual.machineShell, stateValueAtom: (() => live) as never },
   };
 });
 vi.mock(import("../state/entities"), async (original) => ({
@@ -77,7 +77,7 @@ import { selectThreadRightPanelState, useRightPanelStore } from "../rightPanelSt
 import { useTerminalUiStateStore } from "../terminalUiStateStore";
 import { ReopenClosedViewShortcut } from "./ReopenClosedViewShortcut";
 
-const ref = { environmentId: "remote", threadId: "thread-1" } as ScopedThreadRef;
+const ref = { machineId: "remote", threadId: "thread-1" } as ScopedThreadRef;
 const snapshot = {
   threadId: ref.threadId,
   tabId: "closed-tab",
@@ -121,15 +121,15 @@ async function renderShortcut() {
     delete window.desktopBridge;
   });
   stack.use(await render(<ReopenClosedViewShortcut />));
-  const environment = stack.move();
+  const machine = stack.move();
   return {
     /** Attaches an element to the document until the test ends. */
     append(element: HTMLElement) {
       document.body.append(element);
-      environment.defer(() => element.remove());
+      machine.defer(() => element.remove());
       return element;
     },
-    [Symbol.asyncDispose]: () => environment.disposeAsync(),
+    [Symbol.asyncDispose]: () => machine.disposeAsync(),
   };
 }
 
