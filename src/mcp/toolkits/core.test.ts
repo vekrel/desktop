@@ -5,7 +5,7 @@ import {
   DEFAULT_SERVER_SETTINGS,
   ChatImageAttachment,
   CommandId,
-  EnvironmentId,
+  MachineId,
   NodeId,
   OrchestratorMcpThreadReadResult,
   ProviderDriverKind,
@@ -49,7 +49,7 @@ import * as McpHttpServer from "../McpHttpServer.ts";
 import * as McpInvocationContext from "../McpInvocationContext.ts";
 import * as McpToolAccessTestkit from "../McpToolAccess.testkit.ts";
 import { dispatchFailure } from "../threadAccess.ts";
-import * as EnvironmentHandlers from "./environment/handlers.ts";
+import * as MachineHandlers from "./machine/handlers.ts";
 import * as AttachmentHandlers from "./attachment/handlers.ts";
 
 const layerOrchestratorToolkit = McpHttpServer.layerOrchestratorToolkit.pipe(
@@ -75,7 +75,7 @@ const layerThreadToolkit = McpHttpServer.layerThreadToolkit.pipe(
 
 const threadId = ThreadId.make("mcp-core-thread");
 const scope: McpInvocationContext.McpInvocationScope = {
-  environmentId: EnvironmentId.make("mcp-core-environment"),
+  machineId: MachineId.make("mcp-core-machine"),
   requestNamespace: "mcp-core-session",
   thread: {
     threadId,
@@ -254,12 +254,12 @@ it.effect("returns an HTML render reference that Codex and Claude tool rows both
         Effect.provideService(McpSchema.McpServerClient, client),
       );
     const reference = htmlRenderFromToolItem({
-      toolName: "t3-code.html_render",
+      toolName: "vekrel.html_render",
       output: result.structuredContent,
     });
     expect(reference).toMatchObject({ title: "Revenue", height: 240 });
     expect(
-      htmlRenderFromToolItem({ toolName: "mcp__t3-code__html_render", output: result.content }),
+      htmlRenderFromToolItem({ toolName: "mcp__vekrel__html_render", output: result.content }),
     ).toEqual(reference);
   }).pipe(
     Effect.provide(
@@ -325,7 +325,7 @@ it("keeps MCP preference output allowlisted and Unicode-bounded", () => {
       customInstructions: "🙂".repeat(4001),
     },
   };
-  const result = EnvironmentHandlers.preferences(settings);
+  const result = MachineHandlers.preferences(settings);
   expect(result).not.toHaveProperty("privateCredential");
   expect(result).not.toHaveProperty("providers");
   expect(result.sourceControlWritingStyle).toMatchObject({
@@ -370,7 +370,7 @@ it.effect("resolves reused attachment references from stored metadata", () =>
 const clientScope = (
   access: McpInvocationContext.McpClientCaller["access"],
 ): McpInvocationContext.McpInvocationScope => ({
-  environmentId: EnvironmentId.make("mcp-core-environment"),
+  machineId: MachineId.make("mcp-core-machine"),
   requestNamespace: "client:session-1",
   thread: undefined,
   client: { sessionId: "session-1", label: "Claude Code", access },

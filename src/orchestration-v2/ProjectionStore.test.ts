@@ -1,6 +1,6 @@
 import { assert, it } from "@effect/vitest";
 import {
-  EnvironmentId,
+  MachineId,
   EventId,
   CommandId,
   CheckpointId,
@@ -246,7 +246,7 @@ it.effect.each([
       id: TurnItemId.make("item:thread-wait:active"),
       runId: run.id,
       type: "dynamic_tool" as const,
-      toolName: "mcp__t3_code__t3_thread_wait",
+      toolName: "mcp__vekrel__t3_thread_wait",
       input: { threadId: "child-thread" },
       status: "running" as const,
     };
@@ -342,7 +342,7 @@ it.effect.each([
     const delegation = {
       ...wait,
       id: TurnItemId.make("item:thread-wait:delegation"),
-      toolName: "t3-code-thread_opencode2-adapter_delegate_task",
+      toolName: "vekrel-thread_opencode2-adapter_delegate_task",
       input: { task: "Review", mode: "async" },
     };
     yield* updateItem(delegation);
@@ -5459,14 +5459,14 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
           payload: { ...thread, pullRequests },
         });
       const project = { title: "Project" };
-      const environmentId = EnvironmentId.make("environment:watched-pull-request");
+      const machineId = MachineId.make("machine:watched-pull-request");
       const phase = Effect.gen(function* () {
         const shell = yield* store.getThreadShell(threadId);
         const listed = (yield* store.getShellSnapshot()).threads.find(
           (candidate) => candidate.id === threadId,
         );
         assert.deepEqual(listed?.pendingBackgroundTasks, shell?.pendingBackgroundTasks);
-        return shell && projectThreadAwarenessV2({ environmentId, project, thread: shell })?.phase;
+        return shell && projectThreadAwarenessV2({ machineId, project, thread: shell })?.phase;
       });
 
       yield* syncPullRequests("watched", [
@@ -5591,10 +5591,10 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
         payload: providerThread,
       });
       const project = { title: "Project" };
-      const environmentId = EnvironmentId.make("environment:held-completion");
+      const machineId = MachineId.make("machine:held-completion");
       const held = yield* store.getThreadShell(threadId);
       assert.equal(
-        held && projectThreadAwarenessV2({ environmentId, project, thread: held })?.phase,
+        held && projectThreadAwarenessV2({ machineId, project, thread: held })?.phase,
         "running",
       );
 
@@ -5609,7 +5609,7 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
       });
       const released = yield* store.getThreadShell(threadId);
       const state =
-        released && projectThreadAwarenessV2({ environmentId, project, thread: released });
+        released && projectThreadAwarenessV2({ machineId, project, thread: released });
       assert.equal(state?.phase, "completed");
       assert.equal(state?.updatedAt, DateTime.formatIso(releasedAt));
 
