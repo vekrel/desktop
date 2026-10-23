@@ -10,7 +10,7 @@ import { SettingsRow, SettingsSection } from "./settingsLayout";
 
 const DismissedMachineIds = Schema.Array(Schema.String);
 
-/** Suggests `t3 doctor` on every machine whose database still holds at least 1 GiB of freed pages. */
+/** Suggests `vekrel doctor` on every machine whose database still holds at least 1 GiB of freed pages. */
 export function DatabaseStorageNotice({
   machines,
 }: {
@@ -41,8 +41,7 @@ export function DatabaseStorageNotice({
         <SettingsRow
           key={machineId}
           title={`${(status.reclaimableBytes / 1024 ** 3).toFixed(1)} GiB on ${
-            machines.find((machine) => machine.machineId === machineId)
-              ?.label ?? machineId
+            machines.find((machine) => machine.machineId === machineId)?.label ?? machineId
           }`}
           description={<code className="select-text break-all">{status.compactCommand}</code>}
           control={

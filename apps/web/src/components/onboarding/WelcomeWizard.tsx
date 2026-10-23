@@ -1,3 +1,4 @@
+import { NPM_LAUNCHER_PACKAGE_NAME } from "@vekrel/shared/cliPackage";
 import { useAuth } from "@clerk/react";
 import { useAtomValue } from "@effect/atom-react";
 import type {
@@ -66,11 +67,7 @@ import {
 import { useProjectScans } from "../../onboarding/useProjectScans";
 import { projectMachine } from "../../state/projects";
 import { serverMachine } from "../../state/server";
-import {
-  readMachineScope,
-  useMachineScope,
-  useMachinesWithScope,
-} from "../../state/session";
+import { readMachineScope, useMachineScope, useMachinesWithScope } from "../../state/session";
 import { terminalMachine } from "../../state/terminal";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { connectPairing } from "../../connection/onboarding";
@@ -142,14 +139,10 @@ export function WelcomeWizard({
     // oxlint-disable-next-line react/set-state-in-effect -- The registry marks each computer once, and only after commit; render must not mutate it.
     setSelection(
       (current) =>
-        new Set([
-          ...(current ?? []),
-          ...enabledComputers.map((machine) => machine.machineId),
-        ]),
+        new Set([...(current ?? []), ...enabledComputers.map((machine) => machine.machineId)]),
     );
   }, [autoSelectedComputers, machines]);
-  const selectedIds =
-    selection ?? new Set(primaryMachine ? [primaryMachine.machineId] : []);
+  const selectedIds = selection ?? new Set(primaryMachine ? [primaryMachine.machineId] : []);
   const scans = useProjectScans(step === "import" ? setupIds : NO_MACHINES);
   const isLoadingProjects =
     step === "import" &&
@@ -354,9 +347,7 @@ function ConnectionStep({
               <MonitorIcon className="size-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-3">
-                  <span className="min-w-0 text-sm font-medium break-words">
-                    {machine.label}
-                  </span>
+                  <span className="min-w-0 text-sm font-medium break-words">{machine.label}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {!machine.entry.enabled && machine.connection.phase !== "unsupported"
                       ? "Off"
@@ -525,7 +516,7 @@ function ConnectAccountOption({
             <p className="text-sm text-muted-foreground">
               Run this on each computer you want to connect.
             </p>
-            <CommandBlock command="npx t3 connect" className="mt-3" />
+            <CommandBlock command={`npx ${NPM_LAUNCHER_PACKAGE_NAME} connect`} className="mt-3" />
             <p className="mt-3 text-xs text-muted-foreground">
               Keep Vekrel running. Select the computers you want to set up above.
             </p>
@@ -634,9 +625,10 @@ function PairingForm({
             <p className="pt-3 text-sm text-muted-foreground">
               Run this on the computer with your code.
             </p>
-            <CommandBlock command="npx t3 pair" className="mt-2" />
+            <CommandBlock command={`npx ${NPM_LAUNCHER_PACKAGE_NAME} pair`} className="mt-2" />
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Start Vekrel first, or run <code className="font-mono">npx t3 serve</code>. Add{" "}
+              Start Vekrel first, or run{" "}
+              <code className="font-mono">{`npx ${NPM_LAUNCHER_PACKAGE_NAME} serve`}</code>. Add{" "}
               <code className="font-mono">--tailscale</code> to use your tailnet.
             </p>
           </CollapsiblePanel>
@@ -678,8 +670,7 @@ function AgentsStep({
               key={machineId}
               machineId={machineId}
               machineLabel={
-                machines.find((machine) => machine.machineId === machineId)
-                  ?.label ?? "Computer"
+                machines.find((machine) => machine.machineId === machineId)?.label ?? "Computer"
               }
             />
           ))}
@@ -1214,8 +1205,7 @@ function ImportStep({
       landingProject !== null &&
       projects.some(
         (project) =>
-          project.id === landingProject.projectId &&
-          project.machineId === landingProject.machineId,
+          project.id === landingProject.projectId && project.machineId === landingProject.machineId,
       )
     ) {
       // oxlint-disable-next-line react/set-state-in-effect -- The landing project is known only once the projects subscription delivers it.
@@ -1240,9 +1230,7 @@ function ImportStep({
   const selectedKeys = selectedPaths ?? new Set(recent.map((candidate) => candidate.key));
   const selected = candidates.filter((candidate) => selectedKeys.has(candidate.key));
 
-  const canImport = selected.every((candidate) =>
-    writableMachines.has(candidate.machineId),
-  );
+  const canImport = selected.every((candidate) => writableMachines.has(candidate.machineId));
   const [importError, setImportError] = useState("");
   const visibleImportError = !canImport
     ? IMPORT_PERMISSION_MESSAGE
@@ -1454,14 +1442,9 @@ function ImportStep({
               (candidate) => candidate.machineId === scan.machineId,
             );
             const label =
-              machines.find((machine) => machine.machineId === scan.machineId)
-                ?.label ?? "Computer";
+              machines.find((machine) => machine.machineId === scan.machineId)?.label ?? "Computer";
             return (
-              <fieldset
-                key={scan.machineId}
-                className="min-w-0 space-y-0.5"
-                disabled={isImporting}
-              >
+              <fieldset key={scan.machineId} className="min-w-0 space-y-0.5" disabled={isImporting}>
                 {scans.length > 1 ? (
                   <legend className="mb-2 text-sm font-medium">{label}</legend>
                 ) : null}
