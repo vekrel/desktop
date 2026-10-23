@@ -140,7 +140,7 @@ function layerPairingHttp(
             policy: "remote-reachable",
             bootstrapMethods: ["one-time-token"],
             sessionMethods: ["bearer-access-token"],
-            sessionCookieName: "t3_session",
+            sessionCookieName: "vekrel_session",
           },
           scopes: sessionScopes,
           sessionMethod: "bearer-access-token",
@@ -294,44 +294,40 @@ describe("connection onboarding", () => {
     }).pipe(Effect.provide(layerPairingOnboarding())),
   );
 
-  it.effect(
-    "re-pairs an outdated self-updatable machine so its connection can be rechecked",
-    () =>
-      Effect.gen(function* () {
-        const registry = yield* MachineRegistry.MachineRegistry;
-        const onboarding = yield* Onboarding.ConnectionOnboarding;
-        yield* registerSwitchedOffMachine;
-        yield* registry.setCompatibility(
-          PAIRED_MACHINE_ID,
-          new ConnectionBlockedError({
-            reason: "unsupported",
-            detail: "The saved server needs an update.",
-            serverUpdateRequired: true,
-          }),
-        );
-        expect(
-          (yield* SubscriptionRef.get(registry.entries)).get(PAIRED_MACHINE_ID),
-        ).toMatchObject({
-          enabled: false,
+  it.effect("re-pairs an outdated self-updatable machine so its connection can be rechecked", () =>
+    Effect.gen(function* () {
+      const registry = yield* MachineRegistry.MachineRegistry;
+      const onboarding = yield* Onboarding.ConnectionOnboarding;
+      yield* registerSwitchedOffMachine;
+      yield* registry.setCompatibility(
+        PAIRED_MACHINE_ID,
+        new ConnectionBlockedError({
+          reason: "unsupported",
+          detail: "The saved server needs an update.",
           serverUpdateRequired: true,
-        });
+        }),
+      );
+      expect((yield* SubscriptionRef.get(registry.entries)).get(PAIRED_MACHINE_ID)).toMatchObject({
+        enabled: false,
+        serverUpdateRequired: true,
+      });
 
-        const machineId = yield* onboarding.registerPairing(PAIRING_INPUT);
+      const machineId = yield* onboarding.registerPairing(PAIRING_INPUT);
 
-        expect(machineId).toBe(PAIRED_MACHINE_ID);
-        const entry = (yield* SubscriptionRef.get(registry.entries)).get(machineId);
-        expect(entry?.enabled).toBe(true);
-        expect(entry?.unsupportedReason).toBeUndefined();
-        expect(entry?.serverUpdateRequired).toBeUndefined();
-        expect(entry?.profile).toEqual(Option.some(PAIRED_PROFILE));
-      }).pipe(
-        Effect.provide(
-          layerPairingOnboarding({
-            protocolVersion: ORCHESTRATION_PROTOCOL_VERSION - 1,
-            selfUpdate: true,
-          }),
-        ),
+      expect(machineId).toBe(PAIRED_MACHINE_ID);
+      const entry = (yield* SubscriptionRef.get(registry.entries)).get(machineId);
+      expect(entry?.enabled).toBe(true);
+      expect(entry?.unsupportedReason).toBeUndefined();
+      expect(entry?.serverUpdateRequired).toBeUndefined();
+      expect(entry?.profile).toEqual(Option.some(PAIRED_PROFILE));
+    }).pipe(
+      Effect.provide(
+        layerPairingOnboarding({
+          protocolVersion: ORCHESTRATION_PROTOCOL_VERSION - 1,
+          selfUpdate: true,
+        }),
       ),
+    ),
   );
 
   it.effect("leaves a platform-managed machine untouched when its id is paired", () =>
