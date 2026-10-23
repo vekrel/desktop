@@ -252,10 +252,7 @@ export const MachineHttpCommonError = Schema.Union([
 ]);
 export type MachineHttpCommonError = typeof MachineHttpCommonError.Type;
 
-const MachineAuthenticationErrors = [
-  MachineAuthInvalidError,
-  MachineInternalError,
-] as const;
+const MachineAuthenticationErrors = [MachineAuthInvalidError, MachineInternalError] as const;
 
 export class MachineHttpBadRequestError extends Schema.TaggedError<MachineHttpBadRequestError>()(
   "MachineHttpBadRequestError",
@@ -331,19 +328,13 @@ export class MachineCloudEndpointUnavailableError extends Schema.TaggedError<Mac
     });
   }
 }
-const MachineSessionCreationErrors = [
-  MachineAuthInvalidError,
-  MachineInternalError,
-] as const;
+const MachineSessionCreationErrors = [MachineAuthInvalidError, MachineInternalError] as const;
 const MachineTokenExchangeErrors = [
   MachineRequestInvalidError,
   MachineAuthInvalidError,
   MachineInternalError,
 ] as const;
-const MachineScopedOperationErrors = [
-  MachineScopeRequiredError,
-  MachineInternalError,
-] as const;
+const MachineScopedOperationErrors = [MachineScopeRequiredError, MachineInternalError] as const;
 const MachinePairingCredentialErrors = [
   MachineRequestInvalidError,
   ...MachineScopedOperationErrors,
@@ -353,10 +344,7 @@ const MachineSessionRevokeErrors = [
   MachineOperationForbiddenError,
   MachineInternalError,
 ] as const;
-const MachineProjectSnapshotErrors = [
-  MachineScopeRequiredError,
-  MachineInternalError,
-] as const;
+const MachineProjectSnapshotErrors = [MachineScopeRequiredError, MachineInternalError] as const;
 const MachineOrchestrationSnapshotErrors = [
   MachineScopeRequiredError,
   MachineInternalError,
@@ -457,7 +445,7 @@ export function formatConnectReachable(
  * Sections of docs/user/t3-connect-troubleshooting.md. Each is the GitHub anchor of a
  * heading there; the test fails when a heading is renamed without updating this list.
  */
-export const T3_CONNECT_TROUBLESHOOTING_SECTIONS = [
+export const VEKREL_CONNECT_TROUBLESHOOTING_SECTIONS = [
   "the-hosts-tunnel-is-offline",
   "port-7844-is-blocked-on-the-host",
   "the-tunnel-works-but-t3-code-does-not-answer",
@@ -468,7 +456,8 @@ export const T3_CONNECT_TROUBLESHOOTING_SECTIONS = [
   "the-host-runs-an-older-t3-code",
   "t3-connect-returned-an-error",
 ] as const;
-export type T3ConnectTroubleshootingSection = (typeof T3_CONNECT_TROUBLESHOOTING_SECTIONS)[number];
+export type T3ConnectTroubleshootingSection =
+  (typeof VEKREL_CONNECT_TROUBLESHOOTING_SECTIONS)[number];
 
 /** Clients, the CLI, and server logs link here as "More info". */
 export function t3ConnectTroubleshootingUrl(section: T3ConnectTroubleshootingSection): string {
