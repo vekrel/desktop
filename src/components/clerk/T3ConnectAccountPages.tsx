@@ -15,7 +15,7 @@ export const VEKREL_CONNECT_ACCOUNT_PAGES = [
   },
   {
     label: "Vekrel Connect",
-    url: "t3-connect",
+    url: "vekrel-connect",
     icon: <ServerIcon className="size-4" />,
     content: <T3ConnectUserProfilePage />,
   },
@@ -39,7 +39,7 @@ export function useT3ConnectAccountPage(): {
     const setTarget = (key: string, element: HTMLDivElement | undefined) =>
       setTargets((current) => ({ ...current, [key]: element }));
     clerk.openUserProfile({
-      __experimental_startPath: "/t3-connect",
+      __experimental_startPath: "/vekrel-connect",
       customPages: VEKREL_CONNECT_ACCOUNT_PAGES.map((page) => ({
         label: page.label,
         url: page.url,

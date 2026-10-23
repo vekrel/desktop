@@ -938,7 +938,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     wslAvailableOnly: true,
   },
   {
-    id: "t3-connect",
+    id: "vekrel-connect",
     localMachineOnly: true,
     title: "Vekrel Connect",
     to: "/settings/connections",
