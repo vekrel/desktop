@@ -21,7 +21,7 @@ git subtree pull --prefix=<same prefix> <same path> <same branch> --squash
 # afterwards, in each source repo
 git branch -D split-web   # split-server / split-packages
 ```
-Last pulled from: Vekrel-Web `43b3116` (apps/web), Vekrel-Engine `0d87212` (apps/server), Vekrel-Shared `7ce067e` (packages/). After a pull, `diff -rq -x node_modules -x dist <prefix> <source>/<prefix>` should be empty except the `apps/server` hunks listed under Deviations.
+Last pulled from: Vekrel-Web `7d4a9fd` (apps/web), Vekrel-Engine `0d30a23` (apps/server), Vekrel-Shared `6a4fe7c` (packages/). After a pull, `diff -rq -x node_modules -x dist <prefix> <source>/<prefix>` should be empty except the `apps/server` hunks listed under Deviations.
 
 ## Deviations from upstream T3 Code 8d3b061
 - Root package is `@vekrel/desktop-root`; desktop package is `@vekrel/desktop`, product name `Vekrel`. The upstream npm scope, env prefix (`T3CODE_` to `VEKREL_`) and product name ("T3 Code", including the Beta/Dev/Nightly labels) are replaced in `apps/desktop` and `scripts/build-desktop-artifact.ts`.
