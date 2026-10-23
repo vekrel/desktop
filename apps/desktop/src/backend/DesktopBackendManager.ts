@@ -65,7 +65,7 @@ export interface DesktopBackendStartConfig extends BackendProcessContext {
   readonly env: Record<string, string | undefined>;
   // When true the spawner merges the desktop process.env on top of `env`;
   // when false `env` is passed verbatim. WSL mode opts out so a leaking
-  // VEKREL_HOME can't pin the WSL backend to /mnt/c/...\.t3.
+  // VEKREL_HOME can't pin the WSL backend to /mnt/c/...\.vekrel.
   readonly extendEnv: boolean;
   readonly bootstrap: DesktopBackendBootstrapValue;
   readonly bootstrapDelivery: DesktopBackendBootstrapDelivery;
@@ -216,9 +216,7 @@ export interface DesktopBackendSnapshot {
 export type BackendInstanceId = string & Brand.Brand<"BackendInstanceId">;
 export const BackendInstanceId = Brand.nominal<BackendInstanceId>();
 
-export const PRIMARY_INSTANCE_ID: BackendInstanceId = BackendInstanceId(
-  PRIMARY_LOCAL_MACHINE_ID,
-);
+export const PRIMARY_INSTANCE_ID: BackendInstanceId = BackendInstanceId(PRIMARY_LOCAL_MACHINE_ID);
 
 export interface DesktopBackendInstance {
   readonly id: BackendInstanceId;

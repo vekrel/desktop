@@ -596,7 +596,7 @@ const layerTelemetry = Layer.unwrap(
     const environment = yield* DesktopEnvironment.DesktopEnvironment;
     const endpoints = yield* resolveOtlpEndpoints;
     const resource = {
-      serviceName: "t3code-desktop",
+      serviceName: "vekrel-desktop",
       serviceVersion: environment.appVersion,
       attributes: {
         "service.namespace": "vekrel",

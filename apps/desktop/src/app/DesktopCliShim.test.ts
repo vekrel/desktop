@@ -27,7 +27,7 @@ const writeExecutable = (path: string, content: string) => {
 };
 
 const writeShim = (root: string, target: CliShimTarget) => {
-  const shim = NodePath.join(root, "bin", "t3");
+  const shim = NodePath.join(root, "bin", "vekrel");
   writeExecutable(shim, renderCliShim({ target, shimPath: shim, t3Home: `${root}/home` }));
   return shim;
 };
@@ -84,7 +84,10 @@ describe("renderCliShim", () => {
     // sudo clears the environment, so the launcher supplies its own.
     expect(run(shim, []).stdout).toContain(`home=${root}/home`);
     expect(run(shim, [], { VEKREL_HOME: "/elsewhere" }).stdout).toContain("home=/elsewhere");
-    const relative = NodeChildProcess.spawnSync("./bin/t3", [], { cwd: root, encoding: "utf8" });
+    const relative = NodeChildProcess.spawnSync("./bin/vekrel", [], {
+      cwd: root,
+      encoding: "utf8",
+    });
     expect(relative.stdout).toContain(`cli=${shim}`);
   });
 
@@ -109,7 +112,7 @@ describe("renderCliShim", () => {
     const executable = "C:\\Apps\\R&whoami&X 100%\\!CHANNEL!\\Vekrel.exe";
     const script = renderCliShim({
       target: { kind: "windows", executable, entry: "C:\\Apps\\server.asar\\bin.mjs" },
-      shimPath: "C:\\Users\\José\\.vekrel\\bin\\t3.cmd",
+      shimPath: "C:\\Users\\José\\.vekrel\\bin\\vekrel.cmd",
       t3Home: "C:\\Users\\José\\.vekrel",
     });
     const lines = script.split("\r\n");
@@ -122,6 +125,6 @@ describe("renderCliShim", () => {
       (line) => line.includes("whoami") && !/"[^"]*whoami[^"]*"/.test(line),
     );
     expect(bare).toEqual([]);
-    expect(lines).toContain('set "VEKREL_CLI_PATH=C:\\Users\\José\\.vekrel\\bin\\t3.cmd"');
+    expect(lines).toContain('set "VEKREL_CLI_PATH=C:\\Users\\José\\.vekrel\\bin\\vekrel.cmd"');
   });
 });
