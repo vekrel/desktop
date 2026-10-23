@@ -75,6 +75,7 @@ export default mergeConfig(
       tasks: {
         build: {
           command: "node scripts/cli.ts build",
+          dependsOn: ["@vekrel/web#build"],
           cache: false,
         },
       },
