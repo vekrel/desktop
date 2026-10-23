@@ -1,3 +1,4 @@
+import { NPM_LAUNCHER_PACKAGE_NAME } from "@vekrel/shared/cliPackage";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -136,7 +137,7 @@ export const layer = Layer.effect(
                 Ref.set(
                   preflightErrorRef,
                   Option.some(
-                    "Another Vekrel server is using this distro's Vekrel home, or an older background service is set up for it. Stop that server or pair with it, or try `t3 update` in the distro. If the older launcher cannot update, run `t3 service uninstall` and optionally reinstall with `t3 service install` from a current CLI in the distro. Use `npx t3@latest` if `t3` is missing or outdated, and pass `--base-dir` with the service's Vekrel home to each command.",
+                    `Another Vekrel server is using this distro's Vekrel home, or an older background service is set up for it. Stop that server or pair with it, or try \`vekrel update\` in the distro. If the older launcher cannot update, run \`vekrel service uninstall\` and optionally reinstall with \`vekrel service install\` from a current CLI in the distro. Use \`npx ${NPM_LAUNCHER_PACKAGE_NAME}@latest\` if \`vekrel\` is missing or outdated, and pass \`--base-dir\` with the service's Vekrel home to each command.`,
                   ),
                 ),
               ),

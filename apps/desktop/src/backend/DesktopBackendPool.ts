@@ -1,3 +1,4 @@
+import { NPM_LAUNCHER_PACKAGE_NAME } from "@vekrel/shared/cliPackage";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -180,7 +181,7 @@ export const layer = Layer.effect(
         electronDialog
           .showErrorBox(
             "This Vekrel home is unavailable",
-            "Another Vekrel server, such as the background service, is using this data directory, or an older background service is set up for it. Stop that server or try `t3 update`. If the older launcher cannot update, run `t3 service uninstall` and optionally reinstall with `t3 service install` from a current CLI. Use `npx t3@latest` if `t3` is missing or outdated, and pass `--base-dir` with the service's Vekrel home to each command. Then reopen Vekrel. You can also set a separate VEKREL_HOME and pair with the running server.",
+            `Another Vekrel server, such as the background service, is using this data directory, or an older background service is set up for it. Stop that server or try \`vekrel update\`. If the older launcher cannot update, run \`vekrel service uninstall\` and optionally reinstall with \`vekrel service install\` from a current CLI. Use \`npx ${NPM_LAUNCHER_PACKAGE_NAME}@latest\` if \`vekrel\` is missing or outdated, and pass \`--base-dir\` with the service's Vekrel home to each command. Then reopen Vekrel. You can also set a separate VEKREL_HOME and pair with the running server.`,
           )
           .pipe(Effect.andThen(electronApp.quit)),
     });
