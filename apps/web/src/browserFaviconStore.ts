@@ -1,8 +1,4 @@
-import {
-  scopedProjectKey,
-  scopedThreadKey,
-  scopeProjectRef,
-} from "@vekrel/client-runtime/machine";
+import { scopedProjectKey, scopedThreadKey, scopeProjectRef } from "@vekrel/client-runtime/machine";
 import type { DesktopPreviewFavicon, ScopedProjectRef, ScopedThreadRef } from "@vekrel/contracts";
 import * as Option from "effect/Option";
 import { create } from "zustand";
@@ -25,7 +21,7 @@ import {
 } from "./browserFaviconLogic";
 import { createMemoryStorage, type StateStorage } from "./lib/storage";
 
-const BROWSER_FAVICON_STORAGE_KEY = "t3code:browser-favicons:v1";
+const BROWSER_FAVICON_STORAGE_KEY = "vekrel:browser-favicons:v1";
 const MAX_PENDING_ORIGINS_PER_THREAD = 10;
 const MAX_PENDING_THREADS = 20;
 const MAX_REGISTERED_THREADS = 100;
@@ -179,10 +175,7 @@ export function registerFaviconProjectForThread(
   const threadKey = scopedThreadKey(threadRef);
   const state = useBrowserFaviconStore.getState();
   const current = state.projectRefByThreadKey[threadKey];
-  if (
-    current?.machineId === projectRef.machineId &&
-    current.projectId === projectRef.projectId
-  ) {
+  if (current?.machineId === projectRef.machineId && current.projectId === projectRef.projectId) {
     return;
   }
   useBrowserFaviconStore.setState({
@@ -311,9 +304,7 @@ export function lookupFavicon(
   url: string,
   machineHostname: string | null,
 ): string | null {
-  const key = projectRef
-    ? faviconKey(scopedProjectKey(projectRef), url, machineHostname)
-    : null;
+  const key = projectRef ? faviconKey(scopedProjectKey(projectRef), url, machineHostname) : null;
   if (!key) return null;
   const direct = byKey[key];
   if (direct) return direct.dataUrl;

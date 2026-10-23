@@ -107,11 +107,7 @@ import { useAtomQueryRunner } from "../state/use-atom-query-runner";
 import { useScratchProject } from "../hooks/useScratchProject";
 import { useNewProject } from "../hooks/useNewProject";
 import { isScratchProject } from "@vekrel/client-runtime/state/projects";
-import {
-  useMachineProviders,
-  useMachines,
-  usePrimaryMachineId,
-} from "../state/machines";
+import { useMachineProviders, useMachines, usePrimaryMachineId } from "../state/machines";
 import { useProjects, useServerConfigs, useThreadShells, waitForProject } from "../state/entities";
 import { resolveThreadActionProjectRef, startNewThreadFromContext } from "../lib/chatThreadActions";
 import {
@@ -527,9 +523,7 @@ function OpenCommandPaletteDialog(props: {
   const projects = useProjects();
   const referenceThreadRef =
     pathname === "/pull-requests"
-      ? machines.some(
-          (machine) => machine.serverConfig?.machine.capabilities.pullRequests === true,
-        )
+      ? machines.some((machine) => machine.serverConfig?.machine.capabilities.pullRequests === true)
         ? PULL_REQUESTS_PANEL_REF
         : null
       : activeThread
@@ -579,9 +573,7 @@ function OpenCommandPaletteDialog(props: {
   const threadSearchQuery = currentView === null && !isActionsOnly ? deferredQuery : "";
   const [browseGeneration, setBrowseGeneration] = useState(0);
   const [browseNavigation] = useState(createBrowseNavigationCoordinator);
-  const [addProjectMachineId, setAddProjectMachineId] = useState<MachineId | null>(
-    null,
-  );
+  const [addProjectMachineId, setAddProjectMachineId] = useState<MachineId | null>(null);
   const [isPickingProjectFolder, setIsPickingProjectFolder] = useState(false);
   const [addProjectCloneFlow, setAddProjectCloneFlow] = useState<AddProjectCloneFlow | null>(null);
   const [newProjectFlow, setNewProjectFlow] = useState<{
@@ -656,17 +648,14 @@ function OpenCommandPaletteDialog(props: {
       if (!option.isConnected) {
         return false;
       }
-      const machine = machines.find(
-        (candidate) => candidate.machineId === option.machineId,
-      );
+      const machine = machines.find((candidate) => candidate.machineId === option.machineId);
       return machine
         ? desktopLocalBackendId(machine.entry.target)?.startsWith("wsl:") === true
         : false;
     }) ?? null;
   const browseMachineId = addProjectMachineId ?? defaultAddProjectMachineId;
   const canCreateProject = useMachineScope(browseMachineId, AuthOrchestrationOperateScope);
-  const browseMachine =
-    machines.find((machine) => machine.machineId === browseMachineId) ?? null;
+  const browseMachine = machines.find((machine) => machine.machineId === browseMachineId) ?? null;
   const browseMachineIsDesktopLocal =
     browseMachine !== null && isDesktopLocalConnectionTarget(browseMachine.entry.target);
   // Map the browsed desktop-local env to its desktop pool instance id (e.g.
@@ -726,21 +715,16 @@ function OpenCommandPaletteDialog(props: {
 
   const activeThreadId = activeThread?.id;
   const supportsThreadFind =
-    machines.find((machine) => machine.machineId === activeThread?.machineId)
-      ?.serverConfig?.threadFind === true;
-  const currentProjectMachineId =
-    activeThread?.machineId ?? activeDraftThread?.machineId ?? null;
+    machines.find((machine) => machine.machineId === activeThread?.machineId)?.serverConfig
+      ?.threadFind === true;
+  const currentProjectMachineId = activeThread?.machineId ?? activeDraftThread?.machineId ?? null;
   const currentProjectId = activeThread?.projectId ?? activeDraftThread?.projectId ?? null;
-  const scratchTargetMachineId = scratchMachineId(
-    currentProjectMachineId ?? primaryMachineId,
-  );
+  const scratchTargetMachineId = scratchMachineId(currentProjectMachineId ?? primaryMachineId);
   const currentProjectCwd = currentProjectId
     ? (projectCwdById.get(currentProjectId) ?? null)
     : null;
   const currentProjectCwdForBrowse =
-    browseMachineId && currentProjectMachineId === browseMachineId
-      ? currentProjectCwd
-      : null;
+    browseMachineId && currentProjectMachineId === browseMachineId ? currentProjectCwd : null;
   const getBrowseCwdForMachine = (machineId: MachineId | null): string | null =>
     machineId && currentProjectMachineId === machineId ? currentProjectCwd : null;
   const relativePathNeedsActiveProject =
@@ -953,10 +937,7 @@ function OpenCommandPaletteDialog(props: {
     );
   };
 
-  const startAddProjectClone = (
-    machineId: MachineId,
-    source: AddProjectRemoteSource,
-  ): void => {
+  const startAddProjectClone = (machineId: MachineId, source: AddProjectRemoteSource): void => {
     setAddProjectMachineId(machineId);
     setAddProjectCloneFlow({ step: "repository", machineId, source });
     pushPaletteView({
@@ -967,13 +948,10 @@ function OpenCommandPaletteDialog(props: {
   };
 
   const newProjectsRootFor = (machineId: MachineId | null): string | null =>
-    machines.find((machine) => machine.machineId === machineId)?.serverConfig
-      ?.newProjectsRoot ?? null;
+    machines.find((machine) => machine.machineId === machineId)?.serverConfig?.newProjectsRoot ??
+    null;
 
-  const startNewProject = (
-    machineId: MachineId,
-    sourcesMachineId: MachineId | null,
-  ): void => {
+  const startNewProject = (machineId: MachineId, sourcesMachineId: MachineId | null): void => {
     setAddProjectMachineId(machineId);
     setAddProjectCloneFlow(null);
     setNewProjectFlow({ machineId, sourcesMachineId });
@@ -1512,9 +1490,7 @@ function OpenCommandPaletteDialog(props: {
   actionItems.push(themeEditorItem);
 
   if (
-    machines.some(
-      (machine) => machine.serverConfig?.machine.capabilities.pullRequests === true,
-    )
+    machines.some((machine) => machine.serverConfig?.machine.capabilities.pullRequests === true)
   ) {
     actionItems.push({
       kind: "action",
@@ -1574,7 +1550,7 @@ function OpenCommandPaletteDialog(props: {
         "grouping",
         "checkout",
         "remove",
-        "t3.json",
+        "vekrel.json",
       ],
       title: "Project settings",
       description: contextualProjectGroup.displayName,
@@ -1653,9 +1629,7 @@ function OpenCommandPaletteDialog(props: {
     readonly platform: string;
     readonly currentProjectCwd: string | null;
   }) => {
-    const machine = machines.find(
-      (candidate) => candidate.machineId === input.machineId,
-    );
+    const machine = machines.find((candidate) => candidate.machineId === input.machineId);
     if (!canCreateProjectInMachine(machine?.connection.phase)) {
       toastManager.add(
         stackedThreadToast({
@@ -1706,9 +1680,7 @@ function OpenCommandPaletteDialog(props: {
       if (latestThread && latestThread.settledOverride !== "settled") {
         await navigate({
           to: "/$machineId/$threadId",
-          params: buildThreadRouteParams(
-            scopeThreadRef(latestThread.machineId, latestThread.id),
-          ),
+          params: buildThreadRouteParams(scopeThreadRef(latestThread.machineId, latestThread.id)),
         });
       } else {
         const navigationResult = await settlePromise(() =>
@@ -2105,17 +2077,13 @@ function OpenCommandPaletteDialog(props: {
   const selectedNewProjectMachine =
     newProjectFlow === null
       ? undefined
-      : newProjectMachineOptions.find(
-          (option) => option.machineId === newProjectFlow.machineId,
-        );
+      : newProjectMachineOptions.find((option) => option.machineId === newProjectFlow.machineId);
   const showNewProjectMachines =
     newProjectFlow !== null &&
     (newProjectMachineOptions.length > 1 ||
       (selectedNewProjectMachine === undefined && newProjectMachineOptions.length > 0));
   const newProjectMachineLabel = showNewProjectMachines
-    ? (selectedNewProjectMachine?.label ??
-      machineLabelById.get(newProjectFlow.machineId) ??
-      null)
+    ? (selectedNewProjectMachine?.label ?? machineLabelById.get(newProjectFlow.machineId) ?? null)
     : null;
   const newProjectMachineGroup: CommandPaletteView["groups"][number] | null =
     !showNewProjectMachines || newProjectFlow === null
@@ -2512,8 +2480,7 @@ function OpenCommandPaletteDialog(props: {
         primaryRunningDistro =
           window.desktopBridge
             ?.getLocalMachineBootstraps()
-            .find((bootstrap) => bootstrap.id === PRIMARY_LOCAL_MACHINE_ID)?.runningDistro ??
-          null;
+            .find((bootstrap) => bootstrap.id === PRIMARY_LOCAL_MACHINE_ID)?.runningDistro ?? null;
       } catch {}
       const selection = resolveWslProjectSelection(
         pickedPath,

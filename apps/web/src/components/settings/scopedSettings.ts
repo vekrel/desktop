@@ -65,9 +65,7 @@ export function selectScopedSettingsMachines<T extends ScopedSettingsMachine>(
   primaryMachineId: MachineId | null,
 ) {
   const selectedIds = new Set(scope.machineIds);
-  const machines = available.filter((machine) =>
-    selectedIds.has(machine.machineId),
-  );
+  const machines = available.filter((machine) => selectedIds.has(machine.machineId));
   const connectedMachines = machines.filter(isConnectedWithConfig);
   const machine =
     connectedMachines.find((candidate) => candidate.machineId === primaryMachineId) ??
@@ -90,9 +88,7 @@ export function resolveScopedSettingsTargets(
   // A member absent here has no file tier yet; null is a missing or invalid file.
   projectFiles?: ReadonlyMap<string, T3ProjectFile | null>,
 ): readonly ScopedSettingsTarget[] {
-  const byId = new Map(
-    connectedMachines.map((machine) => [machine.machineId, machine]),
-  );
+  const byId = new Map(connectedMachines.map((machine) => [machine.machineId, machine]));
   if (scope.kind === "project" || scope.kind === "checkout") {
     return scope.members.flatMap((member) => {
       const machine = byId.get(member.machineId);
@@ -167,8 +163,8 @@ export function scopedSettingsSource(
     ? "mixed"
     : sources.has("project")
       ? "project"
-      : sources.has("t3.json")
-        ? "t3.json"
+      : sources.has("vekrel.json")
+        ? "vekrel.json"
         : "environment";
 }
 
@@ -468,9 +464,7 @@ export async function persistScopedSettingsPatch(
 ) {
   if (plan.hasClientWrite) persistClient(plan.clientPatch);
   const results = await Promise.allSettled(
-    plan.serverWrites.map(({ machineId, patch }) =>
-      persistServer({ machineId, input: { patch } }),
-    ),
+    plan.serverWrites.map(({ machineId, patch }) => persistServer({ machineId, input: { patch } })),
   );
   const saved = (index: number) => {
     const result = results[index];

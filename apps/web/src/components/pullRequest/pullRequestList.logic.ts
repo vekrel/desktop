@@ -518,8 +518,7 @@ type SnapshotStorage = Pick<Storage, "getItem" | "setItem">;
 export const pullRequestMachineSetKey = (machineIds: ReadonlyArray<string>): string =>
   [...machineIds].sort((left, right) => left.localeCompare(right)).join(",");
 
-const snapshotStorageKey = (machineSetKey: string) =>
-  `t3.pullRequests.list:${machineSetKey}`;
+const snapshotStorageKey = (machineSetKey: string) => `vekrel.pullRequests.list:${machineSetKey}`;
 
 export interface PullRequestPartitionsSnapshot {
   readonly authored: ReadonlyArray<MachinePullRequestEntry>;
@@ -812,9 +811,7 @@ export function sortPullRequestGroups<Entry extends PullRequestListEntry>(
   );
 }
 
-export function withDiffStat<
-  Entry extends PullRequestListEntry & { readonly machineId: string },
->(
+export function withDiffStat<Entry extends PullRequestListEntry & { readonly machineId: string }>(
   entry: Entry,
   statsByRow: ReadonlyMap<string, { readonly additions: number; readonly deletions: number }>,
 ): Entry {
@@ -930,9 +927,7 @@ export type PullRequestQuickAction = "close" | "merge" | "ready" | "reopen";
 
 export function pullRequestHostActions(
   providers: ReadonlyArray<PullRequestListResult["providers"][number]>,
-): (
-  entry: Pick<MachinePullRequestEntry, "host" | "provider">,
-) => ReadonlySet<PullRequestAction> {
+): (entry: Pick<MachinePullRequestEntry, "host" | "provider">) => ReadonlySet<PullRequestAction> {
   const byHost = new Map(
     providers.flatMap((provider) =>
       provider.actions === undefined
@@ -993,10 +988,7 @@ export function findProjectForRepository<
   const repository = input.repository.toLowerCase();
   const host = input.host?.toLowerCase();
   const candidates = projects.filter((project) => {
-    if (
-      input.selectedMachineId != null &&
-      project.machineId !== input.selectedMachineId
-    ) {
+    if (input.selectedMachineId != null && project.machineId !== input.selectedMachineId) {
       return false;
     }
     const identity = project.repositoryIdentity;

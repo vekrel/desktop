@@ -45,10 +45,7 @@ import { FetchHttpClient } from "effect/http";
 import { APP_VERSION } from "../branding";
 import { readDesktopPrimaryBearerToken } from "../machines/primary/desktopAuth";
 import * as PrimaryMachineHttpLayer from "../machines/primary/httpLayer";
-import {
-  readPrimaryMachineTarget,
-  type PrimaryMachineTarget,
-} from "../machines/primary/target";
+import { readPrimaryMachineTarget, type PrimaryMachineTarget } from "../machines/primary/target";
 import { clearComposerDraftsMachine } from "../composerDraftStore";
 import { isHostedStaticApp } from "../hostedPairing";
 import { isLocalMachineDisabled } from "../localMachine";
@@ -211,42 +208,42 @@ const ensureDesktopSshMachine = (bridge: DesktopBridge, target: DesktopSshMachin
     catch: sshPreparationError,
   });
 
-export const provisionDesktopSshMachine = Effect.fn(
-  "web.connectionPlatform.ssh.provisionDesktop",
-)(function* (
-  bridge: DesktopBridge,
-  target: DesktopSshMachineTarget,
-  expectedMachineId?: MachineId,
-) {
-  const bootstrap = yield* ensureDesktopSshMachine(bridge, target);
-  const pairingToken = bootstrap.pairingToken;
-  if (pairingToken === null) {
-    return yield* new ConnectionBlockedError({
-      reason: "authentication",
-      detail: "The SSH machine did not issue a pairing credential.",
+export const provisionDesktopSshMachine = Effect.fn("web.connectionPlatform.ssh.provisionDesktop")(
+  function* (
+    bridge: DesktopBridge,
+    target: DesktopSshMachineTarget,
+    expectedMachineId?: MachineId,
+  ) {
+    const bootstrap = yield* ensureDesktopSshMachine(bridge, target);
+    const pairingToken = bootstrap.pairingToken;
+    if (pairingToken === null) {
+      return yield* new ConnectionBlockedError({
+        reason: "authentication",
+        detail: "The SSH machine did not issue a pairing credential.",
+      });
+    }
+    const descriptor = yield* Effect.tryPromise({
+      try: () => bridge.fetchSshMachineDescriptor(bootstrap.httpBaseUrl),
+      catch: sshPreparationError,
     });
-  }
-  const descriptor = yield* Effect.tryPromise({
-    try: () => bridge.fetchSshMachineDescriptor(bootstrap.httpBaseUrl),
-    catch: sshPreparationError,
-  });
-  if (expectedMachineId !== undefined && descriptor.machineId !== expectedMachineId) {
-    return yield* new ConnectionBlockedError({
-      reason: "configuration",
-      detail: `That host reaches ${descriptor.label}, a different machine. Add it as its own machine instead.`,
+    if (expectedMachineId !== undefined && descriptor.machineId !== expectedMachineId) {
+      return yield* new ConnectionBlockedError({
+        reason: "configuration",
+        detail: `That host reaches ${descriptor.label}, a different machine. Add it as its own machine instead.`,
+      });
+    }
+    const access = yield* Effect.tryPromise({
+      try: () => bridge.bootstrapSshBearerSession(bootstrap.httpBaseUrl, pairingToken),
+      catch: sshPreparationError,
     });
-  }
-  const access = yield* Effect.tryPromise({
-    try: () => bridge.bootstrapSshBearerSession(bootstrap.httpBaseUrl, pairingToken),
-    catch: sshPreparationError,
-  });
-  return {
-    machineId: descriptor.machineId,
-    label: descriptor.label,
-    bootstrap,
-    bearerToken: access.access_token,
-  };
-});
+    return {
+      machineId: descriptor.machineId,
+      label: descriptor.label,
+      bootstrap,
+      bearerToken: access.access_token,
+    };
+  },
+);
 
 /**
  * Connects a saved SSH machine. A token from an earlier pairing is kept
@@ -303,7 +300,7 @@ export const prepareDesktopSshMachine = Effect.fn("web.connectionPlatform.ssh.pr
   },
 );
 
-const ANALYTICS_DEVICE_ID_KEY = "t3code:analytics-device-id";
+const ANALYTICS_DEVICE_ID_KEY = "vekrel:analytics-device-id";
 
 // Lives as long as this browser profile's site data. Storage can be blocked, which only drops the id.
 const analyticsDevice = {
@@ -419,10 +416,7 @@ const loadPrimaryConnectionRegistration = Effect.fn(
 )(function* (resolved: PrimaryMachineTarget) {
   const descriptor = yield* fetchRemoteMachineDescriptor({
     httpBaseUrl: resolved.target.httpBaseUrl,
-  }).pipe(
-    Effect.provide(PrimaryMachineHttpLayer.layer),
-    Effect.mapError(mapRemoteMachineError),
-  );
+  }).pipe(Effect.provide(PrimaryMachineHttpLayer.layer), Effect.mapError(mapRemoteMachineError));
   return new PrimaryConnectionRegistration({
     target: new PrimaryConnectionTarget({
       machineId: descriptor.machineId,

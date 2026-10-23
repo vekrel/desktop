@@ -108,7 +108,7 @@ import {
 type ThreadProjection = MachineThread["projection"];
 type ThreadStructureRow = ThreadStructure["visibleTurnItems"][number];
 
-export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "t3code:last-invoked-script-by-project";
+export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "vekrel:last-invoked-script-by-project";
 export const MAX_HIDDEN_MOUNTED_TERMINAL_THREADS = 10;
 
 const MACHINE_RECONNECT_WARNING_GRACE_MS = 2_000;
@@ -950,11 +950,7 @@ function checkoutIsRepoKey(machineId: MachineId, cwd: string): string {
   return JSON.stringify([machineId, cwd]);
 }
 
-export function rememberCheckoutIsRepo(
-  machineId: MachineId,
-  cwd: string,
-  isRepo: boolean,
-): void {
+export function rememberCheckoutIsRepo(machineId: MachineId, cwd: string, isRepo: boolean): void {
   sessionCheckoutIsRepo.set(checkoutIsRepoKey(machineId, cwd), isRepo);
 }
 
@@ -962,9 +958,7 @@ export function recallCheckoutIsRepo(
   machineId: MachineId,
   cwd: string | null,
 ): boolean | undefined {
-  return cwd === null
-    ? undefined
-    : sessionCheckoutIsRepo.get(checkoutIsRepoKey(machineId, cwd));
+  return cwd === null ? undefined : sessionCheckoutIsRepo.get(checkoutIsRepoKey(machineId, cwd));
 }
 
 export function threadHasStarted(thread: Thread | null | undefined): boolean {

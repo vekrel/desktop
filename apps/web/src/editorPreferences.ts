@@ -18,7 +18,7 @@ import { shellMachine } from "./state/shell";
 import { useAtomCommand } from "./state/use-atom-command";
 import { readMachineScope } from "./state/session";
 
-const LAST_EDITOR_KEY = "t3code:last-editor";
+const LAST_EDITOR_KEY = "vekrel:last-editor";
 
 export class PreferredEditorMachineRequiredError extends Schema.TaggedError<PreferredEditorMachineRequiredError>()(
   "PreferredEditorMachineRequiredError",

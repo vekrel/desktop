@@ -38,8 +38,7 @@ export function ProjectActionsSettings() {
   const { machines } = useMachines();
   const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
   const representativeConfig = target
-    ? machines.find((machine) => machine.machineId === target.machineId)
-        ?.serverConfig
+    ? machines.find((machine) => machine.machineId === target.machineId)?.serverConfig
     : undefined;
   const scripts = target?.settings.defaultProjectScripts ?? [];
   const keybindings = representativeConfig?.keybindings ?? DEFAULT_RESOLVED_KEYBINDINGS;
@@ -54,18 +53,13 @@ export function ProjectActionsSettings() {
   );
   const { saving, persist, submit } = useProjectScriptSettings(
     targets.flatMap((candidate) => {
-      const machine = machines.find(
-        (entry) => entry.machineId === candidate.machineId,
-      );
+      const machine = machines.find((entry) => entry.machineId === candidate.machineId);
       if (!machine?.serverConfig) return [];
       const member = candidate.projectId ? memberById.get(candidate.projectId) : undefined;
       // An older server ignores the override record, so a project edit there
       // would report success and vanish; such machines are left out and
       // the legacy per-project map keeps serving them.
-      if (
-        member &&
-        machine.serverConfig.machine?.capabilities.projectSettingsOverrides !== true
-      ) {
+      if (member && machine.serverConfig.machine?.capabilities.projectSettingsOverrides !== true) {
         return [];
       }
       return [
@@ -144,7 +138,7 @@ export function ProjectActionsSettings() {
                 </MenuTrigger>
                 <MenuPopup align="end">
                   <MenuGroup>
-                    <MenuGroupLabel>Import from t3.json</MenuGroupLabel>
+                    <MenuGroupLabel>Import from vekrel.json</MenuGroupLabel>
                     <p className="px-2 pb-2 text-pretty text-sm text-muted-foreground">
                       Add actions declared by this checkout without editing them first.
                     </p>
@@ -194,8 +188,8 @@ export function ProjectActionsSettings() {
       )}
       {t3File.status === "invalid" ? (
         <SettingsRow
-          title="t3.json is invalid"
-          description="A t3.json exists in this checkout but fails to parse, so every action and icon it declares is ignored. Check the JSON syntax and icon values."
+          title="vekrel.json is invalid"
+          description="A vekrel.json exists in this checkout but fails to parse, so every action and icon it declares is ignored. Check the JSON syntax and icon values."
           className="text-warning"
         />
       ) : null}

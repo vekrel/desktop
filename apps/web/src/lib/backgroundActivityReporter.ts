@@ -21,7 +21,7 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 
 import { randomUUID } from "./utils";
 
-const CLIENT_ID_STORAGE_KEY = "t3.backgroundActivity.clientId";
+const CLIENT_ID_STORAGE_KEY = "vekrel.backgroundActivity.clientId";
 const REPORT_INTERVAL_MS = 25_000;
 const LEASE_TTL_MS = 45_000;
 const RECENT_INTERACTION_WINDOW_MS = LEASE_TTL_MS;
@@ -155,9 +155,7 @@ export function observeBackgroundActivitySubscription(
   });
 }
 
-export function retainedBackgroundScopes(
-  machineId: MachineId,
-): ReadonlyArray<BackgroundScope> {
+export function retainedBackgroundScopes(machineId: MachineId): ReadonlyArray<BackgroundScope> {
   return Array.from(retainedScopes.values(), (entry) =>
     entry.machineId === machineId ? entry.scope : null,
   ).filter((scope): scope is BackgroundScope => scope !== null);

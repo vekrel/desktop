@@ -12,13 +12,7 @@ import { toastManager } from "./ui/toast";
 // Keep an active toast across remounts, including Strict Mode effect replay.
 const shown = new Set<MachineId>();
 
-function MachinePermissionNotice({
-  machineId,
-  label,
-}: {
-  machineId: MachineId;
-  label: string;
-}) {
+function MachinePermissionNotice({ machineId, label }: { machineId: MachineId; label: string }) {
   const session = useAtomValue(machineSession.sessionStateAtom(machineId));
   const navigate = useNavigate();
   useEffect(() => {
@@ -29,7 +23,7 @@ function MachinePermissionNotice({
     )
       return;
     if (shown.has(machineId)) return;
-    const key = `t3code:permission-update:v1:${machineId}`;
+    const key = `vekrel:permission-update:v1:${machineId}`;
     try {
       if (getLocalStorageItem(key, Schema.Boolean)) return;
     } catch {}

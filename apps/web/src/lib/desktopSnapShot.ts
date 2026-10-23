@@ -1,6 +1,6 @@
 import type { DesktopBridge } from "@vekrel/contracts";
 
-const SNAP_SHOT_FOCUS_EVENT = "t3code:focus-composer";
+const SNAP_SHOT_FOCUS_EVENT = "vekrel:focus-composer";
 
 export function dispatchSnapShotComposerFocus(): void {
   if (typeof window === "undefined") return;

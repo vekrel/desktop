@@ -363,15 +363,12 @@ export function SettingsRow({
       !(context ? context.connectedMachines.length > 0 : primarySettingsAvailable));
   const inheritedFrom =
     source === "environment" && context?.scope.machineIds.length === 1
-      ? (context.machines.find(
-          (machine) => machine.machineId === context.scope.machineIds[0],
-        )?.label ?? "machine")
+      ? (context.machines.find((machine) => machine.machineId === context.scope.machineIds[0])
+          ?.label ?? "machine")
       : "machine";
   const machineSettingsById = new Map(
     (context?.connectedMachines ?? []).flatMap((machine) =>
-      machine.serverConfig
-        ? [[machine.machineId, machine.serverConfig.settings] as const]
-        : [],
+      machine.serverConfig ? [[machine.machineId, machine.serverConfig.settings] as const] : [],
     ),
   );
   const overridingProjects = isProjectScope ? [] : projectOverrides(context, scopedKeys);
@@ -440,8 +437,8 @@ export function SettingsRow({
     ? { state: "mixed", summary: "Mixed across selected machines" }
     : source === "project"
       ? { state: "overridden", summary: "Overridden for this project" }
-      : source === "t3.json"
-        ? { state: "inherited", summary: "Inherited from the repository's t3.json" }
+      : source === "vekrel.json"
+        ? { state: "inherited", summary: "Inherited from the repository's vekrel.json" }
         : source === "environment" && scopedKeys.length > 0
           ? { state: "inherited", summary: `Inherited from ${inheritedFrom}` }
           : customized
