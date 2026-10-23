@@ -24,7 +24,7 @@ describe("machine themes", () => {
   it("drops published themes with reserved ids", () => {
     const definitions = publishedThemeDefinitions([
       NIGHTFALL_THEME,
-      { ...NIGHTFALL_THEME, id: "t3-iris", name: "Impostor Iris" },
+      { ...NIGHTFALL_THEME, id: "vekrel-iris", name: "Impostor Iris" },
       { ...NIGHTFALL_THEME, id: "ocean", name: "Impostor Ocean" },
       { ...NIGHTFALL_THEME, id: "dark", name: "Impostor Dark" },
     ]);

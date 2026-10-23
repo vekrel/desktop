@@ -23,7 +23,7 @@ import {
 export { EMBER_THEME, GROVE_THEME, IRIS_THEME, OCEAN_THEME, VEKREL_CHAT_THEME, THEME_COLOR_ROLES };
 export type { ThemeAppearance, ThemeColorRole, ThemeColors, ThemeDefinition, ThemeVariants };
 
-const VEKREL_CHAT_THEME_ID = "t3-chat" as const;
+const VEKREL_CHAT_THEME_ID = "vekrel-chat" as const;
 const GROVE_THEME_ID = "grove" as const;
 const OCEAN_THEME_ID = "ocean" as const;
 const EMBER_THEME_ID = "ember" as const;
@@ -34,7 +34,7 @@ export const THEME_FOLLOW_SYSTEM_STORAGE_KEY = "vekrel:theme-follow-system";
 export const THEME_APPEARANCE_MODE_STORAGE_KEY = "vekrel:theme-appearance-mode";
 export const THEME_HALVES_STORAGE_KEY = "vekrel:theme-halves:v1";
 
-const LEGACY_T3_CHAT_DARK_THEME_ID = "t3-chat-dark";
+const LEGACY_T3_CHAT_DARK_THEME_ID = "vekrel-chat-dark";
 
 export const ThemePreference = Schema.String;
 export type ThemePreference = typeof ThemePreference.Type;
@@ -288,10 +288,10 @@ export function subscribeToCustomThemes(listener: () => void): () => void {
 
 const LEGACY_THEME_ID_ALIASES: Readonly<Record<string, string>> = {
   [LEGACY_T3_CHAT_DARK_THEME_ID]: VEKREL_CHAT_THEME_ID,
-  "t3-grove": GROVE_THEME_ID,
-  "t3-ocean": OCEAN_THEME_ID,
-  "t3-ember": EMBER_THEME_ID,
-  "t3-iris": IRIS_THEME_ID,
+  "vekrel-grove": GROVE_THEME_ID,
+  "vekrel-ocean": OCEAN_THEME_ID,
+  "vekrel-ember": EMBER_THEME_ID,
+  "vekrel-iris": IRIS_THEME_ID,
 };
 
 function normalizeThemeId(themeId: string): string {

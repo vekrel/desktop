@@ -76,9 +76,7 @@ function UserVideoAttachment({ file }: { readonly file: ChatFileAttachment }) {
   const { downloadable, id, mimeType, name } = file;
   const machineId = ctx.activeThreadMachineId;
   const asset =
-    downloadable === false
-      ? null
-      : buildAttachmentVideoAsset(machineId, { id, mimeType, name });
+    downloadable === false ? null : buildAttachmentVideoAsset(machineId, { id, mimeType, name });
   const resource = asset?.resource ?? null;
   const assetUrl = useAssetUrlState(ctx.activeThreadMachineId, resource);
   const refreshAssetUrl = useAssetUrlRefresh(ctx.activeThreadMachineId, resource);
@@ -380,10 +378,10 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
 
   return (
     <div className="group flex flex-col items-end gap-1">
-      {userMessage.attribution === "t3code" ? (
+      {userMessage.attribution === "vekrel" ? (
         <p
           className="me-1 text-2xs text-muted-foreground/70"
-          data-user-message-attribution="t3code"
+          data-user-message-attribution="vekrel"
         >
           Sent by Vekrel
         </p>
