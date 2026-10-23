@@ -43,7 +43,7 @@ for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
 
 const projectRoot = process.env.VEKREL_PROJECT_ROOT;
 if (!projectRoot) {
-  throw new Error("VEKREL_PROJECT_ROOT is not set. Run this through the t3.json setup action.");
+  throw new Error("VEKREL_PROJECT_ROOT is not set. Run this through the vekrel.json setup action.");
 }
 
 // `shell` resolves `vp` through PATH, including Windows command shims.
