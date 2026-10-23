@@ -40,7 +40,7 @@ import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import { projectFaviconCache } from "../assets/projectFaviconCache";
 
-const DATABASE_NAME = "t3code:connection-runtime";
+const DATABASE_NAME = "vekrel:connection-runtime";
 const DATABASE_VERSION = 4;
 const CATALOG_STORE_NAME = "catalog";
 const SHELL_STORE_NAME = "shell";
@@ -496,8 +496,8 @@ export const makeCatalogStore = Effect.fn("web.connectionStorage.makeCatalogStor
   return { read, update } satisfies CatalogStore;
 });
 
-const GITHUB_ROUTING_KEY_PREFIX = "t3code:github-routing:";
-const GITHUB_ROUTING_CHANGED = "t3code:github-routing-changed";
+const GITHUB_ROUTING_KEY_PREFIX = "vekrel:github-routing:";
+const GITHUB_ROUTING_CHANGED = "vekrel:github-routing-changed";
 const isStoredGitHubRoutingPermission = Schema.is(StoredGitHubRoutingPermission);
 const encodeStoredGitHubRoutingPermission = Schema.encodeSync(
   Schema.fromJsonString(StoredGitHubRoutingPermission),
@@ -740,9 +740,7 @@ export const layer = Layer.effectContext(
               decodeStoredShellSnapshot(raw).pipe(
                 Effect.mapError((cause) => persistenceError("load-shell", cause)),
                 Effect.map((stored) =>
-                  stored.machineId === machineId
-                    ? Option.some(stored.snapshot)
-                    : Option.none(),
+                  stored.machineId === machineId ? Option.some(stored.snapshot) : Option.none(),
                 ),
               ),
               removeDatabaseValue(database, SHELL_STORE_NAME, machineId),
@@ -800,11 +798,7 @@ export const layer = Layer.effectContext(
         ),
       ),
       loadThread: (machineId, threadId) =>
-        readDatabaseValue(
-          database,
-          THREAD_STORE_NAME,
-          threadCacheKey(machineId, threadId),
-        ).pipe(
+        readDatabaseValue(database, THREAD_STORE_NAME, threadCacheKey(machineId, threadId)).pipe(
           Effect.flatMap((raw) => {
             if (typeof raw !== "string") {
               return Effect.succeedNone;
@@ -818,11 +812,7 @@ export const layer = Layer.effectContext(
                     : Option.none(),
                 ),
               ),
-              removeDatabaseValue(
-                database,
-                THREAD_STORE_NAME,
-                threadCacheKey(machineId, threadId),
-              ),
+              removeDatabaseValue(database, THREAD_STORE_NAME, threadCacheKey(machineId, threadId)),
             );
           }),
           Effect.mapError((cause) => persistenceError("load-thread", cause)),
@@ -891,11 +881,9 @@ export const layer = Layer.effectContext(
         ),
       ),
       removeVcsRefs: (machineId, cwd) =>
-        removeDatabaseValue(
-          database,
-          VCS_REFS_STORE_NAME,
-          vcsRefsCacheKey(machineId, cwd),
-        ).pipe(Effect.mapError((cause) => persistenceError("remove-vcs-refs", cause))),
+        removeDatabaseValue(database, VCS_REFS_STORE_NAME, vcsRefsCacheKey(machineId, cwd)).pipe(
+          Effect.mapError((cause) => persistenceError("remove-vcs-refs", cause)),
+        ),
       clearVcsRefs: (machineId) =>
         removeDatabaseValuesInRange(
           database,
@@ -903,11 +891,9 @@ export const layer = Layer.effectContext(
           IDBKeyRange.bound(`${machineId}:`, `${machineId}:\uffff`),
         ).pipe(Effect.mapError((cause) => persistenceError("clear-vcs-refs", cause))),
       removeThread: (machineId, threadId) =>
-        removeDatabaseValue(
-          database,
-          THREAD_STORE_NAME,
-          threadCacheKey(machineId, threadId),
-        ).pipe(Effect.mapError((cause) => persistenceError("remove-thread", cause))),
+        removeDatabaseValue(database, THREAD_STORE_NAME, threadCacheKey(machineId, threadId)).pipe(
+          Effect.mapError((cause) => persistenceError("remove-thread", cause)),
+        ),
       clear: (machineId) =>
         Effect.all(
           [

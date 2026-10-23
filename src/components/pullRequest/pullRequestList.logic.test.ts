@@ -42,9 +42,7 @@ import {
 
 const VIEWERS = { "github.com": "Bilal" } as const;
 
-function entry(
-  overrides: Partial<MachinePullRequestEntry> & Pick<PullRequestListEntry, "number">,
-) {
+function entry(overrides: Partial<MachinePullRequestEntry> & Pick<PullRequestListEntry, "number">) {
   return {
     machineId: "env-1",
     provider: "github",
@@ -422,7 +420,7 @@ describe("remembered pull request list controls", () => {
   // regression: #9188 corrupt stored list controls broke the page
   it("falls back to the default controls when storage is corrupt", () => {
     const storage = makeStorage();
-    storage.setItem("t3.pullRequests.preferences", "{not json");
+    storage.setItem("vekrel.pullRequests.preferences", "{not json");
     expect(readPullRequestListPreferences(storage)).toEqual({ involvement: "all", state: "open" });
   });
 
@@ -578,9 +576,10 @@ describe("which machines a listing should ask", () => {
       { id: "project-1", machineId: ENV_1 },
       { id: "project-1", machineId: ENV_2 },
     ];
-    expect(
-      resolveQueryMachineIds(machineIds, projects, undefined, "project-1", true),
-    ).toEqual([ENV_1, ENV_2]);
+    expect(resolveQueryMachineIds(machineIds, projects, undefined, "project-1", true)).toEqual([
+      ENV_1,
+      ENV_2,
+    ]);
   });
 });
 

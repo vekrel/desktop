@@ -98,7 +98,7 @@ async function warmLazyEntries(
 // server listens leaves the browser mostly codegen.
 export function warmBundledDevPlugin(): Plugin {
   return {
-    name: "t3code:warm-bundled-dev",
+    name: "vekrel:warm-bundled-dev",
     apply: "serve",
     configureServer(server) {
       if (!server.config.experimental.bundledDev) return;

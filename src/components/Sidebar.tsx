@@ -268,9 +268,9 @@ const EMPTY_THREADS: readonly MachineThreadShell[] = [];
 
 const SETTLED_TAIL_INITIAL_COUNT = 10;
 const SETTLED_TAIL_PAGE_COUNT = 25;
-const SETTLED_SHELF_EXPANDED_KEY = "t3code:sidebar:settled-expanded";
-const SNOOZED_SHELF_EXPANDED_KEY = "t3code:sidebar:snoozed-expanded";
-const WORKING_SHELF_EXPANDED_KEY = "t3code:sidebar:working-expanded";
+const SETTLED_SHELF_EXPANDED_KEY = "vekrel:sidebar:settled-expanded";
+const SNOOZED_SHELF_EXPANDED_KEY = "vekrel:sidebar:snoozed-expanded";
+const WORKING_SHELF_EXPANDED_KEY = "vekrel:sidebar:working-expanded";
 
 const inboxReturns = createInboxReturnTracker();
 
@@ -363,11 +363,7 @@ function useSidebarThreads(input: {
       : scopedThreadKey(
           scopeThreadRef(
             routeThreadRef.machineId,
-            resolveSidebarRowThreadId(
-              routeThreadRef.threadId,
-              routeThreadRef.machineId,
-              threads,
-            ),
+            resolveSidebarRowThreadId(routeThreadRef.threadId, routeThreadRef.machineId, threads),
           ),
         );
   const workingShelfEnabled = useClientSettings((s) => s.sidebarWorkingShelfEnabled);
@@ -602,10 +598,7 @@ function isOptimisticDropReleased(input: {
 }): boolean {
   const { optimisticDrop, threads, pinnedKeys, activeKeys, now } = input;
   const canonicalByKey = new Map(
-    threads.map((thread) => [
-      scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)),
-      thread,
-    ]),
+    threads.map((thread) => [scopedThreadKey(scopeThreadRef(thread.machineId, thread.id)), thread]),
   );
   const thread = canonicalByKey.get(optimisticDrop.key);
   if (thread === undefined || thread.archivedAt !== null) {
@@ -1275,8 +1268,7 @@ export default function Sidebar() {
     return nextThread
       ? () => navigateToThread(scopeThreadRef(nextThread.machineId, nextThread.id))
       : shell
-        ? () =>
-            void handleNewThreadRef.current(scopeProjectRef(shell.machineId, shell.projectId))
+        ? () => void handleNewThreadRef.current(scopeProjectRef(shell.machineId, shell.projectId))
         : () => void router.navigate({ to: "/" });
   };
 
@@ -1452,8 +1444,7 @@ export default function Sidebar() {
       const originSection = sectionByThreadKeyRef.current.get(originKey);
       const canApply = (key: string) => {
         const thread = threadByKeyRef.current.get(key);
-        const capabilities =
-          thread && serverConfigs.get(thread.machineId)?.machine.capabilities;
+        const capabilities = thread && serverConfigs.get(thread.machineId)?.machine.capabilities;
         return (
           thread !== undefined &&
           sectionByThreadKeyRef.current.get(key) === originSection &&
@@ -1712,8 +1703,7 @@ export default function Sidebar() {
             activePinned: source.pinnedAt != null,
             activeSettled: source.settledOverride === "settled",
             supportsSettlement:
-              serverConfigs.get(source.machineId)?.machine.capabilities.threadSettlement ===
-              true,
+              serverConfigs.get(source.machineId)?.machine.capabilities.threadSettlement === true,
             target,
             pinnedOrder: pinnedKeys,
             pinnedKeysById,
@@ -1747,8 +1737,7 @@ export default function Sidebar() {
       activePinned: activeThread.pinnedAt != null,
       activeSettled: activeThread.settledOverride === "settled",
       supportsSettlement:
-        serverConfigs.get(activeThread.machineId)?.machine.capabilities.threadSettlement ===
-        true,
+        serverConfigs.get(activeThread.machineId)?.machine.capabilities.threadSettlement === true,
       target,
       pinnedOrder: pinnedKeys,
       pinnedKeysById,
@@ -1950,8 +1939,8 @@ export default function Sidebar() {
       );
       const titleRegenerationThreads = selectedThreads.filter(
         (thread) =>
-          serverConfigs.get(thread.machineId)?.machine.capabilities
-            .threadTitleRegeneration === true,
+          serverConfigs.get(thread.machineId)?.machine.capabilities.threadTitleRegeneration ===
+          true,
       );
       const regeneratableTitleThreads = titleRegenerationThreads.filter(
         (thread) => thread.titleRegeneration == null,
@@ -1962,8 +1951,8 @@ export default function Sidebar() {
       });
       const pinnedSelectedThreads = selectedThreads.filter(
         (thread) =>
-          serverConfigs.get(thread.machineId)?.machine.capabilities.threadPinning ===
-            true && thread.pinnedAt != null,
+          serverConfigs.get(thread.machineId)?.machine.capabilities.threadPinning === true &&
+          thread.pinnedAt != null,
       );
       const unpinMenuItem = buildBulkUnpinContextMenuItem({
         pinnedCount: pinnedSelectedThreads.length,
@@ -2183,8 +2172,7 @@ export default function Sidebar() {
         if (!api || !session || session.promotedTo) return;
         const projectGroup = projectGroupsRef.current.find((group) =>
           group.memberProjectRefs.some(
-            (ref) =>
-              ref.machineId === session.machineId && ref.projectId === session.projectId,
+            (ref) => ref.machineId === session.machineId && ref.projectId === session.projectId,
           ),
         );
         const workspacePath =
@@ -2245,18 +2233,16 @@ export default function Sidebar() {
           projectByKey.get(`${thread.machineId}:${thread.projectId}`)?.workspaceRoot ??
           null;
         const supportsSettlement =
-          serverConfigs.get(thread.machineId)?.machine.capabilities.threadSettlement ===
-          true;
+          serverConfigs.get(thread.machineId)?.machine.capabilities.threadSettlement === true;
         const supportsSnooze =
           serverConfigs.get(thread.machineId)?.machine.capabilities.threadSnooze === true;
         const supportsPinning =
           serverConfigs.get(thread.machineId)?.machine.capabilities.threadPinning === true;
         const supportsAutoSettleOptOut =
-          serverConfigs.get(thread.machineId)?.machine.capabilities
-            .threadAutoSettleOptOut === true;
+          serverConfigs.get(thread.machineId)?.machine.capabilities.threadAutoSettleOptOut === true;
         const supportsTitleRegeneration =
-          serverConfigs.get(thread.machineId)?.machine.capabilities
-            .threadTitleRegeneration === true;
+          serverConfigs.get(thread.machineId)?.machine.capabilities.threadTitleRegeneration ===
+          true;
         const isRegeneratingTitle = thread.titleRegeneration != null;
         const isSettled = settledThreadKeysRef.current.has(threadKey);
         const isSnoozed = snoozedThreadKeysRef.current.has(threadKey);
@@ -2273,10 +2259,7 @@ export default function Sidebar() {
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             buildThreadActionMenuItems({
-              canOperate: readMachineScope(
-                threadRef.machineId,
-                AuthOrchestrationOperateScope,
-              ),
+              canOperate: readMachineScope(threadRef.machineId, AuthOrchestrationOperateScope),
               branch: thread.branch ?? null,
               projectFilter: threadProjectGroup
                 ? {
@@ -2755,9 +2738,7 @@ export default function Sidebar() {
                   className="flex flex-col gap-px"
                 >
                   {threadSearchResults.map((thread, index) => {
-                    const threadKey = scopedThreadKey(
-                      scopeThreadRef(thread.machineId, thread.id),
-                    );
+                    const threadKey = scopedThreadKey(scopeThreadRef(thread.machineId, thread.id));
                     return (
                       <SidebarSearchResultRow
                         isSettled={settledThreadKeys.has(threadKey)}
@@ -2767,17 +2748,13 @@ export default function Sidebar() {
                           projectByKey.get(`${thread.machineId}:${thread.projectId}`) ?? null
                         }
                         projectDisplayName={
-                          projectDisplayNameByKey.get(
-                            `${thread.machineId}:${thread.projectId}`,
-                          ) ?? null
+                          projectDisplayNameByKey.get(`${thread.machineId}:${thread.projectId}`) ??
+                          null
                         }
                         machineLabel={machineLabelById.get(thread.machineId) ?? null}
-                        machine={
-                          machineById.get(thread.machineId) ?? "server"
-                        }
+                        machine={machineById.get(thread.machineId) ?? "server"}
                         providerEntryByInstanceId={
-                          providerEntriesByMachine.get(thread.machineId) ??
-                          EMPTY_PROVIDER_ENTRIES
+                          providerEntriesByMachine.get(thread.machineId) ?? EMPTY_PROVIDER_ENTRIES
                         }
                         isHighlighted={activeSearchResultIndex === index}
                         isRouteActive={routeRowThreadKey === threadKey}
@@ -2908,16 +2885,11 @@ export default function Sidebar() {
                               showJumpHints ? (jumpLabelByKey.get(threadKey) ?? null) : null
                             }
                             currentMachineId={primaryMachineId}
-                            machineLabel={
-                              machineLabelById.get(thread.machineId) ?? null
-                            }
-                            machine={
-                              machineById.get(thread.machineId) ?? "server"
-                            }
+                            machineLabel={machineLabelById.get(thread.machineId) ?? null}
+                            machine={machineById.get(thread.machineId) ?? "server"}
                             scratchMachineLabel={scratchMachineLabelFor(thread)}
                             project={
-                              projectByKey.get(`${thread.machineId}:${thread.projectId}`) ??
-                              null
+                              projectByKey.get(`${thread.machineId}:${thread.projectId}`) ?? null
                             }
                             projectDisplayName={
                               projectDisplayNameByKey.get(

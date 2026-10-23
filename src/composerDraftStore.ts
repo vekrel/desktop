@@ -44,10 +44,7 @@ import {
 } from "@vekrel/shared/model";
 import { AsyncResult, Atom, type AtomRegistry } from "effect/reactivity";
 import * as Option from "effect/Option";
-import type {
-  MachineShellState,
-  MachineThreadShell,
-} from "@vekrel/client-runtime/state/shell";
+import type { MachineShellState, MachineThreadShell } from "@vekrel/client-runtime/state/shell";
 import { getLocalStorageItem } from "./hooks/useLocalStorage";
 import { readThreadPreviewState } from "./previewStateStore";
 import { resolveAppModelSelection, resolveAppModelSelectionForInstance } from "./modelSelection";
@@ -100,7 +97,7 @@ const isThreadContextRecord = Schema.is(ThreadContextRecord);
 const isSnapShotSource = Schema.is(SnapShotSource);
 const isPreviewAnnotationPayload = Schema.is(PreviewAnnotationPayloadSchema);
 
-export const COMPOSER_DRAFT_STORAGE_KEY = "t3code:composer-drafts:v1";
+export const COMPOSER_DRAFT_STORAGE_KEY = "vekrel:composer-drafts:v1";
 const COMPOSER_DRAFT_STORAGE_VERSION = 9;
 const DraftThreadEnvModeSchema = Schema.Literals(["local", "worktree"]);
 export type DraftThreadEnvMode = typeof DraftThreadEnvModeSchema.Type;
@@ -1439,8 +1436,7 @@ function createDraftThreadState(
     options?.startFromOrigin === undefined
       ? (existingThread?.startFromOrigin ?? false)
       : options.startFromOrigin;
-  const machineSelection =
-    options?.machineSelection ?? existingThread?.machineSelection;
+  const machineSelection = options?.machineSelection ?? existingThread?.machineSelection;
   return {
     threadId,
     machineId: projectRef.machineId,
@@ -1451,9 +1447,7 @@ function createDraftThreadState(
       ? { loadBalancedMachineId: options.loadBalancedMachineId }
       : existingThread?.loadBalancedMachineId !== undefined
         ? {
-            loadBalancedMachineId: projectChanged
-              ? null
-              : existingThread.loadBalancedMachineId,
+            loadBalancedMachineId: projectChanged ? null : existingThread.loadBalancedMachineId,
           }
         : {}),
     createdAt: options?.createdAt ?? existingThread?.createdAt ?? new Date().toISOString(),
@@ -1743,10 +1737,7 @@ function normalizePersistedDraftsByThreadId(
     if (!parsedThreadRef) {
       continue;
     }
-    machineIdByThreadId.set(
-      parsedThreadRef.threadId,
-      draftThread.machineId as MachineId,
-    );
+    machineIdByThreadId.set(parsedThreadRef.threadId, draftThread.machineId as MachineId);
   }
 
   const nextDraftsByThreadKey: DeepMutable<PersistedComposerDraftStoreState["draftsByThreadKey"]> =
@@ -1834,7 +1825,7 @@ function normalizePersistedDraftsByThreadId(
       }
     }
     const migratedPrompt = promptCandidate.replace(
-      /!?\[([^\]\r\n]*)\]\(t3-context:\/\/v1\/([a-z-]+)\/([^/()\r\n]+)\)/g,
+      /!?\[([^\]\r\n]*)\]\(vekrel-context:\/\/v1\/([a-z-]+)\/([^/()\r\n]+)\)/g,
       (source, label: string, kind: string, id: string) => {
         const contextId = contextIds.get(`${kind}/${id}`);
         return contextId ? formatInlineContextReference({ kind, contextId, label }) : source;
@@ -2391,8 +2382,7 @@ function toHydratedDraftThreadState(
       : {}),
     ...(persistedDraftThread.loadBalancedMachineId !== undefined
       ? {
-          loadBalancedMachineId:
-            persistedDraftThread.loadBalancedMachineId as MachineId | null,
+          loadBalancedMachineId: persistedDraftThread.loadBalancedMachineId as MachineId | null,
         }
       : {}),
     promotedTo: persistedDraftThread.promotedTo
@@ -2560,10 +2550,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               existingThread.machineId !== projectRef.machineId &&
               existingDraft !== undefined
             ) {
-              const nextDraft = clearStaleFileUploadMetadata(
-                existingDraft,
-                projectRef.machineId,
-              );
+              const nextDraft = clearStaleFileUploadMetadata(existingDraft, projectRef.machineId);
               if (nextDraft !== existingDraft) {
                 nextDraftsByThreadKey = {
                   ...state.draftsByThreadKey,
@@ -2628,10 +2615,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
               machineId: existing.machineId,
               projectId: existing.projectId,
             };
-            if (
-              nextProjectRef.projectId.length === 0 ||
-              nextProjectRef.machineId.length === 0
-            ) {
+            if (nextProjectRef.projectId.length === 0 || nextProjectRef.machineId.length === 0) {
               return state;
             }
             const projectChanged =
@@ -3409,8 +3393,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             if (
               !current ||
               !file ||
-              (file.uploadMachineId === machineId &&
-                file.uploadedAttachmentId === attachmentId)
+              (file.uploadMachineId === machineId && file.uploadedAttachmentId === attachmentId)
             ) {
               return state;
             }
@@ -4178,9 +4161,7 @@ export function subscribeComposerDraftModelReconciliation(input: {
       const thread = get(input.threadShellAtom(ref));
       if (!thread || !draftModelPickMatchesThread(pick, thread.modelSelection)) continue;
       // Status and selection must come from the same emission; derived atoms can update apart.
-      const shell = Option.getOrNull(
-        AsyncResult.value(get(input.shellStateAtom(ref.machineId))),
-      );
+      const shell = Option.getOrNull(AsyncResult.value(get(input.shellStateAtom(ref.machineId))));
       if (shell?.status !== "live") continue;
       const authoritativeThread = Option.getOrNull(shell.snapshot)?.threads.find(
         (candidate) => candidate.id === ref.threadId,
@@ -4372,8 +4353,7 @@ export function finalizePromotedDraftThreadByRef(threadRef: ScopedThreadRef): vo
   for (const [draftId, draftThread] of Object.entries(draftStore.draftThreadsByThreadKey)) {
     const promotedRef = draftThread.promotedTo;
     const matches = promotedRef
-      ? promotedRef.machineId === threadRef.machineId &&
-        promotedRef.threadId === threadRef.threadId
+      ? promotedRef.machineId === threadRef.machineId && promotedRef.threadId === threadRef.threadId
       : draftThread.machineId === threadRef.machineId &&
         draftThread.threadId === threadRef.threadId;
     if (matches) {

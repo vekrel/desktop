@@ -1330,8 +1330,8 @@ const pullRequestDetailSnapshotKey = (
   reference: PullRequestDetailSnapshotRef,
 ) =>
   reference.host
-    ? `t3.pullRequests.detail:${JSON.stringify([machineId, reference.projectId, reference.host.toLowerCase(), reference.repository.toLowerCase(), reference.number])}`
-    : `t3.pullRequests.detail:${machineId}:${reference.projectId}:${reference.repository}#${reference.number}`;
+    ? `vekrel.pullRequests.detail:${JSON.stringify([machineId, reference.projectId, reference.host.toLowerCase(), reference.repository.toLowerCase(), reference.number])}`
+    : `vekrel.pullRequests.detail:${machineId}:${reference.projectId}:${reference.repository}#${reference.number}`;
 
 const decodeDetailSnapshot = Schema.decodeUnknownOption(PullRequestDetail);
 
@@ -1359,7 +1359,7 @@ export function readPullRequestDetailSnapshot(
 }
 
 // Snapshot keys in the order they were last written, oldest first.
-const PULL_REQUEST_DETAIL_SNAPSHOT_INDEX_KEY = "t3.pullRequests.recentDetails";
+const PULL_REQUEST_DETAIL_SNAPSHOT_INDEX_KEY = "vekrel.pullRequests.recentDetails";
 const PULL_REQUEST_DETAIL_SNAPSHOT_LIMIT = 20;
 
 function readPullRequestDetailSnapshotIndex(storage: SnapshotStorage): string[] {

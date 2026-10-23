@@ -61,9 +61,8 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
     ? machines.find((machine) => machine.machineId === target.machineId)
     : undefined;
   const providers =
-    (representative?.serverConfig
-      ? providersByMachine.get(representative.machineId)
-      : undefined) ?? EMPTY_SERVER_PROVIDERS;
+    (representative?.serverConfig ? providersByMachine.get(representative.machineId) : undefined) ??
+    EMPTY_SERVER_PROVIDERS;
   const storedSelection = resolveDefaultProviderModelSelection(
     providers,
     settings.defaultModelSelection,
@@ -103,9 +102,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
   function modelDisabledReason(instanceId: ProviderInstanceId, model: string): string | null {
     const sourceEntry = entries.find((entry) => entry.instanceId === instanceId);
     for (const candidate of targets) {
-      const machine = machines.find(
-        (entry) => entry.machineId === candidate.machineId,
-      );
+      const machine = machines.find((entry) => entry.machineId === candidate.machineId);
       const providers = providersByMachine.get(candidate.machineId);
       if (!machine?.serverConfig || !providers) continue;
       const entry = applyProviderInstanceSettings(
@@ -217,7 +214,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
       description={
         isProjectScope
           ? "Where new threads in this project start."
-          : "Where new threads start. Projects and their t3.json can override it."
+          : "Where new threads start. Projects and their vekrel.json can override it."
       }
       resetAction={
         !isProjectScope && settings.defaultThreadEnvMode !== null ? (
@@ -338,7 +335,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             description={
               isProjectScope
                 ? "How new worktrees in this project populate git submodules."
-                : "How new worktrees populate git submodules. Projects and their t3.json can override it."
+                : "How new worktrees populate git submodules. Projects and their vekrel.json can override it."
             }
             resetAction={
               !isProjectScope && settings.worktreeSubmodules !== null ? (

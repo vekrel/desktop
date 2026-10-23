@@ -446,9 +446,7 @@ export default function ChatView(props: ChatViewProps) {
   const { machines } = useMachines();
   const providersByMachine = useMachineProviders();
   const primaryMachine = usePrimaryMachine();
-  const machineById = new Map(
-    machines.map((machine) => [machine.machineId, machine]),
-  );
+  const machineById = new Map(machines.map((machine) => [machine.machineId, machine]));
   const baseComposerDraftTarget: ScopedThreadRef | DraftId =
     routeKind === "server" ? routeThreadRef : props.draftId;
   const draftThread = useComposerDraftStore((store) =>
@@ -1142,9 +1140,7 @@ export default function ChatView(props: ChatViewProps) {
   const hasMultipleMachines = logicalProjectMachines.length > 1;
   const canAutoBalanceMachines = hasMultipleMachines && !activeProjectIsScratch;
   const activeMachineOption =
-    logicalProjectMachines.find(
-      (machine) => machine.machineId === activeThread?.machineId,
-    ) ?? null;
+    logicalProjectMachines.find((machine) => machine.machineId === activeThread?.machineId) ?? null;
   const showComposerMachineIndicator = shouldShowMachineIndicator({
     activeMachine: activeMachineOption,
     canPickMachine: hasMultipleMachines,
@@ -1164,12 +1160,10 @@ export default function ChatView(props: ChatViewProps) {
   const serverConfig = activeThread
     ? (activeMachine?.serverConfig ?? null)
     : (primaryMachine?.serverConfig ?? null);
-  const providerMachineId = (activeThread ? activeMachine : primaryMachine)
-    ?.machineId;
+  const providerMachineId = (activeThread ? activeMachine : primaryMachine)?.machineId;
   const providerStatuses =
-    (providerMachineId === undefined
-      ? undefined
-      : providersByMachine.get(providerMachineId)) ?? EMPTY_PROVIDERS;
+    (providerMachineId === undefined ? undefined : providersByMachine.get(providerMachineId)) ??
+    EMPTY_PROVIDERS;
   const selectedProviderByThreadId = composerActiveProvider ?? null;
   const threadProvider =
     activeThread?.modelSelection.instanceId ??
@@ -1620,7 +1614,7 @@ export default function ChatView(props: ChatViewProps) {
   });
   const [resumeCompactionPermanentlyDismissed, setResumeCompactionPermanentlyDismissed] =
     useLocalStorage(
-      `t3code:resume-compaction-dismissed:${machineId}:${activeProviderInstanceId ?? "claudeAgent"}`,
+      `vekrel:resume-compaction-dismissed:${machineId}:${activeProviderInstanceId ?? "claudeAgent"}`,
       false,
       Schema.Boolean,
     );
@@ -1778,10 +1772,7 @@ export default function ChatView(props: ChatViewProps) {
   const canInterruptRunningThread =
     canOperateThread && deriveCanInterruptRunningThread(activeThread !== undefined, activeRuntime);
   const onInterrupt = async () => {
-    if (
-      !activeThread ||
-      !readMachineScope(activeThread.machineId, AuthOrchestrationOperateScope)
-    )
+    if (!activeThread || !readMachineScope(activeThread.machineId, AuthOrchestrationOperateScope))
       return;
     const result = await interruptThreadTurn({
       machineId,
@@ -1887,8 +1878,7 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadRef?.machineId ?? null,
     AuthPreviewOperateScope,
   );
-  const supportsThreadPullRequests =
-    serverConfig?.machine.capabilities.threadPullRequests === true;
+  const supportsThreadPullRequests = serverConfig?.machine.capabilities.threadPullRequests === true;
   const visiblePullRequests = visibleThreadPullRequests(
     (activeThreadShell ?? activeThread)?.pullRequests ?? [],
   );
@@ -2726,9 +2716,7 @@ export default function ChatView(props: ChatViewProps) {
         if (!canChangeMachine) return false;
         if (event.repeat) return;
         const currentId = readPendingMachineChange()?.machineId ?? machineId;
-        const index = logicalProjectMachines.findIndex(
-          (env) => env.machineId === currentId,
-        );
+        const index = logicalProjectMachines.findIndex((env) => env.machineId === currentId);
         const next = logicalProjectMachines[(index + 1) % logicalProjectMachines.length];
         if (next) onMachineChangeStable(next.machineId);
       },
@@ -3319,9 +3307,7 @@ export default function ChatView(props: ChatViewProps) {
                 turnDiffSummaries={
                   paintOnlyDisplayedTimeline ? EMPTY_HELD_TURN_DIFF_SUMMARIES : turnDiffSummaries
                 }
-                activeThreadMachineId={
-                  displayedThreadRef?.machineId ?? activeThread.machineId
-                }
+                activeThreadMachineId={displayedThreadRef?.machineId ?? activeThread.machineId}
                 routeThreadKey={displayedTimelineKey}
                 displayThreadKey={displayedTimelineKey}
                 paintOnly={paintOnlyDisplayedTimeline}
@@ -3553,9 +3539,7 @@ export default function ChatView(props: ChatViewProps) {
                               respondingRequestIds={respondingRequestIds}
                               showPlanFollowUpPrompt={showPlanFollowUpPrompt}
                               activeProposedPlan={activeProposedPlan}
-                              threadSyncPhase={
-                                activeMachineUnavailable ? null : threadSyncPhase
-                              }
+                              threadSyncPhase={activeMachineUnavailable ? null : threadSyncPhase}
                               runtimeMode={runtimeMode}
                               interactionMode={interactionMode}
                               lockedProvider={modelPickerLockedProvider}
@@ -3833,7 +3817,7 @@ export default function ChatView(props: ChatViewProps) {
         <ChatRightPanel
           sheet={shouldUsePlanSidebarSheet}
           workspaceLayoutElement={workspaceLayoutElement}
-          widthStorageKey={`t3code:preview-panel-width:${activeThreadKey}`}
+          widthStorageKey={`vekrel:preview-panel-width:${activeThreadKey}`}
           sheetAnimationDurationMs={panelAnimationsActive ? panelAnimationDurationMs : 0}
           onCloseSheet={closePreviewPanelStable}
           open={rightPanelOpen}

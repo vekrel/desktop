@@ -24,7 +24,7 @@ import { isProjectScopedSettingKey } from "./scopedSettings";
 import { settingsScopeMachineLabels } from "./settingsScopeAxis";
 
 interface InheritanceLayer {
-  readonly key: "project" | "environment" | "t3.json" | "built-in";
+  readonly key: "project" | "environment" | "vekrel.json" | "built-in";
   readonly label: string;
   readonly value: string;
   readonly effective: boolean;
@@ -114,11 +114,11 @@ export function settingInheritanceLayers(
   });
   if (fileBacked && target.projectId !== null) {
     layers.push({
-      key: "t3.json",
-      label: "t3.json",
-      value: source === "t3.json" ? formatValue(key, target.settings[key]) : "Inherits",
-      effective: source === "t3.json",
-      set: source === "t3.json",
+      key: "vekrel.json",
+      label: "vekrel.json",
+      value: source === "vekrel.json" ? formatValue(key, target.settings[key]) : "Inherits",
+      effective: source === "vekrel.json",
+      set: source === "vekrel.json",
     });
   }
   // For a file-backed key the built-in is what the resolver produced with
@@ -183,9 +183,7 @@ export function SettingInheritance({
       ? `${summary} · ${overridingProjects.length} project ${overridingProjects.length === 1 ? "override" : "overrides"}`
       : summary;
   const chains = targets.flatMap((target) => {
-    const machine = machines.find(
-      (candidate) => candidate.machineId === target.machineId,
-    );
+    const machine = machines.find((candidate) => candidate.machineId === target.machineId);
     if (!machine?.serverConfig) return [];
     const labels = settingsScopeMachineLabels(machine, machines);
     const path = scopeContext?.scope.members.find(
@@ -307,11 +305,7 @@ export function SettingInheritance({
               <section key={id} className="px-3 py-2.5">
                 {!hasMultipleMachines ? (
                   <h4 className="flex items-center gap-1.5 pb-1.5 text-xs font-medium text-muted-foreground">
-                    <MachineIcon
-                      aria-hidden
-                      kind={machine}
-                      className="size-3.5 shrink-0"
-                    />
+                    <MachineIcon aria-hidden kind={machine} className="size-3.5 shrink-0" />
                     <span className="min-w-0 truncate">{target.label}</span>
                   </h4>
                 ) : null}
@@ -426,8 +420,7 @@ export function SettingInheritance({
                               ? formatValue(
                                   key,
                                   members.find(
-                                    (member) =>
-                                      member.target.machineId === project.machineId,
+                                    (member) => member.target.machineId === project.machineId,
                                   )?.overrides[project.projectId]?.[key],
                                 )
                               : null}

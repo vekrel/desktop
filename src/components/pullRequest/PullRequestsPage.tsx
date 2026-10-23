@@ -212,9 +212,7 @@ export function PullRequestsPage() {
           ...(next.host ? { host: next.host } : {}),
           ...(next.selectedHost ? { selectedHost: next.selectedHost } : {}),
           ...(next.selectedProjectId ? { selectedProjectId: next.selectedProjectId } : {}),
-          ...(next.selectedMachineId
-            ? { selectedMachineId: next.selectedMachineId }
-            : {}),
+          ...(next.selectedMachineId ? { selectedMachineId: next.selectedMachineId } : {}),
           ...(next.q ? { q: next.q } : {}),
           ...(next.draft ? { draft: next.draft } : {}),
           ...(next.review ? { review: next.review } : {}),
@@ -617,15 +615,11 @@ export function PullRequestsPage() {
             ...partitionTargets.reviewing,
           ]
         : []
-    ).filter(
-      ({ machineId }) =>
-        actedMachineId === undefined || machineId === actedMachineId,
-    );
+    ).filter(({ machineId }) => actedMachineId === undefined || machineId === actedMachineId);
     if (sentCursors === null) {
       listQuery.refresh([
         ...listTargets.filter(
-          ({ machineId }) =>
-            actedMachineId === undefined || machineId === actedMachineId,
+          ({ machineId }) => actedMachineId === undefined || machineId === actedMachineId,
         ),
         ...related,
       ]);
@@ -833,10 +827,7 @@ export function PullRequestsPage() {
   // Stable so a refresh that resumes after awaiting the host compares against the scope on screen
   // by then, not the one it started from.
   const refreshListAndStats = useStableCallback(
-    (
-      requestedStatsScope: PullRequestStatsScope = statsScope,
-      actedMachineId?: MachineId,
-    ) => {
+    (requestedStatsScope: PullRequestStatsScope = statsScope, actedMachineId?: MachineId) => {
       refreshList(true, actedMachineId);
       const visible = visibleStatsKeys.current;
       const batches = pullRequestStatsRefreshBatches({
@@ -862,9 +853,7 @@ export function PullRequestsPage() {
     const requestedStatsScope = statsScope;
     setInvalidating(true);
     // Atom commands settle into results rather than throwing.
-    await Promise.all(
-      queryMachineIds.map((machineId) => invalidate({ machineId, input: {} })),
-    );
+    await Promise.all(queryMachineIds.map((machineId) => invalidate({ machineId, input: {} })));
     setInvalidating(false);
     refreshListAndStats(requestedStatsScope);
     setDetailRefreshToken((token) => token + 1);
@@ -1422,7 +1411,7 @@ export function PullRequestsPage() {
             maximized={rightPanelMaximized}
             keybindings={keybindings}
             getShortcutContext={getShortcutContext}
-            widthStorageKey="t3code:pull-request-panel-width"
+            widthStorageKey="vekrel:pull-request-panel-width"
             defaultWidth={typeof window === "undefined" ? 640 : Math.floor(window.innerWidth / 2)}
             surfaces={renderedRightPanelSurfaces}
             machineId={panelMachineId}
