@@ -1,4 +1,4 @@
-import { T3_PROJECT_FILE_NAME, type MachineId, type T3ProjectFile } from "@vekrel/contracts";
+import { VEKREL_PROJECT_FILE_NAME, type MachineId, type T3ProjectFile } from "@vekrel/contracts";
 import { parseT3ProjectFile } from "@vekrel/shared/t3ProjectFile";
 import { executeAtomQuery } from "@vekrel/client-runtime/state/runtime";
 
@@ -14,13 +14,13 @@ export async function readT3ProjectFile(
 ): Promise<T3ProjectFile | null> {
   const result = await executeAtomQuery(
     appAtomRegistry,
-    getProjectFileQueryAtom(machineId, workspaceRoot, T3_PROJECT_FILE_NAME),
+    getProjectFileQueryAtom(machineId, workspaceRoot, VEKREL_PROJECT_FILE_NAME),
     { reportDefect: false, reportFailure: false },
   );
   const data = resolveProjectFileQueryData(
     machineId,
     workspaceRoot,
-    T3_PROJECT_FILE_NAME,
+    VEKREL_PROJECT_FILE_NAME,
     result._tag === "Success" ? result.value : null,
   );
   if (data === null || data.exists === false || data.truncated) return null;

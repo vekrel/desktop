@@ -4,7 +4,7 @@ import {
   type ProjectListEntriesResult,
   ProjectReadFileError,
   type ProjectReadFileResult,
-  T3_PROJECT_FILE_NAME,
+  VEKREL_PROJECT_FILE_NAME,
 } from "@vekrel/contracts";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
@@ -24,11 +24,7 @@ const EMPTY_PROJECT_ENTRIES_QUERY_ATOM = Atom.make(
 const EMPTY_PROJECT_FILE_QUERY_ATOM = Atom.make(
   AsyncResult.initial<ProjectReadFileResult, never>(false),
 ).pipe(Atom.withLabel("project-file-query:empty"));
-export function optimisticFileAtom(
-  machineId: MachineId,
-  cwd: string,
-  relativePath: string,
-) {
+export function optimisticFileAtom(machineId: MachineId, cwd: string, relativePath: string) {
   return projectMachine.optimisticFile({ machineId, cwd, relativePath });
 }
 
@@ -54,11 +50,7 @@ interface ProjectFileQueryState extends ProjectQueryState<ProjectReadFileResult>
   readonly isFile: boolean;
 }
 
-function getProjectEntriesQueryAtom(
-  machineId: MachineId,
-  cwd: string,
-  directoryPath?: string,
-) {
+function getProjectEntriesQueryAtom(machineId: MachineId, cwd: string, directoryPath?: string) {
   return projectMachine.listEntries({
     machineId,
     input: { cwd, ...(directoryPath !== undefined ? { directoryPath } : {}) },
@@ -75,7 +67,7 @@ export function getProjectFileQueryAtom(
     input: {
       cwd,
       relativePath: relativePath ?? EMPTY_PROJECT_FILE_PATH,
-      ...(relativePath === T3_PROJECT_FILE_NAME ? { allowMissing: true } : {}),
+      ...(relativePath === VEKREL_PROJECT_FILE_NAME ? { allowMissing: true } : {}),
     },
   });
 }
