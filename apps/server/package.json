@@ -76,7 +76,6 @@
     "@vekrel/source-control-testing": "workspace:*",
     "@vekrel/ssh": "workspace:*",
     "@vekrel/tailscale": "workspace:*",
-    "@vekrel/web": "workspace:*",
     "@types/node": "catalog:",
     "@types/proper-lockfile": "^4.1.4",
     "@types/yauzl": "^3.4.0",
