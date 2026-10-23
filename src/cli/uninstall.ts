@@ -2,6 +2,7 @@
 // The Windows cleanup shell must outlive this process (it deletes the
 // directory this executable runs from), which Effect's scoped ChildProcess
 // cannot express: it kills the child when the scope closes.
+import { NPM_LAUNCHER_PACKAGE_NAME } from "@vekrel/shared/cliRelease";
 import * as NodeChildProcess from "node:child_process";
 
 import * as HostProcess from "@vekrel/shared/HostProcess";
@@ -101,7 +102,7 @@ export const uninstallCommand = Command.make("uninstall", {
   ),
 }).pipe(
   Command.withDescription(
-    "Remove t3 from this machine: the background service, the launcher, and every downloaded version. Your projects and threads are kept.",
+    "Remove vekrel from this machine: the background service, the launcher, and every downloaded version. Your projects and threads are kept.",
   ),
   Command.withHandler((flags) =>
     Effect.gen(function* () {
@@ -125,10 +126,10 @@ const runUninstall = Effect.fn("cli.uninstall.run")(function* (input: {
   const plan = yield* planUninstall({ baseDir: input.baseDir });
 
   if (!plan.service && plan.launcher === undefined && plan.runtimeDir === undefined) {
-    yield* Console.log(`Nothing to remove: vekrel-engine is not installed for ${input.baseDir}.`);
+    yield* Console.log(`Nothing to remove: vekrel is not installed for ${input.baseDir}.`);
     if (!(yield* HostProcess.IsExecutable)) {
       yield* Console.log(
-        "  This t3 runs from a Node script, so it was installed by npm or built from source. Remove it the same way (`npm uninstall -g t3`, or delete the checkout).",
+        `  This vekrel runs from a Node script, so it was installed by npm or built from source. Remove it the same way (\`npm uninstall -g ${NPM_LAUNCHER_PACKAGE_NAME}\`, or delete the checkout).`,
       );
     }
     return;
@@ -152,7 +153,7 @@ const runUninstall = Effect.fn("cli.uninstall.run")(function* (input: {
       });
     }
     const confirmed = yield* Prompt.run(
-      Prompt.Confirm({ message: "Remove t3 from this machine?", initial: false }),
+      Prompt.Confirm({ message: "Remove vekrel from this machine?", initial: false }),
     ).pipe(Effect.catchTags({ QuitError: () => Effect.succeed(false) }));
     if (!confirmed) {
       yield* Console.log("Left as is.");
@@ -196,7 +197,7 @@ const runUninstall = Effect.fn("cli.uninstall.run")(function* (input: {
             reason: `Could not schedule removal of ${runtimeDir}. Delete it yourself once this window is closed.`,
           }),
       });
-      yield* Console.log(`${runtimeDir} will be removed once t3 exits.`);
+      yield* Console.log(`${runtimeDir} will be removed once vekrel exits.`);
     } else {
       yield* fs
         .remove(plan.runtimeDir, { recursive: true, force: true })
@@ -209,5 +210,5 @@ const runUninstall = Effect.fn("cli.uninstall.run")(function* (input: {
     }
   }
   yield* Console.log("");
-  yield* Console.log("vekrel-engine is uninstalled. Thanks for trying Vekrel.");
+  yield* Console.log("vekrel is uninstalled. Thanks for trying Vekrel.");
 });

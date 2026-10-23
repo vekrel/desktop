@@ -1467,7 +1467,7 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
           parentCheckpointId: null,
           ordinalWithinScope: 0,
           appRunOrdinal: null,
-          ref: CheckpointRef.make("refs/t3/bounded-sql-history/0"),
+          ref: CheckpointRef.make("refs/vekrel/bounded-sql-history/0"),
           status: "ready",
           files: [],
           capturedAt: now,
@@ -5608,8 +5608,7 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
         payload: { ...providerThread, pendingBackgroundTasks: [], updatedAt: releasedAt },
       });
       const released = yield* store.getThreadShell(threadId);
-      const state =
-        released && projectThreadAwarenessV2({ machineId, project, thread: released });
+      const state = released && projectThreadAwarenessV2({ machineId, project, thread: released });
       assert.equal(state?.phase, "completed");
       assert.equal(state?.updatedAt, DateTime.formatIso(releasedAt));
 
