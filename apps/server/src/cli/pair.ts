@@ -1,3 +1,4 @@
+import { NPM_LAUNCHER_PACKAGE_NAME } from "@vekrel/shared/cliRelease";
 import {
   type AuthMachineScope,
   AuthStandardClientScopes,
@@ -72,7 +73,7 @@ export class NoRunningServerError extends Schema.TaggedError<NoRunningServerErro
       ...(this.inLinkedWorktree
         ? ["In a linked worktree, pass --base-dir to pair with a server outside it."]
         : []),
-      "Start one with `npx vekrel-engine serve`, or connect this machine with Vekrel Connect: `npx vekrel-engine connect`.",
+      `Start one with \`npx ${NPM_LAUNCHER_PACKAGE_NAME} serve\`, or connect this machine with Vekrel Connect: \`npx ${NPM_LAUNCHER_PACKAGE_NAME} connect\`.`,
     ].join("\n");
   }
 }
@@ -208,7 +209,7 @@ const probeMachineDescriptor: (
     );
     // Bad-gateway family means a proxy (Tailscale Serve) answered for a
     // backend that is gone — a stale mapping, not a live occupant. Treating
-    // it as unreachable lets `vekrel-engine pair --tailscale` repair its own mapping
+    // it as unreachable lets `vekrel pair --tailscale` repair its own mapping
     // after the server's port changed.
     if (response.status === 502 || response.status === 503 || response.status === 504) {
       return { _tag: "unreachable" } as const;
@@ -238,7 +239,7 @@ const discoverPairTarget = Effect.fn("pair.discoverPairTarget")(function* (
     bases.push(yield* resolveBaseDir(explicitBaseDir));
   } else {
     // Same precedence as dev-runner: inside a linked worktree only its own
-    // `.t3` counts. Minting opens the target database with this checkout's
+    // `.vekrel` counts. Minting opens the target database with this checkout's
     // migrations, so falling back to the shared home could migrate the live
     // install with unreleased schema.
     const worktreeHome = yield* resolveWorktreeT3Home(yield* HostProcess.WorkingDirectory);
@@ -437,7 +438,7 @@ const mintPairingLink = Effect.fn("pair.mintPairingLink")(function* (input: {
     return yield* machineAuth.createPairingLink({
       scopes: input.scopes,
       subject: "one-time-token",
-      label: Option.getOrElse(input.label, () => "vekrel-engine pair"),
+      label: Option.getOrElse(input.label, () => "vekrel pair"),
       ...(Option.isSome(input.ttl) ? { ttl: input.ttl.value } : {}),
     });
   }).pipe(

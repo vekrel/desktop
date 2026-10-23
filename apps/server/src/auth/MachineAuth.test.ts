@@ -45,9 +45,7 @@ const makeCookieRequest = (
       [cookieName]: sessionToken,
     },
     headers: {},
-  }) as unknown as Parameters<
-    MachineAuth.MachineAuth["Service"]["authenticateHttpRequest"]
-  >[0];
+  }) as unknown as Parameters<MachineAuth.MachineAuth["Service"]["authenticateHttpRequest"]>[0];
 
 const makeBearerRequest = (
   token: string,
@@ -57,9 +55,7 @@ const makeBearerRequest = (
     headers: {
       authorization: `Bearer ${token}`,
     },
-  }) as unknown as Parameters<
-    MachineAuth.MachineAuth["Service"]["authenticateHttpRequest"]
-  >[0];
+  }) as unknown as Parameters<MachineAuth.MachineAuth["Service"]["authenticateHttpRequest"]>[0];
 
 const requestMetadata = {
   deviceType: "desktop" as const,
@@ -86,12 +82,10 @@ it.layer(NodeServices.layer)("MachineAuth.layer", (it) => {
           [devExchange.cookieName ?? "missing"]: devExchange.sessionToken,
         },
         headers: {},
-      } as unknown as Parameters<
-        MachineAuth.MachineAuth["Service"]["authenticateHttpRequest"]
-      >[0];
+      } as unknown as Parameters<MachineAuth.MachineAuth["Service"]["authenticateHttpRequest"]>[0];
 
       const authenticated = yield* serverAuth.authenticateHttpRequest(request);
-      expect(devExchange.cookieName).toMatch(/^t3_dev_session_/);
+      expect(devExchange.cookieName).toMatch(/^vekrel_dev_session_/);
       expect(devExchange.expireNormalCookie).toBe(true);
       expect(devExchange.response).toMatchObject(authScopeResponse(AuthStandardClientScopes));
       expect(authenticated.scopes).toEqual(["orchestration:read"]);
@@ -125,9 +119,7 @@ it.layer(NodeServices.layer)("MachineAuth.layer", (it) => {
           [devExchange.cookieName ?? "missing"]: devExchange.sessionToken,
         },
         headers: {},
-      } as unknown as Parameters<
-        MachineAuth.MachineAuth["Service"]["authenticateHttpRequest"]
-      >[0];
+      } as unknown as Parameters<MachineAuth.MachineAuth["Service"]["authenticateHttpRequest"]>[0];
 
       const error = yield* Effect.flip(serverAuth.authenticateHttpRequest(request));
       expect(error._tag).toBe("ServerAuthInvalidCredentialError");
@@ -261,7 +253,7 @@ it.layer(NodeServices.layer)("MachineAuth.layer", (it) => {
       const sessions = yield* SessionStore.SessionStore;
       const bearer = yield* serverAuth.issueSession();
       const verified = yield* serverAuth.authenticateHttpRequest({
-        cookies: { [sessions.legacyCookieName ?? "t3_session"]: "stale" },
+        cookies: { [sessions.legacyCookieName ?? "vekrel_session"]: "stale" },
         headers: { authorization: `Bearer ${bearer.token}` },
       } as never);
 
@@ -352,9 +344,7 @@ it.layer(NodeServices.layer)("MachineAuth.layer", (it) => {
 
       expect(token.scope).toBe("orchestration:read");
       expect(session.scopes).toEqual(["orchestration:read"]);
-    }).pipe(
-      Effect.provide(layerMachineAuth({ desktopBootstrapToken: "desktop-bootstrap-token" })),
-    ),
+    }).pipe(Effect.provide(layerMachineAuth({ desktopBootstrapToken: "desktop-bootstrap-token" }))),
   );
 
   it.effect("rotates desktop bearer sessions without accumulating authorized clients", () =>

@@ -9,7 +9,7 @@ import * as NodeCrypto from "node:crypto";
 import * as Base64Url from "effect/encoding/Base64Url";
 import * as Result from "effect/Result";
 
-const SESSION_COOKIE_NAME = "t3_session";
+const SESSION_COOKIE_NAME = "vekrel_session";
 
 /**
  * Cookies are scoped by host but *not* by port, so any two servers that can be
@@ -31,9 +31,7 @@ export function resolveSessionCookieName(input: {
 
   const instanceHash = NodeCrypto.createHash("sha256")
     .update(
-      !input.development && isRemoteReachableHost(input.host)
-        ? input.machineId
-        : input.instanceKey,
+      !input.development && isRemoteReachableHost(input.host) ? input.machineId : input.instanceKey,
     )
     .digest("hex")
     .slice(0, 12);
