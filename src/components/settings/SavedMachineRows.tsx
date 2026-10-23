@@ -594,7 +594,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
       ) : linkRevoked ? (
         <SettingsRow
           title={searchableSetting("vekrel-connect").title}
-          description="This machine was removed from Vekrel Connect. Run `t3 connect link` on the host to link it again."
+          description="This machine was removed from Vekrel Connect. Run `vekrel connect link` on the host to link it again."
         />
       ) : null}
       <SettingsRow

@@ -1,3 +1,4 @@
+import { NPM_LAUNCHER_PACKAGE_NAME } from "@vekrel/shared/cliPackage";
 import { useAtomValue } from "@effect/atom-react";
 import { PROVIDER_DISPLAY_NAMES } from "@vekrel/contracts";
 
@@ -72,7 +73,7 @@ export function useUpdateEverything(localUpdateVersion: string | null) {
       .map((server) => ({
         machineId: server.machineId,
         label: server.serverLabel,
-        reason: `t3@${targetVersion} is not on npm yet`,
+        reason: `${NPM_LAUNCHER_PACKAGE_NAME}@${targetVersion} is not on npm yet`,
       })),
   ];
   const restarts = collectRestartingMachines(machines, servers, localUpdateVersion !== null);

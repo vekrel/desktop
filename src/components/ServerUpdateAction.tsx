@@ -1,3 +1,4 @@
+import { NPM_LAUNCHER_PACKAGE_NAME } from "@vekrel/shared/cliPackage";
 import { useAtomValue } from "@effect/atom-react";
 import {
   AuthMachineMaintainScope,
@@ -6,11 +7,7 @@ import {
 } from "@vekrel/contracts";
 import type { AsyncResult } from "effect/reactivity";
 import { machineSession } from "~/state/session";
-import type {
-  MachineId,
-  ServerInstallation,
-  ServerSelfUpdateCapability,
-} from "@vekrel/contracts";
+import type { MachineId, ServerInstallation, ServerSelfUpdateCapability } from "@vekrel/contracts";
 import type { ServerUpdateStage, ServerUpdateState } from "@vekrel/client-runtime/state/server";
 import {
   isAtomCommandInterrupted,
@@ -109,7 +106,7 @@ export function useServerUpdate() {
         description:
           selfUpdate === "desktop-managed"
             ? `Desktop app relaunched on ${result.value.targetVersion}.`
-            : `Reconnected on t3@${result.value.targetVersion}.`,
+            : `Reconnected on ${NPM_LAUNCHER_PACKAGE_NAME}@${result.value.targetVersion}.`,
       });
     }
     return { status: "updated" };
@@ -138,9 +135,7 @@ export function ServerUpdatesAction({
     pending.current = true;
     setIsPending(true);
     await settlePromise(async () => {
-      const available = eligible.filter(
-        (target) => !pendingUpdateMachineIds.has(target.machineId),
-      );
+      const available = eligible.filter((target) => !pendingUpdateMachineIds.has(target.machineId));
       const desktopTargets = available.filter((target) => target.selfUpdate === "desktop-managed");
       if (desktopTargets.length > 0) {
         const confirmed =
@@ -368,7 +363,7 @@ export function OutdatedServerUpdateAction({
     toastManager.add({
       type: "success",
       title: `${serverLabel} updated`,
-      description: `Reconnected on t3@${result.value.targetVersion}.`,
+      description: `Reconnected on ${NPM_LAUNCHER_PACKAGE_NAME}@${result.value.targetVersion}.`,
     });
   };
   return (

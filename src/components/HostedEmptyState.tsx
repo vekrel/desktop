@@ -1,3 +1,4 @@
+import { NPM_LAUNCHER_PACKAGE_NAME } from "@vekrel/shared/cliPackage";
 import { useAuth } from "@clerk/react";
 import type { MachineId } from "@vekrel/contracts";
 import { Link } from "@tanstack/react-router";
@@ -88,7 +89,7 @@ function T3ConnectSteps() {
         )}
       </SetupStep>
       <SetupStep number={2}>
-        <RunOnComputer command="npx t3 connect" />
+        <RunOnComputer command={`npx ${NPM_LAUNCHER_PACKAGE_NAME} connect`} />
         {isSignedIn ? (
           <div className="mt-4 space-y-1.5">
             <CloudMachineConnectRows
@@ -119,7 +120,7 @@ function PairingSteps() {
   return (
     <>
       <SetupStep number={1}>
-        <RunOnComputer command="npx t3 pair" />
+        <RunOnComputer command={`npx ${NPM_LAUNCHER_PACKAGE_NAME} pair`} />
       </SetupStep>
       <SetupStep number={2}>
         <Button render={<Link to="/settings/connections" />} size="sm">
