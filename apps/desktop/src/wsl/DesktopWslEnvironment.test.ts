@@ -247,7 +247,7 @@ describe.skipIf(posixShellRunner === null)("WSL runtime install script (executed
         "set -eu",
         `printf '%s' ${sh(brokenEntry)} > ${sh(fixture.serverEntry)}`,
         `chmod +x ${sh(fixture.serverEntry)}`,
-        `sha256sum ${sh(fixture.serverEntry)} | cut -d ' ' -f 1 > ${sh(`${fixture.runtimeRoot}/.t3code-wsl-runtime-ready`)}`,
+        `sha256sum ${sh(fixture.serverEntry)} | cut -d ' ' -f 1 > ${sh(`${fixture.runtimeRoot}/.vekrel-wsl-runtime-ready`)}`,
       ].join("\n"),
     );
     expect(corrupt.status, corrupt.stderr).toBe(0);
@@ -360,8 +360,8 @@ describe.skipIf(posixShellRunner === null)("WSL runtime install script (executed
         "set -eu",
         `runtime_parent=${sh(fixture.runtimeParent)}`,
         'mkdir -p "$runtime_parent/sha256-current" "$runtime_parent/sha256-previous"',
-        'printf ready > "$runtime_parent/sha256-current/.t3code-wsl-runtime-ready"',
-        'printf ready > "$runtime_parent/sha256-previous/.t3code-wsl-runtime-ready"',
+        'printf ready > "$runtime_parent/sha256-current/.vekrel-wsl-runtime-ready"',
+        'printf ready > "$runtime_parent/sha256-previous/.vekrel-wsl-runtime-ready"',
         `touch -d "10 minutes ago" ${sh(fixture.runtimeRoot)}`,
         'touch -d "1 minute ago" "$runtime_parent/sha256-previous"',
         `cat > ${sh(`${fixture.work}/select.sh`)} <<'VEKREL_SELECT_SCRIPT'`,
@@ -386,7 +386,7 @@ describe.skipIf(posixShellRunner === null)("WSL runtime install script (executed
         'home="$work/home"',
         'runtime_parent="$home/.vekrel/wsl-runtime"',
         'mkdir -p "$runtime_parent"',
-        'make_ready() { mkdir -p "$runtime_parent/$1"; printf ready > "$runtime_parent/$1/.t3code-wsl-runtime-ready"; }',
+        'make_ready() { mkdir -p "$runtime_parent/$1"; printf ready > "$runtime_parent/$1/.vekrel-wsl-runtime-ready"; }',
         "make_ready sha256-current",
         "make_ready sha256-previous",
         "make_ready sha256-active",
