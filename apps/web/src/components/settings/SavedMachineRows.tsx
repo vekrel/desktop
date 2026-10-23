@@ -203,8 +203,7 @@ export function SavedBackendListRow({
     connectedTarget,
   });
   const machineKind = resolveMachineKind(
-    machine.serverConfig ??
-      (lastDescriptor === undefined ? null : { machine: lastDescriptor }),
+    machine.serverConfig ?? (lastDescriptor === undefined ? null : { machine: lastDescriptor }),
   );
   const routeCount = connectionRoutes(machine.entry).length;
   const subtitleText = [
@@ -333,21 +332,11 @@ export function SavedBackendListRow({
             />
           ) : null}
           {routesOpen && (
-            <MachineRoutesList
-              machine={machine}
-              onAddRoute={() => onAddRoute(machine)}
-            />
+            <MachineRoutesList machine={machine} onAddRoute={() => onAddRoute(machine)} />
           )}
           {permissionsOpen && (
-            <div
-              id={`remote-permissions-${machineId}`}
-              className="mt-2 border-t border-border/50"
-            >
-              <SessionPermissions
-                machineId={machineId}
-                connected={isConnected}
-                routeContext
-              />
+            <div id={`remote-permissions-${machineId}`} className="mt-2 border-t border-border/50">
+              <SessionPermissions machineId={machineId} connected={isConnected} routeContext />
             </div>
           )}
         </>
@@ -408,10 +397,7 @@ export function SavedBackendListRow({
           <EllipsisIcon className="size-3.5" />
         </MenuTrigger>
         <MenuPopup align="end">
-          <MachineIconMenu
-            machineId={machineId}
-            serverConfig={machine.serverConfig}
-          />
+          <MachineIconMenu machineId={machineId} serverConfig={machine.serverConfig} />
           <MenuItem onClick={() => setRoutesOpen((open) => !open)}>
             <RouteIcon />
             {routesOpen ? "Hide routes" : "Routes"}
@@ -513,10 +499,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
     ) : null;
 
   const updateManagedTunnel = async (enabled: boolean) => {
-    if (
-      primaryMachineId === null ||
-      !readMachineScope(primaryMachineId, AuthRelayWriteScope)
-    )
+    if (primaryMachineId === null || !readMachineScope(primaryMachineId, AuthRelayWriteScope))
       return;
     setIsUpdating(true);
     const ok = await reconcileCloudState({ managedTunnel: enabled, publish: publishAgentActivity });
@@ -539,10 +522,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
   };
 
   const updatePublishAgentActivity = async (enabled: boolean) => {
-    if (
-      primaryMachineId === null ||
-      !readMachineScope(primaryMachineId, AuthRelayWriteScope)
-    )
+    if (primaryMachineId === null || !readMachineScope(primaryMachineId, AuthRelayWriteScope))
       return;
     setIsUpdatingPreference(true);
     const ok = await reconcileCloudState({ managedTunnel: managedTunnelActive, publish: enabled });
@@ -581,7 +561,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
     <>
       {window.desktopBridge ? (
         <SettingsRow
-          title={searchableSetting("t3-connect").title}
+          title={searchableSetting("vekrel-connect").title}
           description={
             linkRevoked
               ? "This machine was removed from Vekrel Connect. Turn it on to link it again."
@@ -613,7 +593,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
         />
       ) : linkRevoked ? (
         <SettingsRow
-          title={searchableSetting("t3-connect").title}
+          title={searchableSetting("vekrel-connect").title}
           description="This machine was removed from Vekrel Connect. Run `t3 connect link` on the host to link it again."
         />
       ) : null}
