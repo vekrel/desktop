@@ -78,7 +78,11 @@ export function hasCloudPublicConfig(): boolean {
   if (typeof window === "undefined") {
     return true;
   }
-  // The desktop shell signs in through a deep link, not this page (plan 6A Task 16).
+  // The desktop shell signs in through `window.desktopAccount` (system browser + deep link, no
+  // cookie); a shell without it has no sign-in.
+  if (window.desktopAccount !== undefined) {
+    return true;
+  }
   if (window.desktopBridge !== undefined) {
     return false;
   }

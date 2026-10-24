@@ -13,7 +13,8 @@ import { resolveCloudPublicConfig } from "../../cloud/publicConfig";
 /**
  * The browser's Vekrel account, over the relay (`@vekrel/client-runtime/account-auth`). The
  * access token lives only in memory; the refresh token is the relay's HttpOnly cookie, so a
- * reload signs back in with one `/oauth/token` call.
+ * reload signs back in with one `/oauth/token` call. In the desktop shell the session lives in
+ * Electron main instead, behind `window.desktopAccount`.
  */
 export interface AccountAuthState {
   readonly isLoaded: boolean;
@@ -36,6 +37,13 @@ let state: AccountAuthState = { ...SIGNED_OUT, isLoaded: false };
 const listeners = new Set<() => void>();
 let session: AccountSession | null = null;
 let channel: BroadcastChannel | null = null;
+// Desktop: bumped on sign-in and sign-out, so a token read that started before cannot overwrite them.
+let desktopGeneration = 0;
+let desktopLoaded = false;
+
+function desktopAccount(): DesktopAccountBridge | undefined {
+  return typeof window === "undefined" ? undefined : window.desktopAccount;
+}
 
 function setState(next: AccountAuthState): void {
   if (
@@ -103,6 +111,13 @@ function announce(): void {
 
 /** An access token for relay calls, or `null` when signed out. */
 export async function getAccountToken(): Promise<string | null> {
+  const desktop = desktopAccount();
+  if (desktop) {
+    const generation = desktopGeneration;
+    const token = await desktop.getAccessToken();
+    if (generation === desktopGeneration) setState(stateFromToken(token));
+    return token;
+  }
   const target = ensureSession();
   const token = await target.getAccessToken();
   if (session === target) setState(stateFromToken(token));
@@ -115,6 +130,18 @@ function callbackUri(): string {
 
 /** Sends the tab to the relay's sign-in page; `/auth/callback` brings it back to `returnTo`. */
 export function startAccountSignIn(returnTo: string = window.location.href): void {
+  const desktop = desktopAccount();
+  if (desktop) {
+    // The system browser does the sign-in; a timed-out or superseded one leaves the state as is.
+    void desktop
+      .startSignIn()
+      .then(() => {
+        desktopGeneration += 1;
+        return getAccountToken();
+      })
+      .catch(() => undefined);
+    return;
+  }
   const { url, pending } = beginSignIn({
     relayUrl: relayUrl(),
     clientId: AccountClientId.web,
@@ -149,6 +176,13 @@ export async function completeAccountSignIn(callbackUrl: string): Promise<string
 
 /** Revokes the relay session (cookie) and forgets the access token. */
 export async function signOutAccount(): Promise<void> {
+  const desktop = desktopAccount();
+  if (desktop) {
+    desktopGeneration += 1;
+    setState(SIGNED_OUT);
+    await desktop.signOut();
+    return;
+  }
   const target = ensureSession();
   setState(SIGNED_OUT);
   await target.signOut();
@@ -160,7 +194,13 @@ export function getAccountAuthState(): AccountAuthState {
 }
 
 function subscribe(listener: () => void): () => void {
-  ensureSession();
+  if (!desktopAccount()) {
+    ensureSession();
+  } else if (!desktopLoaded) {
+    desktopLoaded = true;
+    // Like the cookie read: a desktop that cannot reach the relay reads as signed out.
+    void getAccountToken().catch(() => setState(SIGNED_OUT));
+  }
   listeners.add(listener);
   return () => listeners.delete(listener);
 }

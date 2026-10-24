@@ -19,7 +19,18 @@ interface ImportMeta {
 }
 
 declare global {
+  /** Same as Desktop's `apps/desktop/src/preload.ts`: the account lives in Electron main. */
+  interface DesktopAccountBridge {
+    /** Opens the relay sign-in in the system browser; resolves once signed in. */
+    readonly startSignIn: () => Promise<void>;
+    /** A current access token, or null when signed out. */
+    readonly getAccessToken: () => Promise<string | null>;
+    /** Revokes the session at the relay, then forgets it on this computer. */
+    readonly signOut: () => Promise<void>;
+  }
+
   interface Window {
     desktopBridge?: DesktopBridge;
+    desktopAccount?: DesktopAccountBridge;
   }
 }

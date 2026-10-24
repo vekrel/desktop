@@ -230,3 +230,80 @@ describe("web account auth", () => {
     expect(auth.getAccountAuthState().isSignedIn).toBe(true);
   });
 });
+
+describe("desktop shell account (window.desktopAccount)", () => {
+  let desktopToken: string | null;
+  let desktop: {
+    startSignIn: ReturnType<typeof vi.fn>;
+    getAccessToken: ReturnType<typeof vi.fn>;
+    signOut: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(() => {
+    desktopToken = null;
+    desktop = {
+      startSignIn: vi.fn(async () => {
+        desktopToken = token;
+      }),
+      getAccessToken: vi.fn(async () => desktopToken),
+      signOut: vi.fn(async () => {
+        desktopToken = null;
+      }),
+    };
+    Object.assign(window, { desktopBridge: {}, desktopAccount: desktop });
+  });
+
+  const loaded = () => import("./accountAuth");
+
+  it("reads the signed-in state from the desktop, never the relay cookie", async () => {
+    desktopToken = token;
+    const auth = await loaded();
+
+    await expect(auth.getAccountToken()).resolves.toBe(token);
+    expect(auth.getAccountAuthState()).toMatchObject({
+      isLoaded: true,
+      isSignedIn: true,
+      userId: "user-1",
+      email: "a@example.test",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(FakeChannel.all).toEqual([]);
+  });
+
+  it("signs in through the desktop, not a page navigation", async () => {
+    const auth = await loaded();
+
+    auth.startAccountSignIn();
+    await vi.waitFor(() => expect(auth.getAccountAuthState().isSignedIn).toBe(true));
+    expect(desktop.startSignIn).toHaveBeenCalledOnce();
+    expect(assign).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("a failed or superseded sign-in leaves the state signed out", async () => {
+    desktop.startSignIn.mockRejectedValueOnce(new Error("superseded"));
+    const auth = await loaded();
+
+    auth.startAccountSignIn();
+    await drainMicrotasks();
+    expect(auth.getAccountAuthState().isSignedIn).toBe(false);
+  });
+
+  it("signs out through the desktop; a token read from before cannot sign back in", async () => {
+    desktopToken = token;
+    const auth = await loaded();
+    await auth.getAccountToken();
+    let answer!: (value: string) => void;
+    desktop.getAccessToken.mockImplementationOnce(
+      () => new Promise<string>((resolve) => (answer = resolve)),
+    );
+    const staleRead = auth.getAccountToken();
+
+    await auth.signOutAccount();
+    answer(token);
+    await staleRead;
+    expect(desktop.signOut).toHaveBeenCalledOnce();
+    expect(auth.getAccountAuthState().isSignedIn).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
