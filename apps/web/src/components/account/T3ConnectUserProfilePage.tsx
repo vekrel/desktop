@@ -18,10 +18,10 @@ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collaps
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty";
 import { toastManager } from "../ui/toast";
 import {
-  ClerkUserProfilePage,
-  ClerkUserProfileRefreshButton,
-  ClerkUserProfileRow,
-} from "./ClerkUserProfilePage";
+  AccountProfilePage,
+  AccountProfileRefreshButton,
+  AccountProfileRow,
+} from "./AccountProfilePage";
 
 const linkedAtFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
@@ -47,7 +47,7 @@ function T3ConnectMachineRow(props: {
 }) {
   const { machine } = props;
   return (
-    <ClerkUserProfileRow icon={<ServerIcon className="size-4" />}>
+    <AccountProfileRow icon={<ServerIcon className="size-4" />}>
       <Collapsible open={props.confirmationOpen} onOpenChange={props.onConfirmationChange}>
         <div className="flex items-start gap-4">
           <div className="min-w-0 flex-1">
@@ -106,7 +106,7 @@ function T3ConnectMachineRow(props: {
           </div>
         </CollapsiblePanel>
       </Collapsible>
-    </ClerkUserProfileRow>
+    </AccountProfileRow>
   );
 }
 
@@ -192,11 +192,11 @@ export function T3ConnectUserProfilePage() {
     !machinesState.accountId || (machinesState.data === null && !machinesState.error);
 
   return (
-    <ClerkUserProfilePage
+    <AccountProfilePage
       title="Vekrel Connect"
       description="Machines registered to your account. Connections on this device are managed in Settings."
       action={
-        <ClerkUserProfileRefreshButton
+        <AccountProfileRefreshButton
           disabled={deregisteringMachineId !== null}
           isPending={machinesState.isPending}
           onClick={machinesState.refresh}
@@ -249,6 +249,6 @@ export function T3ConnectUserProfilePage() {
           </div>
         )}
       </div>
-    </ClerkUserProfilePage>
+    </AccountProfilePage>
   );
 }

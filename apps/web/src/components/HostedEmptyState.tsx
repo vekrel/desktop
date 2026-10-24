@@ -1,5 +1,4 @@
 import { NPM_LAUNCHER_PACKAGE_NAME } from "@vekrel/shared/cliPackage";
-import { useAuth } from "@clerk/react";
 import type { MachineId } from "@vekrel/contracts";
 import { Link } from "@tanstack/react-router";
 import { CheckIcon } from "lucide-react";
@@ -11,7 +10,7 @@ import { isElectron } from "../env";
 import { isLocalMachineDisabled } from "../localMachine";
 import { useRelayMachineDiscovery } from "../state/machines";
 import { CommandBlock } from "./CommandBlock";
-import { useT3ConnectAuthPrompt } from "./clerk/useT3ConnectAuthPrompt";
+import { startAccountSignIn, useAuth } from "./account/accountAuth";
 import { CloudMachineConnectRows } from "./cloud/CloudMachineConnectList";
 import { Button } from "./ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
@@ -65,8 +64,7 @@ export function HostedEmptyState() {
 }
 
 function T3ConnectSteps() {
-  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
-  const { openAuthPrompt } = useT3ConnectAuthPrompt();
+  const { isLoaded, isSignedIn } = useAuth();
   // Adding the first computer unmounts this screen. Wait for all health checks
   // so every compatible registration is queued before that happens.
   const [autoAddedComputers] = useState(() => new Set<MachineId>());
@@ -83,7 +81,7 @@ function T3ConnectSteps() {
             Signed in
           </p>
         ) : (
-          <Button size="sm" disabled={!isLoaded} onClick={openAuthPrompt}>
+          <Button size="sm" disabled={!isLoaded} onClick={() => startAccountSignIn()}>
             Sign in
           </Button>
         )}

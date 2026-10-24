@@ -24,7 +24,7 @@ export const linkPrimaryMachine = createRuntimeCommand(connectionAtomRuntime, {
   concurrency: cloudLinkConcurrency,
   execute: (input: {
     readonly target: CloudLinkTarget;
-    readonly clerkToken: string;
+    readonly accountToken: string;
     readonly mode?: CloudLinkMode;
   }) => linkPrimaryMachineToCloud(input),
 });
@@ -33,7 +33,7 @@ export const unlinkPrimaryMachine = createRuntimeCommand(connectionAtomRuntime, 
   label: "web:cloud:unlink-primary-machine",
   scheduler: cloudLinkScheduler,
   concurrency: cloudLinkConcurrency,
-  execute: (input: { readonly target: CloudLinkTarget; readonly clerkToken: string | null }) =>
+  execute: (input: { readonly target: CloudLinkTarget; readonly accountToken: string | null }) =>
     unlinkPrimaryMachineFromCloud(input),
 });
 

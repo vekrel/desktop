@@ -1,5 +1,4 @@
 import { NPM_LAUNCHER_PACKAGE_NAME } from "@vekrel/shared/cliPackage";
-import { useAuth } from "@clerk/react";
 import { useAtomValue } from "@effect/atom-react";
 import type {
   AgentSessionProjectCandidate,
@@ -39,7 +38,7 @@ import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { hasCloudPublicConfig } from "../../cloud/publicConfig";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
-import { useT3ConnectAuthPrompt } from "../clerk/useT3ConnectAuthPrompt";
+import { startAccountSignIn, useAuth } from "../account/accountAuth";
 import { completeOnboarding } from "../../onboarding/firstRun";
 import {
   groupOnboardingProjects,
@@ -459,8 +458,7 @@ function ConnectAccountOption({
   readonly onToggleMachine: (machineId: MachineId, checked: boolean) => void;
 }) {
   const { machines } = useMachines();
-  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
-  const { openAuthPrompt } = useT3ConnectAuthPrompt();
+  const { isLoaded, isSignedIn } = useAuth();
   const [expanded, setExpanded] = useState(true);
   const [discoveryReady, setDiscoveryReady] = useState(false);
   const onDiscoveryReady = () => setDiscoveryReady(true);
@@ -474,7 +472,7 @@ function ConnectAccountOption({
             if (!isSignedIn) {
               event.preventDefault();
               setExpanded(true);
-              openAuthPrompt();
+              startAccountSignIn();
             }
           }}
           render={

@@ -1,5 +1,4 @@
 import { useAtomValue } from "@effect/atom-react";
-import { useAuth } from "@clerk/react";
 import { findErrorTraceId } from "@vekrel/client-runtime/errors";
 import {
   MachineId,
@@ -15,6 +14,7 @@ import {
 } from "@vekrel/client-runtime/state/runtime";
 import { useState } from "react";
 
+import { useAuth } from "../components/account/accountAuth";
 import { toastManager } from "../components/ui/toast";
 import { relayMachineDiscovery } from "../state/relay";
 import { readMachineScope } from "../state/session";
@@ -25,7 +25,6 @@ import {
   updatePrimaryMachinePreferences as updatePrimaryMachinePreferencesAtom,
 } from "./linkMachineAtoms";
 import { readCachedPrimaryCloudLinkState, usePrimaryCloudLinkState } from "./primaryCloudLinkState";
-import { resolveRelayClerkTokenOptions } from "./publicConfig";
 
 export interface CloudLinkDesiredState {
   readonly managedTunnel: boolean;
@@ -132,7 +131,7 @@ export function useCloudLinkController() {
     if (!canManageLink()) return false;
     const wantsLink = desired.managedTunnel || desired.publish;
     if (wantsLink && readLinkState() === null) return false;
-    const tokenResult = await settlePromise(() => getToken(resolveRelayClerkTokenOptions()));
+    const tokenResult = await settlePromise(() => getToken());
     if (!canManageLink()) return false;
 
     // A failure after this point may follow a partially applied mutation (e.g.
@@ -144,7 +143,7 @@ export function useCloudLinkController() {
       // leave the user unable to turn Vekrel Connect off.
       const unlinkResult = await unlinkPrimaryMachine({
         target,
-        clerkToken: tokenResult._tag === "Success" ? (tokenResult.value ?? null) : null,
+        accountToken: tokenResult._tag === "Success" ? (tokenResult.value ?? null) : null,
       });
       if (unlinkResult._tag === "Failure") {
         if (!isAtomCommandInterrupted(unlinkResult)) {
@@ -160,8 +159,8 @@ export function useCloudLinkController() {
         reportUpdateFailure(squashAtomCommandFailure(tokenResult));
         return false;
       }
-      const clerkToken = tokenResult.value;
-      if (!clerkToken) {
+      const accountToken = tokenResult.value;
+      if (!accountToken) {
         reportUpdateFailure(new Error("Sign in to Vekrel Connect before enabling this."));
         return false;
       }
@@ -173,7 +172,7 @@ export function useCloudLinkController() {
       ) {
         const linkResult = await linkPrimaryMachine({
           target,
-          clerkToken,
+          accountToken,
           mode: desired.managedTunnel ? "managed" : "publish_only",
         });
         if (linkResult._tag === "Failure") {

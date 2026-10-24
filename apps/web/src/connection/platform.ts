@@ -322,7 +322,7 @@ const layerCapabilities = Layer.effectContext(
       identity: Effect.sync(() =>
         Option.fromNullishOr(appAtomRegistry.get(managedRelaySessionAtom)),
       ),
-      clerkToken: Effect.gen(function* () {
+      accountToken: Effect.gen(function* () {
         const session = appAtomRegistry.get(managedRelaySessionAtom);
         if (session === null) {
           return yield* new ConnectionBlockedError({
@@ -330,7 +330,7 @@ const layerCapabilities = Layer.effectContext(
             detail: "Sign in to Vekrel Connect to connect this machine.",
           });
         }
-        const token = yield* session.readClerkToken().pipe(
+        const token = yield* session.readToken().pipe(
           Effect.mapError(
             (error) =>
               new ConnectionTransientError({

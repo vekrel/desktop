@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { hasCloudPublicConfig } from "./publicConfig.ts";
+import { hasCloudPublicConfig, resolveCloudPublicConfig } from "./publicConfig.ts";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -8,23 +8,29 @@ afterEach(() => {
 });
 
 describe("hasCloudPublicConfig", () => {
-  it("rejects an insecure relay URL", () => {
-    vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "pk_test_example");
-    vi.stubEnv("VITE_CLERK_JWT_TEMPLATE", "t3-relay");
-    vi.stubEnv("VITE_VEKREL_RELAY_URL", "http://relay.example.test");
+  it("is off without a relay URL", () => {
+    vi.stubEnv("VITE_VEKREL_RELAY_URL", "");
 
     expect(hasCloudPublicConfig()).toBe(false);
   });
 
-  describe("browser origins", () => {
+  it.each(["http://relay.example.test", "https://user:pw@relay.example.test", "not a url"])(
+    "rejects an insecure or malformed relay URL: %s",
+    (relayUrl) => {
+      vi.stubEnv("VITE_VEKREL_RELAY_URL", relayUrl);
+
+      expect(resolveCloudPublicConfig().relayUrl).toBeNull();
+      expect(hasCloudPublicConfig()).toBe(false);
+    },
+  );
+
+  describe("hosted relay", () => {
     beforeEach(() => {
-      vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", `pk_live_${btoa("clerk.example.com$")}`);
-      vi.stubEnv("VITE_CLERK_JWT_TEMPLATE", "t3-relay");
-      vi.stubEnv("VITE_VEKREL_RELAY_URL", "https://relay.example.test");
+      vi.stubEnv("VITE_VEKREL_RELAY_URL", "https://relay.example.com");
     });
 
     it.each(["https://example.com", "https://nightly.app.example.com:443"])(
-      "enables production auth on the configured root and subdomains: %s",
+      "enables sign-in on the relay's domain and its subdomains: %s",
       (origin) => {
         vi.stubGlobal("window", { location: new URL(origin) });
 
@@ -33,7 +39,7 @@ describe("hasCloudPublicConfig", () => {
     );
 
     it.each(["http://localhost:3773", "https://machine.example.ts.net"])(
-      "disables production auth on private browser origins: %s",
+      "disables sign-in on private browser origins: %s",
       (origin) => {
         vi.stubGlobal("window", { location: new URL(origin) });
 
@@ -42,7 +48,7 @@ describe("hasCloudPublicConfig", () => {
     );
 
     it.each(["http://app.example.com:443", "https://app.example.com:3773"])(
-      "rejects unsupported schemes and ports even on the configured domain: %s",
+      "rejects unsupported schemes and ports even on the relay's domain: %s",
       (origin) => {
         vi.stubGlobal("window", { location: new URL(origin) });
 
@@ -59,20 +65,35 @@ describe("hasCloudPublicConfig", () => {
       },
     );
 
-    it.each([
-      ["https://tenant.clerk.accounts.dev", true],
-      ["https://other.clerk.accounts.dev", false],
-    ])("keeps a provider hostname scoped to its own instance: %s", (origin, expected) => {
-      vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", `pk_live_${btoa("tenant.clerk.accounts.dev$")}`);
-      vi.stubGlobal("window", { location: new URL(origin) });
+    it("never treats a bare top-level domain as the app's domain", () => {
+      vi.stubEnv("VITE_VEKREL_RELAY_URL", "https://example.com");
+      vi.stubGlobal("window", { location: new URL("https://evil.com") });
 
-      expect(hasCloudPublicConfig()).toBe(expected);
+      expect(hasCloudPublicConfig()).toBe(false);
     });
 
-    it("keeps production keys available in the Electron auth shell", () => {
+    it("stays off in the desktop shell until it signs in through a deep link", () => {
       vi.stubGlobal("window", { location: new URL("file:///app/index.html"), desktopBridge: {} });
 
+      expect(hasCloudPublicConfig()).toBe(false);
+    });
+  });
+
+  describe("local relay", () => {
+    beforeEach(() => {
+      vi.stubEnv("VITE_VEKREL_RELAY_URL", "http://localhost:8787");
+    });
+
+    it("enables sign-in on the same loopback host (same site, so the cookie is sent)", () => {
+      vi.stubGlobal("window", { location: new URL("http://localhost:5733/") });
+
       expect(hasCloudPublicConfig()).toBe(true);
+    });
+
+    it("disables sign-in on another loopback name (another site)", () => {
+      vi.stubGlobal("window", { location: new URL("http://127.0.0.1:5733/") });
+
+      expect(hasCloudPublicConfig()).toBe(false);
     });
   });
 });
