@@ -219,14 +219,14 @@ export const updatePrimaryCloudPreferences: (input: {
 
 export const unlinkPrimaryMachineFromCloud: (input: {
   readonly target: CloudLinkTarget;
-  readonly clerkToken: string | null;
+  readonly accountToken: string | null;
 }) => Effect.Effect<
   void,
   CloudMachineLinkError,
   HttpClient.HttpClient | ManagedRelay.ManagedRelayClient
 > = Effect.fn("linkMachine.unlinkPrimaryMachineFromCloud")(function* (input: {
   readonly target: CloudLinkTarget;
-  readonly clerkToken: string | null;
+  readonly accountToken: string | null;
 }) {
   const client = yield* makeMachineHttpApiClient(input.target.httpBaseUrl);
   yield* client.connect
@@ -234,11 +234,11 @@ export const unlinkPrimaryMachineFromCloud: (input: {
     .pipe(Effect.mapError(machineApiError("Could not unlink the machine from cloud.")));
 
   const configuredRelayUrl = relayUrl();
-  if (configuredRelayUrl && input.clerkToken) {
+  if (configuredRelayUrl && input.accountToken) {
     const relayClient = yield* ManagedRelay.ManagedRelayClient;
     yield* relayClient
       .unlinkMachine({
-        clerkToken: input.clerkToken,
+        accountToken: input.accountToken,
         machineId: MachineId.make(input.target.machineId),
       })
       .pipe(
@@ -257,7 +257,7 @@ const PUBLISH_ONLY_PROVIDER_KIND = "manual" satisfies RelayManagedEndpointProvid
 
 export const linkPrimaryMachineToCloud: (input: {
   readonly target: CloudLinkTarget;
-  readonly clerkToken: string;
+  readonly accountToken: string;
   readonly mode?: CloudLinkMode;
 }) => Effect.Effect<
   void,
@@ -265,7 +265,7 @@ export const linkPrimaryMachineToCloud: (input: {
   MachineRegistry.MachineRegistry | HttpClient.HttpClient | ManagedRelay.ManagedRelayClient
 > = Effect.fn("linkMachine.linkPrimaryMachineToCloud")(function* (input: {
   readonly target: CloudLinkTarget;
-  readonly clerkToken: string;
+  readonly accountToken: string;
   readonly mode?: CloudLinkMode;
 }) {
   const configuredRelayUrl = relayUrl();
@@ -286,7 +286,7 @@ export const linkPrimaryMachineToCloud: (input: {
 
   const challenge = yield* relayClient
     .createMachineLinkChallenge({
-      clerkToken: input.clerkToken,
+      accountToken: input.accountToken,
       payload: {
         notificationsEnabled: true,
         liveActivitiesEnabled: true,
@@ -317,7 +317,7 @@ export const linkPrimaryMachineToCloud: (input: {
     .pipe(Effect.mapError(machineApiError("Could not obtain machine link proof.")));
   const link = yield* relayClient
     .linkMachine({
-      clerkToken: input.clerkToken,
+      accountToken: input.accountToken,
       payload: {
         proof,
         notificationsEnabled: true,

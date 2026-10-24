@@ -83,7 +83,7 @@ import {
   supportsServerUpdateThreadContinuation,
 } from "~/versionSkew";
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";
-import { RemoveT3ConnectMachineDialog } from "../clerk/RemoveT3ConnectMachineDialog";
+import { RemoveT3ConnectMachineDialog } from "../account/RemoveT3ConnectMachineDialog";
 import { authMachine } from "~/state/auth";
 import { machineCatalog } from "~/connection/catalog";
 import { readMachineScope, useMachineScope } from "~/state/session";

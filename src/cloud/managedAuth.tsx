@@ -1,4 +1,3 @@
-import { useAuth } from "@clerk/react";
 import { ManagedRelay, setManagedRelaySession } from "@vekrel/client-runtime/relay";
 import {
   reportAtomCommandResult,
@@ -8,11 +7,11 @@ import {
 import * as Effect from "effect/Effect";
 import { useEffect, useRef, type ReactNode } from "react";
 
+import { useAuth } from "../components/account/accountAuth";
 import { machineCatalog } from "../connection/catalog";
 import { runtime } from "../lib/runtime";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { useAtomCommand } from "../state/use-atom-command";
-import { resolveRelayClerkTokenOptions } from "./publicConfig";
 
 export function deactivateManagedRelayAuthentication(): void {
   setManagedRelaySession(appAtomRegistry, null);
@@ -20,18 +19,16 @@ export function deactivateManagedRelayAuthentication(): void {
 
 export function activateManagedRelayAuthentication(
   accountId: string,
-  readClerkToken: () => Promise<string | null>,
+  readToken: () => Promise<string | null>,
 ): void {
   setManagedRelaySession(appAtomRegistry, {
     accountId,
-    readClerkToken,
+    readToken,
   });
 }
 
 export function ManagedRelayAuthProvider({ children }: { readonly children: ReactNode }) {
-  const { getToken, isLoaded, isSignedIn, userId } = useAuth({
-    treatPendingAsSignedOut: false,
-  });
+  const { getToken, isLoaded, isSignedIn, userId } = useAuth();
   const removeRelayMachines = useAtomCommand(machineCatalog.removeRelayMachines, {
     reportFailure: false,
     reportDefect: false,
@@ -75,7 +72,7 @@ export function ManagedRelayAuthProvider({ children }: { readonly children: Reac
         void queueAccountCleanup();
       }
     } else {
-      const tokenProvider = () => getToken(resolveRelayClerkTokenOptions());
+      const tokenProvider = getToken;
       const activateSession = () => {
         if (!cancelled) {
           activateManagedRelayAuthentication(userId, tokenProvider);

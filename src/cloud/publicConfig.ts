@@ -1,24 +1,6 @@
-import {
-  clerkFrontendApiHostnameFromPublishableKey,
-  relayClerkTokenOptions,
-} from "@vekrel/shared/relayAuth";
-import { normalizeSecureRelayUrl } from "@vekrel/shared/relayUrl";
-import * as Schema from "effect/Schema";
-
-export class CloudPublicConfigMissingError extends Schema.TaggedError<CloudPublicConfigMissingError>()(
-  "CloudPublicConfigMissingError",
-  {
-    key: Schema.Literal("VEKREL_CLERK_JWT_TEMPLATE"),
-  },
-) {
-  override get message(): string {
-    return `${this.key} is not configured.`;
-  }
-}
+import { normalizeAccountRelayUrl } from "@vekrel/client-runtime/account-auth";
 
 export interface CloudPublicConfig {
-  readonly clerkPublishableKey: string | null;
-  readonly clerkJwtTemplate: string | null;
   readonly relayUrl: string | null;
   readonly relayTracing: {
     readonly tracesUrl: string | null;
@@ -40,15 +22,17 @@ function normalizeSecureUrl(value: string): string | null {
   }
 }
 
+function normalizeRelayUrl(value: string | undefined): string | null {
+  try {
+    return value?.trim() ? normalizeAccountRelayUrl(value) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function resolveCloudPublicConfig(): CloudPublicConfig {
   return {
-    clerkPublishableKey: trimNonEmpty(
-      import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined,
-    ),
-    clerkJwtTemplate: trimNonEmpty(import.meta.env.VITE_CLERK_JWT_TEMPLATE as string | undefined),
-    relayUrl: normalizeSecureRelayUrl(
-      (import.meta.env.VITE_VEKREL_RELAY_URL as string | undefined) ?? "",
-    ),
+    relayUrl: normalizeRelayUrl(import.meta.env.VITE_VEKREL_RELAY_URL as string | undefined),
     relayTracing: {
       tracesUrl: normalizeSecureUrl(
         (import.meta.env.VITE_RELAY_OTLP_TRACES_URL as string | undefined) ?? "",
@@ -79,42 +63,36 @@ export function resolveRelayTracingConfig() {
     : null;
 }
 
+/**
+ * The relay keeps the web refresh token in a SameSite=Lax cookie, so sign-in only works on a page
+ * that is same-site with the relay: the relay's own hostname on loopback, otherwise an https page
+ * on `<domain>` or a subdomain of it, where the relay is `<label>.<domain>`.
+ * shortcut: takes the relay's parent domain as the registrable domain (`relay.<domain>`); use a
+ * public-suffix check if the relay ever moves deeper than one label under the app's domain.
+ */
 export function hasCloudPublicConfig(): boolean {
-  const config = resolveCloudPublicConfig();
-  if (!config.clerkPublishableKey || !config.clerkJwtTemplate || !config.relayUrl) {
+  const { relayUrl } = resolveCloudPublicConfig();
+  if (!relayUrl) {
     return false;
   }
-
-  // Electron has its own auth runtime; development keys also support private browser origins.
-  if (
-    typeof window === "undefined" ||
-    window.desktopBridge !== undefined ||
-    !config.clerkPublishableKey.startsWith("pk_live_")
-  ) {
+  if (typeof window === "undefined") {
     return true;
   }
-
-  try {
-    // Custom Frontend API hosts use clerk.<production domain>.
-    const domain = clerkFrontendApiHostnameFromPublishableKey(config.clerkPublishableKey).replace(
-      /^clerk\./u,
-      "",
-    );
-    const { hostname, protocol, port } = window.location;
-    return (
-      protocol === "https:" &&
-      port === "" &&
-      (hostname === domain || hostname.endsWith(`.${domain}`))
-    );
-  } catch {
+  // The desktop shell signs in through a deep link, not this page (plan 6A Task 16).
+  if (window.desktopBridge !== undefined) {
     return false;
   }
-}
 
-export function resolveRelayClerkTokenOptions() {
-  const { clerkJwtTemplate } = resolveCloudPublicConfig();
-  if (!clerkJwtTemplate) {
-    throw new CloudPublicConfigMissingError({ key: "VEKREL_CLERK_JWT_TEMPLATE" });
+  const relay = new URL(relayUrl);
+  const { hostname, protocol, port } = window.location;
+  if (relay.protocol === "http:") {
+    return hostname === relay.hostname;
   }
-  return relayClerkTokenOptions(clerkJwtTemplate);
+  const domain = relay.hostname.replace(/^[^.]+\./u, "");
+  return (
+    protocol === "https:" &&
+    port === "" &&
+    domain.includes(".") &&
+    (hostname === domain || hostname.endsWith(`.${domain}`))
+  );
 }
