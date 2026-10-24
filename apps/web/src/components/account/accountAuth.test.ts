@@ -195,9 +195,14 @@ describe("web account auth", () => {
   });
 
   it("on the callback, no cookie read races the code exchange", async () => {
-    // Web Locks grant asynchronously, as in a browser.
+    // Web Locks grant asynchronously, as in a browser, so the exchange starts during the wait.
     vi.stubGlobal("navigator", {
-      locks: { request: async (_name: string, callback: () => Promise<unknown>) => callback() },
+      locks: {
+        request: async (_name: string, callback: () => Promise<unknown>) => {
+          await Promise.resolve();
+          return callback();
+        },
+      },
     });
     const { auth, callback } = await startedSignIn();
     (window.location as unknown as URL).pathname = "/auth/callback";
