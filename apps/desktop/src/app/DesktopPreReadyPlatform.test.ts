@@ -167,11 +167,11 @@ describe("DesktopPreReadyPlatform", () => {
   });
 
   it.effect(
-    "acquires a synchronous pre-ready layer before an asynchronous Clerk-shaped layer",
+    "acquires a synchronous pre-ready layer before an asynchronous deep-link-shaped layer",
     () =>
       Effect.gen(function* () {
-        class ClerkShaped extends Context.Service<ClerkShaped, { readonly ready: true }>()(
-          "@vekrel/desktop/app/DesktopPreReadyPlatform.test/ClerkShaped",
+        class DeepLinksShaped extends Context.Service<DeepLinksShaped, { readonly ready: true }>()(
+          "@vekrel/desktop/app/DesktopPreReadyPlatform.test/DeepLinksShaped",
         ) {}
 
         const events: Array<string> = [];
@@ -183,34 +183,34 @@ describe("DesktopPreReadyPlatform", () => {
           Layer.provide(Layer.succeed(HostProcess.Platform, "darwin")),
         );
 
-        const layerClerkShaped = Layer.effect(
-          ClerkShaped,
+        const layerDeepLinksShaped = Layer.effect(
+          DeepLinksShaped,
           Effect.promise(() => Promise.resolve()).pipe(
             Effect.map(() => {
-              events.push("clerk");
+              events.push("deep-links");
               return { ready: true as const };
             }),
           ),
         );
 
-        const layerRuntime = layerClerkShaped.pipe(
-          Layer.flatMap((clerkContext) => Layer.succeedContext(clerkContext)),
+        const layerRuntime = layerDeepLinksShaped.pipe(
+          Layer.flatMap((deepLinksContext) => Layer.succeedContext(deepLinksContext)),
           Layer.provideMerge(layerPreReady),
         );
 
         const result = yield* Effect.all({
-          clerk: ClerkShaped,
+          deepLinks: DeepLinksShaped,
           preReady: DesktopPreReadyPlatform.DesktopPreReadyElectronOptions,
         }).pipe(Effect.provide(layerRuntime));
 
         assert.deepEqual(result, {
-          clerk: { ready: true },
+          deepLinks: { ready: true },
           preReady: {
             linux: null,
             linuxPasswordStoreCommandLine: null,
           },
         });
-        assert.deepEqual(events, ["pre-ready", "clerk"]);
+        assert.deepEqual(events, ["pre-ready", "deep-links"]);
         assert.equal(registerSchemesMock.mock.calls.length, 1);
         assert.equal(appendSwitchMock.mock.calls.length, 0);
         assert.equal(setDesktopNameMock.mock.calls.length, 0);

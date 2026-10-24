@@ -125,3 +125,6 @@ export const RECEIVE_PROVIDER_AUTH_CALLBACK_CHANNEL = "desktop:receive-provider-
 export const CANCEL_PROVIDER_AUTH_CALLBACK_CHANNEL = "desktop:cancel-provider-auth-callback";
 export const TAKE_LEGACY_LOCAL_STORAGE_CHANNEL = "desktop:take-legacy-local-storage";
 export const COMPLETE_LEGACY_LOCAL_STORAGE_CHANNEL = "desktop:complete-legacy-local-storage";
+export const ACCOUNT_START_SIGN_IN_CHANNEL = "desktop:account-start-sign-in";
+export const ACCOUNT_GET_ACCESS_TOKEN_CHANNEL = "desktop:account-get-access-token";
+export const ACCOUNT_SIGN_OUT_CHANNEL = "desktop:account-sign-out";

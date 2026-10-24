@@ -9,10 +9,7 @@ import {
   getConnectionCatalog,
   setConnectionCatalog,
 } from "./methods/connectionCatalog.ts";
-import {
-  getLocalMachineEnabled,
-  setLocalMachineEnabled,
-} from "./methods/localMachine.ts";
+import { getLocalMachineEnabled, setLocalMachineEnabled } from "./methods/localMachine.ts";
 import {
   getAdvertisedEndpoints,
   getServerExposureState,
@@ -73,6 +70,7 @@ import {
 import * as PreviewIpc from "./methods/preview.ts";
 import * as AppActivationIpc from "./methods/appActivation.ts";
 import * as WebLinksIpc from "./methods/webLinks.ts";
+import * as AccountIpc from "./methods/account.ts";
 import {
   completeLegacyLocalStorage,
   takeLegacyLocalStorage,
@@ -92,6 +90,9 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(AppActivationIpc.setReady);
   yield* ipc.handle(AppActivationIpc.complete);
   yield* ipc.handle(WebLinksIpc.setReady);
+  yield* ipc.handle(AccountIpc.startSignIn);
+  yield* ipc.handle(AccountIpc.getAccessToken);
+  yield* ipc.handle(AccountIpc.signOut);
 
   yield* ipc.handleSync(takeLegacyLocalStorage);
   yield* ipc.handle(completeLegacyLocalStorage);

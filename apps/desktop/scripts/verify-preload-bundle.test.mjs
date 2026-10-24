@@ -5,7 +5,11 @@ import { verifyPreloadBundle } from "./verify-preload-bundle.mjs";
 const validPreload = `
   const electron = require("electron");
   const PICK_FOLDER_CHANNEL = "desktop:pick-folder";
-  electron.contextBridge.exposeInMainWorld("__clerk_internal_electron_passkeys", {});
+  electron.contextBridge.exposeInMainWorld("desktopAccount", {
+    startSignIn: () => electron.ipcRenderer.invoke("desktop:account-start-sign-in"),
+    getAccessToken: () => electron.ipcRenderer.invoke("desktop:account-get-access-token"),
+    signOut: () => electron.ipcRenderer.invoke("desktop:account-sign-out"),
+  });
   electron.contextBridge.exposeInMainWorld("desktopBridge", {
     getClientPlatform: () => process.platform,
     getLocalMachineBootstraps: () => [],
@@ -20,7 +24,7 @@ describe("desktop preload bundle verifier", () => {
       () =>
         verifyPreloadBundle(`
           "desktopBridge getClientPlatform getLocalMachineBootstraps pickFolder";
-          "__clerk_internal_electron_passkeys";
+          "desktopAccount startSignIn getAccessToken signOut";
           require("electron");
         `),
       /missing executable APIs/,
@@ -37,6 +41,17 @@ describe("desktop preload bundle verifier", () => {
           ),
         ),
       /missing executable APIs: getClientPlatform/,
+    );
+  });
+
+  it("rejects a preload without the account bridge", () => {
+    assert.throws(
+      () => verifyPreloadBundle(validPreload.replace("signOut: () =>", "signOff: () =>")),
+      /missing executable APIs: desktopAccount\.signOut/,
+    );
+    assert.throws(
+      () => verifyPreloadBundle(validPreload.replace('"desktopAccount"', '"otherGlobal"')),
+      /missing executable APIs: desktopAccount\.startSignIn/,
     );
   });
 

@@ -12,7 +12,7 @@ const expectedDesktopBridgeApis = [
   "getPathForFile",
   "pickFolder",
 ];
-const clerkPasskeysGlobal = "__clerk_internal_electron_passkeys";
+const expectedDesktopAccountApis = ["startSignIn", "getAccessToken", "signOut"];
 const preloadExecutionTimeoutMs = 1_000;
 const desktopPackage = JSON.parse(
   NodeFS.readFileSync(new URL("../package.json", import.meta.url), "utf8"),
@@ -137,7 +137,10 @@ export const verifyPreloadBundle = (source) => {
     (api) => typeof desktopBridge?.[api] !== "function",
   );
   if (!exposedGlobals.has("desktopBridge")) missingApis.unshift("desktopBridge exposure");
-  if (!exposedGlobals.has(clerkPasskeysGlobal)) missingApis.push(`${clerkPasskeysGlobal} exposure`);
+  const desktopAccount = exposedGlobals.get("desktopAccount");
+  for (const api of expectedDesktopAccountApis) {
+    if (typeof desktopAccount?.[api] !== "function") missingApis.push(`desktopAccount.${api}`);
+  }
 
   if (missingApis.length > 0) {
     throw new Error(`Desktop preload bundle is missing executable APIs: ${missingApis.join(", ")}`);

@@ -162,7 +162,7 @@ describe("DesktopDeepLinks", () => {
             listeners.set(eventName, listener);
           }),
         setAsDefaultProtocolClient: () => Effect.succeed(true),
-  } as unknown as ElectronApp.ElectronApp["Service"];
+      } as unknown as ElectronApp.ElectronApp["Service"];
       const electronWindow = {
         currentMainOrFirst: Effect.succeedSome(window),
         reveal: (value: unknown) => Effect.sync(() => revealed.resolve(value)),
@@ -200,7 +200,7 @@ describe("DesktopDeepLinks", () => {
           listeners.set(name, listener);
         }),
       setAsDefaultProtocolClient: () => Effect.succeed(true),
-  } as unknown as ElectronApp.ElectronApp["Service"];
+    } as unknown as ElectronApp.ElectronApp["Service"];
 
     return Effect.gen(function* () {
       const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
@@ -276,7 +276,7 @@ it.effect(
           listeners.set(name, listener);
         }),
       setAsDefaultProtocolClient: () => Effect.succeed(true),
-  } as unknown as ElectronApp.ElectronApp["Service"];
+    } as unknown as ElectronApp.ElectronApp["Service"];
     const electronWindow = {
       currentMainOrFirst: Effect.succeed(Option.some(window)),
       reveal: () => Effect.sync(() => revealed.resolve()),
@@ -305,7 +305,61 @@ it.effect(
       Effect.provideService(ElectronApp.ElectronApp, electronApp),
       Effect.provideService(ElectronWindow.ElectronWindow, electronWindow),
       Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
-        Effect.provideService(DesktopAccount.DesktopAccount, ignoreAccount),
+      Effect.provideService(DesktopAccount.DesktopAccount, ignoreAccount),
+    );
+  },
+);
+
+it.effect.each(["open-url", "second-instance"] as const)(
+  "registers the scheme and hands account callbacks from %s to the account, revealing the window",
+  (entry) => {
+    const listeners = new Map<string, (...args: unknown[]) => void>();
+    const registered: Array<string> = [];
+    const received: Array<string> = [];
+    const revealed = Promise.withResolvers<void>();
+    const callback = "vekrel-dev://auth/callback?code=c&state=s";
+    const electronApp = {
+      on: (name: string, listener: (...args: unknown[]) => void) =>
+        Effect.sync(() => {
+          listeners.set(name, listener);
+        }),
+      setAsDefaultProtocolClient: (scheme: string) =>
+        Effect.sync(() => registered.push(scheme) > 0),
+    } as unknown as ElectronApp.ElectronApp["Service"];
+    const electronWindow = {
+      currentMainOrFirst: Effect.succeedSome({ id: 1 }),
+      reveal: () => Effect.sync(() => revealed.resolve()),
+    } as unknown as ElectronWindow.ElectronWindow["Service"];
+    const account = DesktopAccount.DesktopAccount.of({
+      ...ignoreAccount,
+      receiveCallback: (url) => {
+        received.push(url);
+        return url.startsWith("vekrel-dev://auth/callback");
+      },
+    });
+    return Effect.gen(function* () {
+      const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
+      yield* deepLinks.configure;
+      assert.deepEqual(registered, ["vekrel-dev"]);
+      if (entry === "open-url") {
+        const event = { preventDefault: vi.fn() };
+        listeners.get("open-url")!(event, callback);
+        assert.equal(event.preventDefault.mock.calls.length, 1);
+      } else {
+        listeners.get("second-instance")!({}, ["t3", callback]);
+      }
+      yield* Effect.promise(() => revealed.promise);
+      assert.deepEqual(
+        received.filter((url) => url !== "t3"),
+        [callback],
+      );
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(layerDesktopDeepLinks(true, [], "darwin", undefined, undefined, listeners)),
+      Effect.provideService(ElectronApp.ElectronApp, electronApp),
+      Effect.provideService(ElectronWindow.ElectronWindow, electronWindow),
+      Effect.provideService(DesktopWebLinks.DesktopWebLinks, ignoreWebLinks),
+      Effect.provideService(DesktopAccount.DesktopAccount, account),
     );
   },
 );
@@ -365,7 +419,7 @@ it.effect.each(["startup", "open-url", "early-second-instance"] as const)(
             listeners.set(name, listener);
           }),
         setAsDefaultProtocolClient: () => Effect.succeed(true),
-  } as unknown as ElectronApp.ElectronApp["Service"];
+      } as unknown as ElectronApp.ElectronApp["Service"];
       yield* Effect.gen(function* () {
         const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
         if (entry === "early-second-instance") {
@@ -406,7 +460,7 @@ it.effect("hands web and app links to the renderer and leaves other links alone"
           listeners.set(name, listener);
         }),
       setAsDefaultProtocolClient: () => Effect.succeed(true),
-  } as unknown as ElectronApp.ElectronApp["Service"];
+    } as unknown as ElectronApp.ElectronApp["Service"];
     const received: Array<string> = [];
     yield* Effect.gen(function* () {
       const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;

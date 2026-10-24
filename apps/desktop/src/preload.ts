@@ -7,7 +7,6 @@ import type {
   DesktopPreviewTabState,
   DesktopSnapShotEvent,
 } from "@vekrel/contracts";
-import { exposeClerkBridge } from "@clerk/electron/preload";
 import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 
 import * as IpcChannels from "./ipc/channels.ts";
@@ -30,7 +29,24 @@ function isSnapShotEvent(value: unknown): value is DesktopSnapShotEvent {
   );
 }
 
-exposeClerkBridge({ passkeys: true });
+/**
+ * `window.desktopAccount`: the Vekrel account, held by the main process (app/DesktopAccount.ts).
+ * The refresh token never reaches the renderer; it gets short-lived access tokens.
+ */
+export interface DesktopAccountBridge {
+  /** Opens the relay sign-in in the system browser; resolves once signed in. */
+  readonly startSignIn: () => Promise<void>;
+  /** A current access token, or null when signed out. */
+  readonly getAccessToken: () => Promise<string | null>;
+  /** Revokes the session at the relay, then forgets it on this computer. */
+  readonly signOut: () => Promise<void>;
+}
+
+contextBridge.exposeInMainWorld("desktopAccount", {
+  startSignIn: () => ipcRenderer.invoke(IpcChannels.ACCOUNT_START_SIGN_IN_CHANNEL),
+  getAccessToken: () => ipcRenderer.invoke(IpcChannels.ACCOUNT_GET_ACCESS_TOKEN_CHANNEL),
+  signOut: () => ipcRenderer.invoke(IpcChannels.ACCOUNT_SIGN_OUT_CHANNEL),
+} satisfies DesktopAccountBridge);
 
 // Runs before any app script reads localStorage. See DesktopLegacyLocalStorage.
 try {
