@@ -72,10 +72,20 @@ describe("hasCloudPublicConfig", () => {
       expect(hasCloudPublicConfig()).toBe(false);
     });
 
-    it("stays off in the desktop shell until it signs in through a deep link", () => {
+    it("stays off in a desktop shell without an account bridge", () => {
       vi.stubGlobal("window", { location: new URL("file:///app/index.html"), desktopBridge: {} });
 
       expect(hasCloudPublicConfig()).toBe(false);
+    });
+
+    it("is on in the desktop shell with its account bridge (no cookie, so no same-site rule)", () => {
+      vi.stubGlobal("window", {
+        location: new URL("vekrel://app/index.html"),
+        desktopBridge: {},
+        desktopAccount: {},
+      });
+
+      expect(hasCloudPublicConfig()).toBe(true);
     });
   });
 
