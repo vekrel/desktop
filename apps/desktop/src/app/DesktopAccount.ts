@@ -149,13 +149,18 @@ export const makeRefreshTokenStore = Effect.gen(function* () {
   return { read, write, clear };
 });
 
+export type AccountCallbackResult = "resolved" | "ignored" | "not-account";
+
 export class DesktopAccount extends Context.Service<
   DesktopAccount,
   {
     /** Opens the relay sign-in in the system browser; resolves once the session is stored. */
     readonly startSignIn: Effect.Effect<void, DesktopAccountError>;
-    /** Takes `<scheme>://auth/callback` links (true), whatever their state; false for others. */
-    readonly receiveCallback: (url: string) => boolean;
+    /**
+     * `resolved`: the callback of the pending sign-in. `ignored`: a `<scheme>://auth/callback`
+     * link for another (or no) sign-in, taken and dropped. `not-account`: any other link.
+     */
+    readonly receiveCallback: (url: string) => AccountCallbackResult;
     /** A current access token, or null when signed out (or no relay is configured). */
     readonly getAccessToken: Effect.Effect<string | null, DesktopAccountError>;
     /** Revokes the refresh token at the relay, then deletes it here. */
@@ -218,6 +223,8 @@ export const make = Effect.fn("DesktopAccount.make")(function* (
     // Only the newest sign-in can complete; an older window's request gives up.
     pending?.callback.reject(new DesktopAccountError({ reason: "superseded" }));
     const current: PendingCallback = { signIn, callback: Promise.withResolvers<string>() };
+    // Superseded before anything awaits it (browser still opening): not an unhandled rejection.
+    current.callback.promise.catch(() => undefined);
     pending = current;
     if (!(yield* shell.openExternal(url))) {
       if (pending === current) pending = null;
@@ -231,15 +238,16 @@ export const make = Effect.fn("DesktopAccount.make")(function* (
     });
   }).pipe(Effect.withSpan("desktop.account.startSignIn"));
 
-  const receiveCallback = (url: string): boolean => {
-    if (!isAccountCallbackUrl(url, environment.isDevelopment)) return false;
+  const receiveCallback = (url: string): AccountCallbackResult => {
+    if (!isAccountCallbackUrl(url, environment.isDevelopment)) return "not-account";
     const current = pending;
     // A callback for another (or no) sign-in is dropped: it is not ours to redeem.
-    if (current && new URL(url).searchParams.get("state") === current.signIn.state) {
-      pending = null;
-      current.callback.resolve(url);
+    if (!current || new URL(url).searchParams.get("state") !== current.signIn.state) {
+      return "ignored";
     }
-    return true;
+    pending = null;
+    current.callback.resolve(url);
+    return "resolved";
   };
 
   const getAccessToken = session

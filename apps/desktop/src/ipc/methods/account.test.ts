@@ -63,7 +63,7 @@ describe("account IPC", () => {
             DesktopAccount.DesktopAccount,
             DesktopAccount.DesktopAccount.of({
               startSignIn: Effect.sync(() => void calls.push("startSignIn")),
-              receiveCallback: () => false,
+              receiveCallback: () => "not-account",
               getAccessToken: Effect.sync(() => {
                 calls.push("getAccessToken");
                 return "access-token";

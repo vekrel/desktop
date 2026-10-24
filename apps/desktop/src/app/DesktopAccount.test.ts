@@ -117,6 +117,9 @@ const withAccount = <A, E>(
     );
   });
 
+/** The next browser open never returns, like a system browser that is slow to launch. */
+let hangNextBrowser = false;
+
 const layerAccount = (
   stateDir: string,
   relay: FakeRelay,
@@ -135,7 +138,16 @@ const layerAccount = (
         Layer.succeed(
           ElectronShell.ElectronShell,
           ElectronShell.ElectronShell.of({
-            openExternal: (url) => Queue.offer(opened, String(url)),
+            openExternal: (url) =>
+              Queue.offer(opened, String(url)).pipe(
+                Effect.andThen(
+                  Effect.suspend(() => {
+                    if (!hangNextBrowser) return Effect.succeed(true);
+                    hangNextBrowser = false;
+                    return Effect.never;
+                  }),
+                ),
+              ),
             openSystemSettings: () => Effect.succeed(false),
             copyText: () => Effect.void,
           }),
@@ -197,14 +209,24 @@ describe("DesktopAccount", () => {
             assert.strictEqual(authorize.searchParams.get("code_challenge_method"), "S256");
 
             // Ours (the scheme) but not this sign-in: taken, dropped, nothing redeemed.
-            assert.isTrue(
+            assert.strictEqual(
               account.receiveCallback("vekrel-dev://auth/callback?code=code-1&state=forged"),
+              "ignored",
             );
-            assert.isTrue(account.receiveCallback("vekrel-dev://auth/callback?code=code-1"));
-            assert.isFalse(account.receiveCallback("vekrel-dev://app/welcome"));
+            assert.strictEqual(
+              account.receiveCallback("vekrel-dev://auth/callback?code=code-1"),
+              "ignored",
+            );
+            assert.strictEqual(account.receiveCallback("vekrel-dev://app/welcome"), "not-account");
 
-            assert.isTrue(
+            assert.strictEqual(
               account.receiveCallback(`vekrel-dev://auth/callback?code=code-1&state=${state}`),
+              "resolved",
+            );
+            // The same callback again (a replayed link) no longer matches anything.
+            assert.strictEqual(
+              account.receiveCallback(`vekrel-dev://auth/callback?code=code-1&state=${state}`),
+              "ignored",
             );
             yield* Fiber.join(signIn);
             assert.deepStrictEqual(
@@ -305,12 +327,52 @@ describe("DesktopAccount", () => {
             const exit = yield* Fiber.await(first.signIn);
             assert.isTrue(exit._tag === "Failure");
             // The first state no longer completes anything; the second one still can.
-            account.receiveCallback(`vekrel-dev://auth/callback?code=code-1&state=${first.state}`);
-            account.receiveCallback(`vekrel-dev://auth/callback?code=code-1&state=${second.state}`);
+            assert.strictEqual(
+              account.receiveCallback(
+                `vekrel-dev://auth/callback?code=code-1&state=${first.state}`,
+              ),
+              "ignored",
+            );
+            assert.strictEqual(
+              account.receiveCallback(
+                `vekrel-dev://auth/callback?code=code-1&state=${second.state}`,
+              ),
+              "resolved",
+            );
             yield* Fiber.join(second.signIn);
             assert.strictEqual(relay.requests.length, 1);
           }),
         );
+      }),
+    ),
+  );
+
+  it.live("superseding a sign-in whose browser is still opening rejects nothing unhandled", () =>
+    withTempState((stateDir) =>
+      Effect.gen(function* () {
+        const relay = yield* fakeRelay;
+        const unhandled: Array<unknown> = [];
+        const onUnhandled = (reason: unknown) => void unhandled.push(reason);
+        process.on("unhandledRejection", onUnhandled);
+        yield* withAccount(stateDir, relay, encrypted, (account, opened) =>
+          Effect.gen(function* () {
+            hangNextBrowser = true;
+            // Nothing awaits the first sign-in's callback yet: it is still inside openExternal.
+            const first = yield* openSignIn(account, relay, opened);
+            const second = yield* openSignIn(account, relay, opened);
+            yield* Effect.yieldNow;
+            yield* Effect.yieldNow;
+            assert.deepStrictEqual(unhandled, []);
+            yield* Fiber.interrupt(first.signIn);
+            assert.strictEqual(
+              account.receiveCallback(
+                `vekrel-dev://auth/callback?code=code-1&state=${second.state}`,
+              ),
+              "resolved",
+            );
+            yield* Fiber.join(second.signIn);
+          }),
+        ).pipe(Effect.ensuring(Effect.sync(() => process.off("unhandledRejection", onUnhandled))));
       }),
     ),
   );

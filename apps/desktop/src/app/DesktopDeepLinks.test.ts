@@ -32,7 +32,7 @@ const ignoreWebLinks = DesktopWebLinks.DesktopWebLinks.of({
 
 const ignoreAccount = DesktopAccount.DesktopAccount.of({
   startSignIn: Effect.void,
-  receiveCallback: () => false,
+  receiveCallback: () => "not-account",
   getAccessToken: Effect.succeed(null),
   signOut: Effect.void,
 });
@@ -317,7 +317,9 @@ it.effect.each(["open-url", "second-instance"] as const)(
     const registered: Array<string> = [];
     const received: Array<string> = [];
     const revealed = Promise.withResolvers<void>();
+    let reveals = 0;
     const callback = "vekrel-dev://auth/callback?code=c&state=s";
+    const stray = "vekrel-dev://auth/callback?code=c&state=stale";
     const electronApp = {
       on: (name: string, listener: (...args: unknown[]) => void) =>
         Effect.sync(() => {
@@ -328,30 +330,43 @@ it.effect.each(["open-url", "second-instance"] as const)(
     } as unknown as ElectronApp.ElectronApp["Service"];
     const electronWindow = {
       currentMainOrFirst: Effect.succeedSome({ id: 1 }),
-      reveal: () => Effect.sync(() => revealed.resolve()),
+      reveal: () =>
+        Effect.sync(() => {
+          reveals += 1;
+          revealed.resolve();
+        }),
     } as unknown as ElectronWindow.ElectronWindow["Service"];
     const account = DesktopAccount.DesktopAccount.of({
       ...ignoreAccount,
       receiveCallback: (url) => {
         received.push(url);
-        return url.startsWith("vekrel-dev://auth/callback");
+        if (url === callback) return "resolved";
+        return url.startsWith("vekrel-dev://auth/callback") ? "ignored" : "not-account";
       },
     });
     return Effect.gen(function* () {
       const deepLinks = yield* DesktopDeepLinks.DesktopDeepLinks;
       yield* deepLinks.configure;
       assert.deepEqual(registered, ["vekrel-dev"]);
-      if (entry === "open-url") {
-        const event = { preventDefault: vi.fn() };
-        listeners.get("open-url")!(event, callback);
-        assert.equal(event.preventDefault.mock.calls.length, 1);
-      } else {
-        listeners.get("second-instance")!({}, ["t3", callback]);
-      }
+      const deliver = (url: string) => {
+        if (entry === "open-url") {
+          const event = { preventDefault: vi.fn() };
+          listeners.get("open-url")!(event, url);
+          assert.equal(event.preventDefault.mock.calls.length, 1);
+        } else {
+          listeners.get("second-instance")!({}, ["t3", url]);
+        }
+      };
+      // A stale or foreign callback is swallowed without bringing the app forward.
+      deliver(stray);
+      yield* Effect.yieldNow;
+      assert.equal(reveals, 0);
+      deliver(callback);
       yield* Effect.promise(() => revealed.promise);
+      assert.equal(reveals, 1);
       assert.deepEqual(
         received.filter((url) => url !== "t3"),
-        [callback],
+        [stray, callback],
       );
     }).pipe(
       Effect.scoped,

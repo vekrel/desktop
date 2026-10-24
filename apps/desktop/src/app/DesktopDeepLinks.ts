@@ -85,9 +85,10 @@ export const make = Effect.gen(function* () {
           }),
         );
       const receiveAccountCallback = (value: string | undefined) => {
-        if (!value || !account.receiveCallback(value)) return false;
-        revealMainWindow();
-        return true;
+        const result = value ? account.receiveCallback(value) : "not-account";
+        // Only the sign-in this app started brings it forward; stray callbacks do nothing.
+        if (result === "resolved") revealMainWindow();
+        return result !== "not-account";
       };
       const startProviderAuthHandoff = (value: string | undefined) => {
         if (!value) return false;
