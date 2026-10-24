@@ -6,6 +6,8 @@ import * as Scope from "effect/Scope";
 
 export interface DesktopIpcInvokeEvent {
   readonly sender: { readonly id: number };
+  /** The frame that sent the message (Electron `WebFrameMain`); null once it navigated away. */
+  readonly senderFrame?: { readonly url: string } | null;
 }
 
 export interface DesktopIpcSyncEvent {
