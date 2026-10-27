@@ -1,0 +1,8 @@
+// Permanent redirect app.vekrel.com -> rc.vekrel.com (path and query kept).
+// Deploy: `pnpm dlx wrangler@4 deploy -c apps/web/redirect/wrangler.jsonc`.
+{
+  "name": "vekrel-app-redirect",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "app.vekrel.com", "custom_domain": true }],
+}

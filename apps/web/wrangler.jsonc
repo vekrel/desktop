@@ -1,0 +1,12 @@
+// Hosted web app on Cloudflare (Workers static assets). T3 used Vercel (vercel.ts).
+// `pnpm --filter @vekrel/web deploy:hosted` builds with the hosted env and deploys (needs `wrangler login`).
+{
+  "name": "vekrel-web",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    // Deep links (/auth/callback, /pair, /settings/...) fall back to index.html.
+    "not_found_handling": "single-page-application",
+  },
+  "routes": [{ "pattern": "rc.vekrel.com", "custom_domain": true }],
+}
