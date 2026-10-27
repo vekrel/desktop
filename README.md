@@ -21,7 +21,7 @@ git subtree pull --prefix=<same prefix> <same path> <same branch> --squash
 # afterwards, in each source repo
 git branch -D split-web   # split-server / split-packages
 ```
-Last pulled from: Vekrel-Web `2338148` (apps/web), Vekrel-Engine `1191a17` (apps/server), Vekrel-Shared `61d6cbe` (packages/). After a pull, `diff -rq -x node_modules -x dist <prefix> <source>/<prefix>` should be empty except the `apps/server` hunks listed under Deviations.
+Last pulled from: Vekrel-Web `b7023fb` (apps/web), Vekrel-Engine `b9e7f81` (apps/server), Vekrel-Shared `5b10901` (packages/). After a pull, `diff -rq -x node_modules -x dist <prefix> <source>/<prefix>` should be empty except the `apps/server` hunks listed under Deviations.
 
 ## Deviations from upstream T3 Code 8d3b061
 - Root package is `@vekrel/desktop-root`; desktop package is `@vekrel/desktop`, product name `Vekrel`. The upstream npm scope, env prefix (`T3CODE_` to `VEKREL_`) and product name ("T3 Code", including the Beta/Dev/Nightly labels) are replaced in `apps/desktop` and `scripts/build-desktop-artifact.ts`.
@@ -47,7 +47,7 @@ URL-scheme edits made here and committed in the source repos (Shared `cba8d1d`, 
 - Vekrel-Engine `apps/server/src/`: `httpCors.ts`, `auth/MachineAuth.test.ts` (was `EnvironmentAuth.test.ts`).
 
 ## Left as upstream
-- `T3 Tools Inc.` developer name, `t3.codes` and `pingdotgg/t3code` URLs (metainfo, gnome-extension manifest, package metadata).
+- `T3 Tools Inc.` developer name (metainfo), `t3.codes` URLs and email (gnome-extension uuid, package metadata in `scripts/build-desktop-artifact.ts`); `pingdotgg/t3code` in scripts and server internals.
 - Metainfo `project_license` is still `MIT`.
 - CLI name `t3`.
 - `assets/prod/t3-black-windows.ico` filename (and the other `t3-black-*` names).
