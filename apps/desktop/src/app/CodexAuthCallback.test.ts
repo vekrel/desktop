@@ -56,7 +56,7 @@ describe("desktop Codex callback helper", () => {
     const expected = callback(authorizationUrl);
     const input = {
       authorizationUrl,
-      returnUrl: "https://app.t3.codes/settings/providers?machineId=remote-one&instanceId=work",
+      returnUrl: "https://rc.vekrel.com/settings/providers?machineId=remote-one&instanceId=work",
       machineId: MachineId.make("remote-one"),
       instanceId: ProviderInstanceId.make("work"),
       flowId: "flow-one",

@@ -402,7 +402,7 @@ it.effect.each(["startup", "open-url", "early-second-instance"] as const)(
       }).toString();
       const request = {
         authorizationUrl: authorize.toString(),
-        returnUrl: "https://app.t3.codes/welcome#agents:remote-one",
+        returnUrl: "https://rc.vekrel.com/welcome#agents:remote-one",
         machineId: MachineId.make("remote-one"),
         instanceId: ProviderInstanceId.make("work"),
         flowId: "flow-one",
