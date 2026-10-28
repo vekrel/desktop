@@ -123,6 +123,8 @@ interface MakeInstanceInput {
   readonly onReady?: Effect.Effect<void>;
   readonly onShutdown?: Effect.Effect<void>;
   readonly onStateDirOwned?: Effect.Effect<void>;
+  readonly attachToOwner?: Effect.Effect<Option.Option<DesktopBackendManager.AttachedOwner>>;
+  readonly onReadyUrl?: (httpBaseUrl: URL) => Effect.Effect<void>;
   readonly onPreflightFailed?: (
     failure: DesktopBackendManager.PreflightFailure,
   ) => Effect.Effect<boolean>;
@@ -179,6 +181,8 @@ function makeTestInstance(input: MakeInstanceInput) {
     label: Effect.succeed("Windows"),
     configResolve: input.configResolve ?? Effect.succeed(input.config ?? baseConfig),
     ...(input.onReady ? { onReady: () => input.onReady! } : {}),
+    ...(input.onReadyUrl ? { onReady: input.onReadyUrl } : {}),
+    ...(input.attachToOwner ? { attachToOwner: () => input.attachToOwner! } : {}),
     ...(input.onShutdown ? { onShutdown: () => input.onShutdown! } : {}),
     ...(input.onStateDirOwned ? { onStateDirOwned: () => input.onStateDirOwned! } : {}),
     ...(input.onPreflightFailed ? { onPreflightFailed: input.onPreflightFailed } : {}),
@@ -572,6 +576,114 @@ describe("DesktopBackendManager", () => {
         assert.isFalse(snapshot.restartScheduled);
         yield* TestClock.adjust(Duration.minutes(1));
         assert.equal(startCount, 1);
+      }).pipe(Effect.provide(TestClock.layer())),
+    ),
+  );
+
+  const ownedHomeSpawner = (onSpawn: () => void) =>
+    Layer.succeed(
+      ChildProcessSpawner.ChildProcessSpawner,
+      ChildProcessSpawner.make(() =>
+        Effect.sync(() => {
+          onSpawn();
+          return makeProcess({
+            exitCode: Effect.succeed(
+              ChildProcessSpawner.ExitCode(SERVER_EXIT_CODE_STATE_DIR_OWNED),
+            ),
+          });
+        }),
+      ),
+    );
+
+  it.effect("attaches to a compatible owner of the home instead of refusing", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        let startCount = 0;
+        let refusedCount = 0;
+        const readyUrl = yield* Deferred.make<URL>();
+        const ownerUrl = new URL("http://127.0.0.1:64675");
+        const instance = yield* makeTestInstance({
+          spawnerLayer: ownedHomeSpawner(() => (startCount += 1)),
+          httpClientLayer: layerHttpClient(() => Effect.never),
+          config: {
+            ...baseConfig,
+            bootstrap: { ...baseConfig.bootstrap, desktopBootstrapSecret: "secret" },
+          },
+          attachToOwner: Effect.succeedSome({
+            httpBaseUrl: ownerUrl,
+            bootstrapToken: "pairing-credential",
+            awaitGone: Effect.never,
+          }),
+          onReadyUrl: (url) => Deferred.succeed(readyUrl, url).pipe(Effect.asVoid),
+          onStateDirOwned: Effect.sync(() => (refusedCount += 1)),
+        });
+        yield* instance.start;
+        assert.equal((yield* Deferred.await(readyUrl)).href, ownerUrl.href);
+        const config = Option.getOrThrow(yield* instance.currentConfig);
+        assert.equal(config.httpBaseUrl.href, ownerUrl.href);
+        assert.equal(config.bootstrap.desktopBootstrapToken, "pairing-credential");
+        assert.isUndefined(config.bootstrap.desktopBootstrapSecret);
+        const snapshot = yield* instance.snapshot;
+        assert.isTrue(snapshot.ready);
+        assert.isTrue(snapshot.desiredRunning);
+        yield* TestClock.adjust(Duration.minutes(1));
+        assert.equal(startCount, 1);
+        assert.equal(refusedCount, 0);
+      }).pipe(Effect.provide(TestClock.layer())),
+    ),
+  );
+
+  it.effect("keeps the refusal when the owner cannot be attached", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const refused = yield* Deferred.make<void>();
+        const instance = yield* makeTestInstance({
+          spawnerLayer: ownedHomeSpawner(() => undefined),
+          httpClientLayer: layerHttpClient(() => Effect.never),
+          attachToOwner: Effect.succeedNone,
+          onStateDirOwned: Deferred.succeed(refused, undefined).pipe(Effect.asVoid),
+        });
+        yield* instance.start;
+        yield* Deferred.await(refused);
+        assert.isFalse((yield* instance.snapshot).desiredRunning);
+      }).pipe(Effect.provide(TestClock.layer())),
+    ),
+  );
+
+  it.effect("spawns its own backend again once the attached owner goes away", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        let startCount = 0;
+        let shutdownCount = 0;
+        const gone = yield* Deferred.make<void>();
+        const instance = yield* makeTestInstance({
+          spawnerLayer: ownedHomeSpawner(() => (startCount += 1)),
+          httpClientLayer: layerHttpClient(() => Effect.never),
+          attachToOwner: Effect.suspend(() =>
+            // Only the first start finds an owner; afterwards the home is free.
+            startCount === 1
+              ? Effect.succeedSome({
+                  httpBaseUrl: new URL("http://127.0.0.1:64675"),
+                  bootstrapToken: "pairing-credential",
+                  awaitGone: Deferred.await(gone),
+                })
+              : Effect.succeedNone,
+          ),
+          onShutdown: Effect.sync(() => (shutdownCount += 1)),
+          onStateDirOwned: Effect.void,
+        });
+        yield* instance.start;
+        assert.isTrue(
+          yield* instance.waitForReady(Duration.seconds(1)).pipe(
+            Effect.forkChild,
+            Effect.tap(() => TestClock.adjust(Duration.seconds(1))),
+            Effect.flatMap(Fiber.join),
+          ),
+        );
+        yield* Deferred.succeed(gone, undefined);
+        yield* TestClock.adjust(Duration.seconds(1));
+        assert.equal(startCount, 2);
+        assert.equal(shutdownCount, 1);
       }).pipe(Effect.provide(TestClock.layer())),
     ),
   );

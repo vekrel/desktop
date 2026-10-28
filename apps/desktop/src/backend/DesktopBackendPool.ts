@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as SynchronizedRef from "effect/SynchronizedRef";
@@ -14,7 +15,9 @@ import { HttpClient } from "effect/http";
 import { ChildProcessSpawner } from "effect/process";
 
 import * as DesktopBackendConfiguration from "./DesktopBackendConfiguration.ts";
+import * as DesktopBackendOwner from "./DesktopBackendOwner.ts";
 import * as DesktopBackendManager from "./DesktopBackendManager.ts";
+import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as DesktopObservability from "../app/DesktopObservability.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopTelemetryPublisher from "../telemetry/DesktopTelemetryPublisher.ts";
@@ -107,6 +110,7 @@ export const layer = Layer.effect(
     const electronDialog = yield* ElectronDialog.ElectronDialog;
     const electronApp = yield* ElectronApp.ElectronApp;
     const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
+    const environment = yield* DesktopEnvironment.DesktopEnvironment;
     // Without this, instance scopes are orphaned: they only close via explicit unregister() calls,
     // so on app shutdown the WSL backend child process gets hard-killed by the OS instead of
     // receiving the graceful SIGTERM + grace period the instance's stop finalizer would otherwise
@@ -157,6 +161,7 @@ export const layer = Layer.effect(
       },
     );
 
+    const primaryReadyUrl = yield* Ref.make<string | undefined>(undefined);
     const primary = yield* DesktopBackendManager.makeBackendInstance({
       id: DesktopBackendManager.PRIMARY_INSTANCE_ID,
       // Keep this lazy. The pool layer is initialized before startup loads
@@ -169,6 +174,14 @@ export const layer = Layer.effect(
       // callback (that would prevent restartAttempt from being reset), so we absorb them here.
       onReady: (httpBaseUrl) =>
         desktopWindow.handleBackendReady(httpBaseUrl).pipe(
+          // Switching between an attached server and the desktop's own child
+          // moves the backend URL, which the renderer only reads on load.
+          Effect.andThen(Ref.getAndSet(primaryReadyUrl, httpBaseUrl.href)),
+          Effect.flatMap((previous) =>
+            previous !== undefined && previous !== httpBaseUrl.href
+              ? desktopWindow.runMainContentsCommand("reload")
+              : Effect.void,
+          ),
           Effect.catch((error) =>
             logBackendPoolWarning("failed to open main window after backend readiness", {
               error: error.message,
@@ -177,11 +190,13 @@ export const layer = Layer.effect(
         ),
       onShutdown: () => desktopWindow.handleBackendNotReady,
       onPreflightFailed: handlePrimaryPreflightFailure,
+      attachToOwner: () =>
+        DesktopBackendOwner.attachToOwner(environment).pipe(Effect.provide(factoryContext)),
       onStateDirOwned: () =>
         electronDialog
           .showErrorBox(
             "This Vekrel home is unavailable",
-            `Another Vekrel server, such as the background service, is using this data directory, or an older background service is set up for it. Stop that server or try \`vekrel update\`. If the older launcher cannot update, run \`vekrel service uninstall\` and optionally reinstall with \`vekrel service install\` from a current CLI. Use \`npx ${NPM_LAUNCHER_PACKAGE_NAME}@latest\` if \`vekrel\` is missing or outdated, and pass \`--base-dir\` with the service's Vekrel home to each command. Then reopen Vekrel. You can also set a separate VEKREL_HOME and pair with the running server.`,
+            `Another Vekrel server, such as the background service, is using this data directory and Vekrel could not connect to it (it may run a different version), or an older background service is set up for it. Stop that server or try \`vekrel update\`. If the older launcher cannot update, run \`vekrel service uninstall\` and optionally reinstall with \`vekrel service install\` from a current CLI. Use \`npx ${NPM_LAUNCHER_PACKAGE_NAME}@latest\` if \`vekrel\` is missing or outdated, and pass \`--base-dir\` with the service's Vekrel home to each command. Then reopen Vekrel. You can also set a separate VEKREL_HOME and pair with the running server.`,
           )
           .pipe(Effect.andThen(electronApp.quit)),
     });

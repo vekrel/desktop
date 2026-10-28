@@ -240,7 +240,17 @@ export interface BackendInstanceSpec {
   readonly onReady?: (httpBaseUrl: URL) => Effect.Effect<void>;
   readonly onShutdown?: () => Effect.Effect<void>;
   readonly onPreflightFailed?: (failure: PreflightFailure) => Effect.Effect<boolean>;
+  // Asked when another server owns the home. Some attaches to it instead of
+  // spawning; None falls through to onStateDirOwned.
+  readonly attachToOwner?: () => Effect.Effect<Option.Option<AttachedOwner>>;
   readonly onStateDirOwned?: () => Effect.Effect<void>;
+}
+
+export interface AttachedOwner {
+  readonly httpBaseUrl: URL;
+  readonly bootstrapToken: string;
+  // Completes once the owner is gone.
+  readonly awaitGone: Effect.Effect<void>;
 }
 
 interface ActiveBackendRun {
@@ -666,6 +676,145 @@ export const makeBackendInstance = Effect.fn("makeBackendInstance")(function* (
     });
   });
 
+  const finalizeRun: (runId: number, reason: string, exitCode?: number) => Effect.Effect<void> =
+    Effect.fn("desktop.backendInstance.finalizeRun")(function* (
+      runId: number,
+      reason: string,
+      exitCode?: number,
+    ) {
+      const stateDirOwned = exitCode === SERVER_EXIT_CODE_STATE_DIR_OWNED;
+      yield* mutex.withPermits(1)(
+        Effect.gen(function* () {
+          const { isCurrentRun, nextState, pid, exitObserved, stopRequested, wasReady } =
+            yield* Ref.modify(
+              state,
+              (
+                latest,
+              ): readonly [
+                {
+                  readonly isCurrentRun: boolean;
+                  readonly nextState: BackendManagerState;
+                  readonly pid: Option.Option<number>;
+                  readonly exitObserved: boolean;
+                  readonly stopRequested: boolean;
+                  readonly wasReady: boolean;
+                },
+                BackendManagerState,
+              ] => {
+                const currentRun = Option.getOrUndefined(latest.active);
+                if (currentRun?.id !== runId) {
+                  return [
+                    {
+                      isCurrentRun: false,
+                      nextState: latest,
+                      pid: Option.none<number>(),
+                      exitObserved: false,
+                      stopRequested: false,
+                      wasReady: false,
+                    },
+                    latest,
+                  ] as const;
+                }
+
+                const next = {
+                  ...latest,
+                  active: Option.none<ActiveBackendRun>(),
+                  ready: false,
+                };
+                return [
+                  {
+                    isCurrentRun: true,
+                    nextState: next,
+                    pid: currentRun.pid,
+                    exitObserved: currentRun.exitObserved,
+                    stopRequested: currentRun.stopRequested,
+                    wasReady: latest.ready,
+                  },
+                  next,
+                ] as const;
+              },
+            );
+
+          if (isCurrentRun) {
+            yield* desktopTelemetryPublisher.removeControlSource(spec.id);
+            if (Option.isSome(pid)) {
+              if (exitObserved && !stopRequested) {
+                yield* backendOutputLog.persistFailure({
+                  details: `pid=${pid.value} ${reason}`,
+                });
+              } else {
+                yield* backendOutputLog.discardSession;
+              }
+            }
+            if (wasReady) {
+              yield* spec.onShutdown?.() ?? Effect.void;
+            }
+          }
+
+          if (isCurrentRun && nextState.desiredRunning) {
+            if (stateDirOwned && !stopRequested) {
+              const owner = yield* spec.attachToOwner?.() ?? Effect.succeedNone;
+              if (Option.isSome(owner) && Option.isSome(nextState.config)) {
+                yield* startAttachedRun(nextState.config.value, owner.value);
+                return;
+              }
+              yield* Ref.update(state, (latest) => ({ ...latest, desiredRunning: false }));
+              yield* (spec.onStateDirOwned?.() ?? Effect.void).pipe(Effect.ignore);
+              return;
+            }
+            yield* scheduleRestart(reason);
+          }
+        }),
+      );
+    });
+
+  // Runs while the home's owner serves this instance in place of a child. It
+  // ends like a child exit, so the usual restart path recovers.
+  const startAttachedRun: (
+    config: DesktopBackendStartConfig,
+    owner: AttachedOwner,
+  ) => Effect.Effect<void> = Effect.fn("desktop.backendInstance.startAttachedRun")(function* (
+    config: DesktopBackendStartConfig,
+    owner: AttachedOwner,
+  ) {
+    // Without the secret, readers hand out the owner's pairing credential.
+    const { desktopBootstrapSecret: _secret, ...bootstrap } = config.bootstrap;
+    const attachedConfig: DesktopBackendStartConfig = {
+      ...config,
+      httpBaseUrl: owner.httpBaseUrl,
+      bootstrap: { ...bootstrap, desktopBootstrapToken: owner.bootstrapToken },
+    };
+    const runScope = yield* Scope.make("sequential");
+    const runId = yield* Ref.modify(state, (latest) => [
+      latest.nextRunId,
+      {
+        ...latest,
+        config: Option.some(attachedConfig),
+        ready: true,
+        restartAttempt: 0,
+        active: Option.some({
+          id: latest.nextRunId,
+          scope: runScope,
+          fiber: Option.none(),
+          pid: Option.none(),
+          exitObserved: false,
+          stopRequested: false,
+        } satisfies ActiveBackendRun),
+        nextRunId: latest.nextRunId + 1,
+      },
+    ]);
+    const watcher = yield* Effect.forkIn(owner.awaitGone, runScope);
+    const fiber = yield* Effect.forkIn(
+      (spec.onReady?.(owner.httpBaseUrl) ?? Effect.void).pipe(
+        Effect.andThen(Fiber.await(watcher)),
+        Effect.andThen(finalizeRun(runId, "attached Vekrel server stopped")),
+        Effect.ensuring(Scope.close(runScope, Exit.void).pipe(Effect.ignore)),
+      ),
+      parentScope,
+    );
+    yield* updateActiveRun(runId, (run) => ({ ...run, fiber: Option.some(fiber) }));
+  });
+
   const start: Effect.Effect<void> = Effect.suspend(() =>
     mutex.withPermits(1)(
       Effect.gen(function* () {
@@ -792,91 +941,6 @@ export const makeBackendInstance = Effect.fn("makeBackendInstance")(function* (
           },
         ]);
 
-        const finalizeRun = Effect.fn("desktop.backendInstance.finalizeRun")(function* (
-          reason: string,
-          exitCode?: number,
-        ) {
-          const stateDirOwned = exitCode === SERVER_EXIT_CODE_STATE_DIR_OWNED;
-          yield* mutex.withPermits(1)(
-            Effect.gen(function* () {
-              const { isCurrentRun, nextState, pid, exitObserved, stopRequested, wasReady } =
-                yield* Ref.modify(
-                  state,
-                  (
-                    latest,
-                  ): readonly [
-                    {
-                      readonly isCurrentRun: boolean;
-                      readonly nextState: BackendManagerState;
-                      readonly pid: Option.Option<number>;
-                      readonly exitObserved: boolean;
-                      readonly stopRequested: boolean;
-                      readonly wasReady: boolean;
-                    },
-                    BackendManagerState,
-                  ] => {
-                    const currentRun = Option.getOrUndefined(latest.active);
-                    if (currentRun?.id !== runId) {
-                      return [
-                        {
-                          isCurrentRun: false,
-                          nextState: latest,
-                          pid: Option.none<number>(),
-                          exitObserved: false,
-                          stopRequested: false,
-                          wasReady: false,
-                        },
-                        latest,
-                      ] as const;
-                    }
-
-                    const next = {
-                      ...latest,
-                      active: Option.none<ActiveBackendRun>(),
-                      ready: false,
-                    };
-                    return [
-                      {
-                        isCurrentRun: true,
-                        nextState: next,
-                        pid: currentRun.pid,
-                        exitObserved: currentRun.exitObserved,
-                        stopRequested: currentRun.stopRequested,
-                        wasReady: latest.ready,
-                      },
-                      next,
-                    ] as const;
-                  },
-                );
-
-              if (isCurrentRun) {
-                yield* desktopTelemetryPublisher.removeControlSource(spec.id);
-                if (Option.isSome(pid)) {
-                  if (exitObserved && !stopRequested) {
-                    yield* backendOutputLog.persistFailure({
-                      details: `pid=${pid.value} ${reason}`,
-                    });
-                  } else {
-                    yield* backendOutputLog.discardSession;
-                  }
-                }
-                if (wasReady) {
-                  yield* spec.onShutdown?.() ?? Effect.void;
-                }
-              }
-
-              if (isCurrentRun && nextState.desiredRunning) {
-                if (stateDirOwned && !stopRequested) {
-                  yield* Ref.update(state, (latest) => ({ ...latest, desiredRunning: false }));
-                  yield* (spec.onStateDirOwned?.() ?? Effect.void).pipe(Effect.ignore);
-                  return;
-                }
-                yield* scheduleRestart(reason);
-              }
-            }),
-          );
-        });
-
         const program = runBackendProcess({
           ...config.value,
           desktopTelemetryStream: desktopTelemetryPublisher.encoded,
@@ -945,8 +1009,8 @@ export const makeBackendInstance = Effect.fn("makeBackendInstance")(function* (
           Effect.provideService(HttpClient.HttpClient, httpClient),
           Scope.provide(runScope),
           Effect.matchEffect({
-            onFailure: (error) => finalizeRun(error.message),
-            onSuccess: (exit) => finalizeRun(exit.reason, Option.getOrUndefined(exit.code)),
+            onFailure: (error) => finalizeRun(runId, error.message),
+            onSuccess: (exit) => finalizeRun(runId, exit.reason, Option.getOrUndefined(exit.code)),
           }),
           Effect.ensuring(Scope.close(runScope, Exit.void).pipe(Effect.ignore)),
         );

@@ -1,3 +1,4 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -8,6 +9,8 @@ import * as Stream from "effect/Stream";
 import { HttpClient } from "effect/http";
 import { ChildProcessSpawner } from "effect/process";
 
+import * as DesktopConfig from "../app/DesktopConfig.ts";
+import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as DesktopObservability from "../app/DesktopObservability.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopTelemetryPublisher from "../telemetry/DesktopTelemetryPublisher.ts";
@@ -62,6 +65,20 @@ function layerPool(labelRef: Ref.Ref<string>): Layer.Layer<DesktopBackendPool.De
           currentBootstrapToken: Effect.die("unexpected bootstrap token read"),
         } satisfies DesktopBackendConfiguration.DesktopBackendConfiguration["Service"]),
         DesktopAppSettings.layerTest(),
+        DesktopEnvironment.layer({
+          dirname: "/repo/apps/desktop/src",
+          homeDirectory: "/home/test",
+          platform: "darwin",
+          processArch: "arm64",
+          appVersion: "1.2.3",
+          appPath: "/repo",
+          isPackaged: true,
+          resourcesPath: "/missing/resources",
+          runningUnderArm64Translation: false,
+        }).pipe(
+          Layer.provide(Layer.mergeAll(NodeServices.layer, DesktopConfig.layerTest({}))),
+          Layer.orDie,
+        ),
         DesktopWslEnvironment.layerTest(),
         ElectronDialog.layer,
         ElectronApp.layer,
