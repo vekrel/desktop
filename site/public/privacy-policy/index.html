@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy policy · Vekrel</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/site.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <a href="/"><img src="/logo.svg" alt="Vekrel" /></a>
+      </header>
+      <h1>Privacy policy</h1>
+      <p class="muted">Last updated 27 October 2026</p>
+      <p>
+        This page covers the hosted Vekrel service: the relay at relay.vekrel.com and the web app at
+        rc.vekrel.com. The Vekrel software you run on your own machines is yours to operate; what it
+        does with your data is up to you and the agent providers you connect it to.
+      </p>
+      <h2>What we store</h2>
+      <ul>
+        <li>
+          Your account: email address, and the GitHub or Google account ID you signed in with.
+        </li>
+        <li>
+          Sign-in records: short-lived sign-in codes and links, and session tokens (stored as
+          hashes).
+        </li>
+        <li>
+          Your linked machines: name, public key and the address your devices use to reach them.
+        </li>
+        <li>
+          If you use the mobile app: device type, OS version, notification settings and push tokens.
+        </li>
+      </ul>
+      <h2>What we don't store</h2>
+      <p>
+        Your code, prompts, files and agent output. Traffic between your devices and your machines
+        goes through a Cloudflare Tunnel straight to your machine; the relay doesn't receive it.
+      </p>
+      <h2>Who processes it</h2>
+      <ul>
+        <li>Railway hosts the relay and its database.</li>
+        <li>Cloudflare serves the web app and runs the tunnels to your machines.</li>
+        <li>Resend sends sign-in emails.</li>
+        <li>GitHub and Google, if you sign in with them.</li>
+        <li>Apple and Google push services, if you turn on mobile notifications.</li>
+      </ul>
+      <p>
+        We don't sell your data or use it for advertising. Short-lived sign-in data expires
+        automatically.
+      </p>
+      <h2>Deleting your data</h2>
+      <p>
+        Email <a href="mailto:info@vekrel.com">info@vekrel.com</a> from your account's address and
+        we'll delete your account and everything linked to it.
+      </p>
+      <footer>
+        <a href="/download/">Download</a><a href="/privacy-policy/">Privacy</a
+        ><a href="/terms-of-service/">Terms</a><a href="/security-policy/">Security</a
+        ><a href="https://github.com/vekrel">GitHub</a>
+        <p>
+          Vekrel is open source under AGPL-3.0. Contact:
+          <a href="mailto:info@vekrel.com">info@vekrel.com</a>
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>
