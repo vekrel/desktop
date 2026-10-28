@@ -1,0 +1,363 @@
+name: Release
+
+# Desktop-only port of T3 Code's release workflow (stable channel only): builds
+# the JS bundle once, packages it per platform, merges the electron-updater
+# manifests and publishes everything as a GitHub Release. Signing turns on per
+# platform only when its secrets exist; without them macOS is signed ad hoc and
+# Windows is unsigned.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and package everything, but skip the GitHub Release"
+        required: false
+        default: true
+        type: boolean
+      version:
+        description: "Version override (for example 1.2.3). Defaults to apps/desktop/package.json."
+        required: false
+        type: string
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Baked into the server, desktop and web bundles (scripts/lib/public-config.ts).
+  VEKREL_RELAY_URL: https://relay.vekrel.com
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.release_meta.outputs.version }}
+      tag: ${{ steps.release_meta.outputs.tag }}
+      is_prerelease: ${{ steps.release_meta.outputs.is_prerelease }}
+      dry_run: ${{ steps.release_meta.outputs.dry_run }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - id: release_meta
+        name: Resolve release version
+        shell: bash
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
+          DISPATCH_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            raw="${DISPATCH_VERSION:-$(node -p 'require("./apps/desktop/package.json").version')}"
+            dry_run="${DISPATCH_DRY_RUN}"
+          else
+            raw="${GITHUB_REF_NAME}"
+            dry_run=false
+          fi
+
+          version="${raw#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $raw" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # The platform-independent JS (server bundle, web client, Electron main) is
+  # built exactly once here and handed to every platform job as `js-bundle`.
+  build_bundle:
+    name: Build JS bundle
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+
+      - name: Install bundle dependencies
+        run: vp install --filter=vekrel-engine... --filter=@vekrel/web... --filter=@vekrel/desktop... --filter=@vekrel/scripts...
+
+      - name: Align package versions to release version
+        run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}"
+
+      # @vekrel/desktop#build compiles the Linux browser secret helper on a
+      # Linux host before packing, and that needs libsecret headers.
+      - name: Install browser secret helper build libraries
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+
+      # Runs vekrel-engine#build (which depends on @vekrel/web#build) and
+      # @vekrel/desktop#build, so apps/server/dist holds the server bundle plus
+      # the web client and apps/desktop/dist-electron the Electron main.
+      - name: Build JS bundle
+        env:
+          VEKREL_TELEMETRY_CHANNEL: stable
+        run: vp run build:desktop
+
+      # Two paths under apps/ so the artifact root is apps/; consumers download
+      # into `apps` to restore both at their original locations.
+      - name: Upload JS bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: js-bundle
+          path: |
+            apps/server/dist
+            apps/desktop/dist-electron
+          if-no-files-found: error
+          retention-days: 1
+
+  # One job per platform and architecture. Windows builds on Linux (cargo-xwin
+  # for the resource monitor), as upstream does. shortcut: no Windows arm64,
+  # Linux arm64, WSL runtime or Windows verify job; add them from T3's
+  # release-desktop.yml when needed.
+  desktop:
+    name: Desktop ${{ matrix.label }}
+    needs: [preflight, build_bundle]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: macOS arm64, runner: macos-15, platform: mac, target: dmg, arch: arm64, rust_target: aarch64-apple-darwin }
+          - { label: macOS x64, runner: macos-15, platform: mac, target: dmg, arch: x64, rust_target: x86_64-apple-darwin }
+          - { label: Linux x64, runner: ubuntu-24.04, platform: linux, target: AppImage, arch: x64, rust_target: x86_64-unknown-linux-gnu }
+          - { label: Windows x64, runner: ubuntu-24.04, platform: win, target: nsis, arch: x64, rust_target: x86_64-pc-windows-msvc }
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+
+      - name: Install desktop dependencies
+        run: vp install --filter=@vekrel/desktop... --filter=vekrel-engine... --filter=@vekrel/scripts...
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.rust_target }}
+
+      - name: Align package versions to release version
+        run: node scripts/update-release-package-versions.ts "$VERSION"
+
+      - name: Download JS bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: js-bundle
+          path: apps
+
+      - name: Install cargo-xwin
+        if: matrix.platform == 'win'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-xwin@0.23.1
+
+      - name: Build resource monitor
+        shell: bash
+        run: cargo ${{ matrix.platform == 'win' && 'xwin build' || 'build' }} --locked --release --manifest-path native/resource-monitor/Cargo.toml --target "${{ matrix.rust_target }}"
+
+      - name: Install Linux desktop build libraries
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config imagemagick
+
+      - name: Build desktop artifact
+        shell: bash
+        env:
+          VEKREL_DESKTOP_REUSE_RESOURCE_MONITOR: true
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          MACOS_PROVISIONING_PROFILE: ${{ secrets.MACOS_PROVISIONING_PROFILE }}
+          VEKREL_PASSKEY_RP_DOMAINS: ${{ vars.PASSKEY_RP_DOMAINS }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          AZURE_TRUSTED_SIGNING_PUBLISHER_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
+        run: |
+          args=(
+            --platform "${{ matrix.platform }}"
+            --target "${{ matrix.target }}"
+            --arch "${{ matrix.arch }}"
+            --build-version "$VERSION"
+            --skip-build
+            --verbose
+          )
+
+          has_all() {
+            for value in "$@"; do
+              if [[ -z "$value" ]]; then
+                return 1
+              fi
+            done
+            return 0
+          }
+
+          if [[ "${{ matrix.platform }}" == "mac" ]]; then
+            if has_all "$CSC_LINK" "$CSC_KEY_PASSWORD" "$APPLE_API_KEY" "$APPLE_API_KEY_ID" "$APPLE_API_ISSUER"; then
+              if ! has_all "$APPLE_TEAM_ID" "$MACOS_PROVISIONING_PROFILE"; then
+                echo "macOS signing is configured, but APPLE_TEAM_ID or MACOS_PROVISIONING_PROFILE is missing." >&2
+                exit 1
+              fi
+
+              key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+              printf '%s' "$APPLE_API_KEY" > "$key_path"
+              export APPLE_API_KEY="$key_path"
+
+              profile_path="$RUNNER_TEMP/vekrel.provisionprofile"
+              printf '%s' "$MACOS_PROVISIONING_PROFILE" | base64 -D > "$profile_path"
+              security cms -D -i "$profile_path" >/dev/null
+              export VEKREL_APPLE_TEAM_ID="$APPLE_TEAM_ID"
+              export VEKREL_MACOS_PROVISIONING_PROFILE="$profile_path"
+
+              echo "macOS signing enabled."
+              args+=(--signed)
+            else
+              # electron-builder still signs the app ad hoc.
+              echo "macOS signing disabled (missing one or more Apple signing secrets)."
+            fi
+          elif [[ "${{ matrix.platform }}" == "win" ]]; then
+            if has_all \
+              "$AZURE_TENANT_ID" \
+              "$AZURE_CLIENT_ID" \
+              "$AZURE_CLIENT_SECRET" \
+              "$AZURE_TRUSTED_SIGNING_ENDPOINT" \
+              "$AZURE_TRUSTED_SIGNING_ACCOUNT_NAME" \
+              "$AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME" \
+              "$AZURE_TRUSTED_SIGNING_PUBLISHER_NAME"; then
+              # shortcut: jsign is not installed here; install it as T3's
+              # release-desktop.yml does before adding the Azure secrets.
+              echo "Windows signing enabled (Azure Trusted Signing)."
+              args+=(--signed)
+            else
+              echo "Windows signing disabled (missing one or more Azure Trusted Signing secrets)."
+            fi
+          else
+            echo "Signing disabled for ${{ matrix.platform }}."
+          fi
+
+          vp run dist:desktop:artifact "${args[@]}"
+
+      - name: Collect release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-publish
+          shopt -s nullglob
+          for file in release/*.dmg release/*.zip release/*.AppImage release/*.deb release/*.exe release/*.blockmap release/*.yml; do
+            [[ "$file" == */builder-debug.yml ]] && continue
+            cp "$file" release-publish/
+          done
+
+          # Both macOS jobs write latest-mac.yml; the x64 copy gets an arch
+          # suffix and the release job merges it back into one manifest.
+          if [[ "${{ matrix.platform }}" == "mac" && "${{ matrix.arch }}" != "arm64" ]]; then
+            for manifest in release-publish/*-mac.yml; do
+              mv "$manifest" "${manifest%.yml}-${{ matrix.arch }}.yml"
+            done
+          fi
+          ls -la release-publish
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release-publish/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: [preflight, desktop]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: |
+            args:
+              - --filter=@vekrel/scripts...
+
+      - name: Download all desktop artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: release-assets
+
+      # electron-updater reads one manifest per platform and channel and picks
+      # the file entry whose name carries the running arch, so the per-arch
+      # manifests the build jobs wrote are merged back into that one file.
+      - name: Merge macOS updater manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for x64_manifest in release-assets/*-mac-x64.yml; do
+            arm64_manifest="${x64_manifest%-x64.yml}.yml"
+            if [[ -f "$arm64_manifest" ]]; then
+              node scripts/merge-update-manifests.ts --platform mac "$arm64_manifest" "$x64_manifest"
+              rm -f "$x64_manifest"
+            fi
+          done
+          ls -la release-assets
+
+      - name: Publish release
+        if: needs.preflight.outputs.dry_run != 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.preflight.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Vekrel v${{ needs.preflight.outputs.version }}
+          generate_release_notes: true
+          prerelease: ${{ needs.preflight.outputs.is_prerelease }}
+          make_latest: ${{ needs.preflight.outputs.is_prerelease == 'false' }}
+          files: |
+            release-assets/*.dmg
+            release-assets/*.zip
+            release-assets/*.AppImage
+            release-assets/*.exe
+            release-assets/*.blockmap
+            release-assets/*.yml
+          fail_on_unmatched_files: true
+          token: ${{ github.token }}
