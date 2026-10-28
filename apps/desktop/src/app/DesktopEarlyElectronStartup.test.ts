@@ -14,6 +14,7 @@ describe("DesktopEarlyElectronStartup", () => {
   it("reads the persisted linux password-store preference before Electron is ready", () => {
     const preference = resolveEarlyLinuxPasswordStorePreference({
       env: { VEKREL_HOME: "/home/user/.t3-test" },
+      appVersion: "0.1.2",
       homeDirectory: "/home/user",
       joinPath,
       readFileString: (path) => {
@@ -25,9 +26,25 @@ describe("DesktopEarlyElectronStartup", () => {
     assert.equal(preference, "kwallet6");
   });
 
+  it("reads nightly settings from the nightly home", () => {
+    const preference = resolveEarlyLinuxPasswordStorePreference({
+      env: {},
+      appVersion: "0.1.3-nightly.20261028.7",
+      homeDirectory: "/home/user",
+      joinPath,
+      readFileString: (path) => {
+        assert.equal(path, "/home/user/.vekrel-nightly/userdata/desktop-settings.json");
+        return JSON.stringify({ linuxPasswordStore: "kwallet6" });
+      },
+    });
+
+    assert.equal(preference, "kwallet6");
+  });
+
   it("accepts JSONC in the early desktop settings file", () => {
     const preference = resolveEarlyLinuxPasswordStorePreference({
       env: { VEKREL_HOME: "/home/user/.t3-test" },
+      appVersion: "0.1.2",
       homeDirectory: "/home/user",
       joinPath,
       readFileString: () => `{
@@ -42,6 +59,7 @@ describe("DesktopEarlyElectronStartup", () => {
   it("falls back to auto when the early settings document is missing or invalid", () => {
     const preference = resolveEarlyLinuxPasswordStorePreference({
       env: {},
+      appVersion: "0.1.2",
       homeDirectory: "/home/user",
       joinPath,
       readFileString: () => {
@@ -134,6 +152,7 @@ describe("DesktopEarlyElectronStartup", () => {
 describe("Linux device scale persistence failures", () => {
   const input = {
     env: { VEKREL_HOME: "/isolated" },
+    appVersion: "0.1.2",
     homeDirectory: "/home/user",
     joinPath: NodePath.posix.join,
   };

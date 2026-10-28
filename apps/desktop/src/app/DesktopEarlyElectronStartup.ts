@@ -2,6 +2,8 @@ import { fromLenientJson } from "@vekrel/shared/schemaJson";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import { isNightlyDesktopVersion } from "../updates/updateChannels.ts";
+
 import {
   DEFAULT_LINUX_PASSWORD_STORE,
   normalizeLinuxPasswordStorePreference,
@@ -17,6 +19,7 @@ import {
 
 interface EarlyDesktopSettingsInput {
   readonly env: NodeJS.ProcessEnv;
+  readonly appVersion: string;
   readonly homeDirectory: string;
   readonly joinPath: JoinPath;
   readonly readFileString: (path: string) => string;
@@ -51,6 +54,7 @@ const isDevelopmentEnvironment = (env: NodeJS.ProcessEnv): boolean =>
 
 function resolveEarlyDesktopSettingsPath(input: {
   readonly env: NodeJS.ProcessEnv;
+  readonly appVersion: string;
   readonly homeDirectory: string;
   readonly joinPath: JoinPath;
 }): string {
@@ -59,6 +63,7 @@ function resolveEarlyDesktopSettingsPath(input: {
     homeDirectory: input.homeDirectory,
     joinPath: input.joinPath,
     t3Home,
+    isNightly: isNightlyDesktopVersion(input.appVersion),
   });
   const stateDir = resolveDesktopStateDir({
     baseDir,

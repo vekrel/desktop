@@ -72,4 +72,18 @@ describe("DesktopEnvironment", () => {
       assert.equal(production.stateDir, "/Users/alice/.vekrel/userdata");
     }),
   );
+
+  it.effect("keeps nightly state separate from stable state", () =>
+    Effect.gen(function* () {
+      const nightly = yield* makeEnvironment({ appVersion: "0.1.3-nightly.20261028.7" });
+      const pinned = yield* makeEnvironment(
+        { appVersion: "0.1.3-nightly.20261028.7" },
+        { VEKREL_HOME: "/srv/vekrel" },
+      );
+
+      assert.equal(nightly.baseDir, "/Users/alice/.vekrel-nightly");
+      assert.equal(nightly.stateDir, "/Users/alice/.vekrel-nightly/userdata");
+      assert.equal(pinned.baseDir, "/srv/vekrel");
+    }),
+  );
 });

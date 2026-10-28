@@ -14,9 +14,11 @@ export function resolveDesktopBaseDir(input: {
   readonly homeDirectory: string;
   readonly joinPath: JoinPath;
   readonly t3Home: Option.Option<string>;
+  readonly isNightly: boolean;
 }): string {
+  // Nightly gets its own home: its server can't share a database (or the `vekrel` shim) with stable.
   return Option.getOrElse(normalizeConfiguredBaseDir(input.t3Home), () =>
-    input.joinPath(input.homeDirectory, ".vekrel"),
+    input.joinPath(input.homeDirectory, input.isNightly ? ".vekrel-nightly" : ".vekrel"),
   );
 }
 
