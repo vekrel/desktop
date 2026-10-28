@@ -38,6 +38,7 @@ import {
   renderMacPasskeyEntitlements,
   resolveMacWebAuthnEntitlements,
   resolveMacPasskeySigningConfiguration,
+  resolveDesktopAppId,
   resolveMergedStageDependencies,
   resolveBuildOptions,
   stageWslRuntimeArchive,
@@ -1652,3 +1653,8 @@ it.effect.skipIf(!symlinksSupported)("rebases packaged links into the isolated t
     );
   }).pipe(Effect.provide(NodeServices.layer)),
 );
+
+it("gives nightly builds their own bundle id", () => {
+  assert.equal(resolveDesktopAppId("0.1.2"), "dev.vekrel.desktop");
+  assert.equal(resolveDesktopAppId("0.1.3-nightly.20261028.4"), "dev.vekrel.desktop.nightly");
+});

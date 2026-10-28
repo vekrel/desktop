@@ -4,6 +4,8 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 
+import { isNightlyDesktopVersion } from "../updates/updateChannels.ts";
+
 export class DesktopUserDataInitializationError extends Schema.TaggedError<DesktopUserDataInitializationError>()(
   "DesktopUserDataInitializationError",
   {
@@ -36,9 +38,14 @@ export const resolveUserDataPath = Effect.fn("desktop.userData.resolveUserDataPa
     readonly appDataDirectory: string;
     readonly isDevelopment: boolean;
     readonly platform: NodeJS.Platform;
+    readonly appVersion?: string;
   }) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    // Nightly keeps its own profile (and single-instance lock) so it runs beside stable.
+    if (!input.isDevelopment && isNightlyDesktopVersion(input.appVersion ?? "")) {
+      return path.join(input.appDataDirectory, "vekrel-nightly");
+    }
     const names = input.isDevelopment
       ? { current: "vekrel-dev", legacy: "Vekrel (Dev)" }
       : { current: "vekrel-v2", legacy: "Vekrel (Alpha)" };

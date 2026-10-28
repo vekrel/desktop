@@ -1,29 +1,50 @@
 name: Release
 
-# Desktop-only port of T3 Code's release workflow (stable channel only): builds
-# the JS bundle once, packages it per platform, merges the electron-updater
-# manifests and publishes everything as a GitHub Release. Signing turns on per
-# platform only when its secrets exist; without them macOS is signed ad hoc and
-# Windows is unsigned.
+# Desktop-only port of T3 Code's release workflow (stable and nightly channels):
+# builds the JS bundle once, packages it per platform, merges the
+# electron-updater manifests and publishes everything as a GitHub Release.
+# Signing turns on per platform only when its secrets exist; without them macOS
+# is signed ad hoc and Windows is unsigned.
+#
+# Stable: a `v*.*.*` tag builds exactly what Desktop has committed and becomes
+# the Latest release with `latest*.yml` feeds. Nightly: the schedule (or a
+# dispatch) refreshes apps/server, apps/web and packages/ from the engine, web
+# and shared mains, and publishes a prerelease with `nightly*.yml` feeds.
 on:
   push:
     tags:
       - "v*.*.*"
+      - "!v*-nightly.*"
+  schedule:
+    # Daily; avoids minute zero, when GitHub scheduled jobs are busiest.
+    - cron: "47 2 * * *"
   workflow_dispatch:
     inputs:
+      channel:
+        description: "Release channel"
+        required: false
+        default: nightly
+        type: choice
+        options:
+          - nightly
+          - stable
       dry_run:
         description: "Build and package everything, but skip the GitHub Release"
         required: false
         default: true
         type: boolean
       version:
-        description: "Version override (for example 1.2.3). Defaults to apps/desktop/package.json."
+        description: "Stable version override (for example 1.2.3). Defaults to apps/desktop/package.json."
         required: false
         type: string
 
+# Nightlies (scheduled and manual) share one group so they never build or
+# publish out of order; stable tags get their own so a nightly never blocks them.
+# queue: max keeps every pending run, so a queued stable tag is never dropped.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ (github.event_name == 'schedule' || inputs.channel == 'nightly') && 'nightly' || 'stable' }}
   cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read
@@ -33,34 +54,131 @@ env:
   VEKREL_RELAY_URL: https://relay.vekrel.com
 
 jobs:
-  preflight:
-    name: Preflight
+  # Picks the channel and, for nightlies, the source heads every later job
+  # builds. Scheduled runs also decide here whether a nightly is due.
+  resolve_commit:
+    name: Resolve release sources
+    if: github.event_name != 'schedule' || github.repository == 'vekrel/desktop'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
+      channel: ${{ steps.resolve.outputs.channel }}
+      has_changes: ${{ steps.resolve.outputs.has_changes }}
+      sources: ${{ steps.resolve.outputs.sources }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: .github/scripts
+
+      - id: resolve
+        name: Resolve release sources
+        uses: actions/github-script@v8
+        env:
+          DISPATCH_CHANNEL: ${{ inputs.channel }}
+          DISPATCH_DRY_RUN: ${{ inputs.dry_run }}
+        with:
+          script: |
+            const {
+              resolveSourceHeads,
+              shouldReleaseNightly,
+            } = require('./.github/scripts/check-nightly-release.cjs');
+
+            const channel = context.eventName === 'schedule'
+              ? 'nightly'
+              : context.eventName === 'workflow_dispatch'
+                ? (process.env.DISPATCH_CHANNEL || 'nightly')
+                : 'stable';
+            core.setOutput('channel', channel);
+            if (channel !== 'nightly') {
+              core.setOutput('has_changes', 'true');
+              return;
+            }
+
+            const defaultRef = `refs/heads/${context.payload.repository.default_branch}`;
+            if (context.eventName === 'workflow_dispatch' && process.env.DISPATCH_DRY_RUN !== 'true' && context.ref !== defaultRef) {
+              throw new Error(`Published nightlies must be dispatched from ${defaultRef}; selected ${context.ref}. Use dry_run for branch builds.`);
+            }
+
+            const sources = await resolveSourceHeads({ github, context });
+            core.info(`Nightly sources: ${JSON.stringify(sources)}`);
+            core.setOutput('sources', JSON.stringify(sources));
+            core.setOutput('has_changes', context.eventName === 'schedule'
+              ? String(await shouldReleaseNightly({ github, context, core, sources }))
+              : 'true');
+
+  preflight:
+    name: Preflight
+    needs: [resolve_commit]
+    if: needs.resolve_commit.outputs.has_changes == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      channel: ${{ needs.resolve_commit.outputs.channel }}
+      sources: ${{ needs.resolve_commit.outputs.sources }}
       version: ${{ steps.release_meta.outputs.version }}
       tag: ${{ steps.release_meta.outputs.tag }}
+      name: ${{ steps.release_meta.outputs.name }}
       is_prerelease: ${{ steps.release_meta.outputs.is_prerelease }}
+      make_latest: ${{ steps.release_meta.outputs.make_latest }}
       dry_run: ${{ steps.release_meta.outputs.dry_run }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Vite+
+        if: needs.resolve_commit.outputs.channel == 'nightly'
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: |
+            args:
+              - --filter=@vekrel/scripts...
 
       - id: release_meta
         name: Resolve release version
         shell: bash
         env:
+          CHANNEL: ${{ needs.resolve_commit.outputs.channel }}
           DISPATCH_VERSION: ${{ inputs.version }}
           DISPATCH_DRY_RUN: ${{ inputs.dry_run }}
+          NIGHTLY_DATE: ${{ github.run_started_at }}
+          NIGHTLY_RUN_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
-          # Only a tag push publishes; anything else is a dry run unless asked.
+          # Tag pushes and scheduled nightlies publish; a dispatch is a dry run unless asked.
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            dry_run="${DISPATCH_DRY_RUN:-true}"
+          else
+            dry_run=false
+          fi
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+
+          if [[ "$CHANNEL" == "nightly" ]]; then
+            # Nightlies preview the next patch after the newer of the desktop
+            # package version and the latest stable tag.
+            package_version="$(node -p 'require("./apps/desktop/package.json").version')"
+            latest_stable="$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -1 || true)"
+            base="$(printf '%s\n' "$package_version" "${latest_stable:-0.0.0}" | sort -V | tail -1)"
+            (cd apps/desktop && npm pkg set "version=$base")
+
+            node scripts/resolve-nightly-release.ts \
+              --date "$(date -u -d "$NIGHTLY_DATE" +%Y%m%d)" \
+              --run-number "$NIGHTLY_RUN_NUMBER" \
+              --sha "$GITHUB_SHA" \
+              --github-output
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             raw="${GITHUB_REF_NAME}"
-            dry_run=false
           else
             raw="${DISPATCH_VERSION:-$(node -p 'require("./apps/desktop/package.json").version')}"
-            dry_run="${DISPATCH_DRY_RUN:-true}"
           fi
 
           version="${raw#v}"
@@ -71,11 +189,13 @@ jobs:
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
-          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+          echo "name=Vekrel v$version" >> "$GITHUB_OUTPUT"
           if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
           else
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
           fi
 
   # The platform-independent JS (server bundle, web client, Electron main) is
@@ -88,6 +208,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # subtree pull needs the earlier squash commits.
+          fetch-depth: ${{ needs.preflight.outputs.channel == 'nightly' && '0' || '1' }}
+
+      - name: Refresh subtrees from source mains (nightly)
+        if: needs.preflight.outputs.channel == 'nightly'
+        env:
+          SOURCES: ${{ needs.preflight.outputs.sources }}
+        run: >-
+          .github/scripts/refresh-subtrees.sh
+          "$(jq -r .engine <<<"$SOURCES")"
+          "$(jq -r .web <<<"$SOURCES")"
+          "$(jq -r .shared <<<"$SOURCES")"
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1
@@ -97,7 +230,7 @@ jobs:
           run-install: false
 
       - name: Install bundle dependencies
-        run: vp install --filter=vekrel-engine... --filter=@vekrel/web... --filter=@vekrel/desktop... --filter=@vekrel/scripts...
+        run: vp install --filter=vekrel-engine... --filter=@vekrel/web... --filter=@vekrel/desktop... --filter=@vekrel/scripts... ${{ needs.preflight.outputs.channel == 'nightly' && '--no-frozen-lockfile' || '' }}
 
       - name: Align package versions to release version
         run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}"
@@ -112,7 +245,7 @@ jobs:
       # the web client and apps/desktop/dist-electron the Electron main.
       - name: Build JS bundle
         env:
-          VEKREL_TELEMETRY_CHANNEL: stable
+          VEKREL_TELEMETRY_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: vp run build:desktop
 
       # Two paths under apps/ so the artifact root is apps/; consumers download
@@ -140,15 +273,56 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { label: macOS arm64, runner: macos-15, platform: mac, target: dmg, arch: arm64, rust_target: aarch64-apple-darwin }
-          - { label: macOS x64, runner: macos-15, platform: mac, target: dmg, arch: x64, rust_target: x86_64-apple-darwin }
-          - { label: Linux x64, runner: ubuntu-24.04, platform: linux, target: AppImage, arch: x64, rust_target: x86_64-unknown-linux-gnu }
-          - { label: Windows x64, runner: ubuntu-24.04, platform: win, target: nsis, arch: x64, rust_target: x86_64-pc-windows-msvc }
+          - {
+              label: macOS arm64,
+              runner: macos-15,
+              platform: mac,
+              target: dmg,
+              arch: arm64,
+              rust_target: aarch64-apple-darwin,
+            }
+          - {
+              label: macOS x64,
+              runner: macos-15,
+              platform: mac,
+              target: dmg,
+              arch: x64,
+              rust_target: x86_64-apple-darwin,
+            }
+          - {
+              label: Linux x64,
+              runner: ubuntu-24.04,
+              platform: linux,
+              target: AppImage,
+              arch: x64,
+              rust_target: x86_64-unknown-linux-gnu,
+            }
+          - {
+              label: Windows x64,
+              runner: ubuntu-24.04,
+              platform: win,
+              target: nsis,
+              arch: x64,
+              rust_target: x86_64-pc-windows-msvc,
+            }
     env:
       VERSION: ${{ needs.preflight.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # subtree pull needs the earlier squash commits.
+          fetch-depth: ${{ needs.preflight.outputs.channel == 'nightly' && '0' || '1' }}
+
+      - name: Refresh subtrees from source mains (nightly)
+        if: needs.preflight.outputs.channel == 'nightly'
+        env:
+          SOURCES: ${{ needs.preflight.outputs.sources }}
+        run: >-
+          .github/scripts/refresh-subtrees.sh
+          "$(jq -r .engine <<<"$SOURCES")"
+          "$(jq -r .web <<<"$SOURCES")"
+          "$(jq -r .shared <<<"$SOURCES")"
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1
@@ -158,7 +332,7 @@ jobs:
           run-install: false
 
       - name: Install desktop dependencies
-        run: vp install --filter=@vekrel/desktop... --filter=vekrel-engine... --filter=@vekrel/scripts...
+        run: vp install --filter=@vekrel/desktop... --filter=vekrel-engine... --filter=@vekrel/scripts... ${{ needs.preflight.outputs.channel == 'nightly' && '--no-frozen-lockfile' || '' }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -343,16 +517,56 @@ jobs:
           done
           ls -la release-assets
 
+      # Updater feeds per channel: a nightly release must carry only
+      # `nightly*.yml` and a stable one only `latest*.yml`, or one channel's
+      # installs would be offered the other's builds.
+      - name: Check updater manifest channel
+        shell: bash
+        env:
+          CHANNEL: ${{ needs.preflight.outputs.channel }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          if [[ "$CHANNEL" == "nightly" ]]; then
+            wrong=(release-assets/latest*.yml)
+            expected=(release-assets/nightly*.yml)
+          else
+            wrong=(release-assets/nightly*.yml)
+            expected=(release-assets/latest*.yml)
+          fi
+          if [[ ${#wrong[@]} -ne 0 || ${#expected[@]} -eq 0 ]]; then
+            echo "$CHANNEL release has wrong updater manifests: ${wrong[*]:-none wrong}, expected ${expected[*]:-none found}" >&2
+            exit 1
+          fi
+
+      - name: Write nightly release notes
+        if: needs.preflight.outputs.channel == 'nightly'
+        shell: bash
+        env:
+          SOURCES: ${{ needs.preflight.outputs.sources }}
+          MARKER_SCRIPT: require('./.github/scripts/check-nightly-release.cjs').renderSourcesMarker(JSON.parse(process.env.SOURCES))
+        run: |
+          set -euo pipefail
+          {
+            echo "Nightly build. Expect rough edges; installs beside stable Vekrel and updates only to newer nightlies."
+            echo
+            jq -r '"Built from " + ([to_entries[] | "vekrel/\(.key)@`\(.value[0:12])`"] | join(", ")) + "."' <<<"$SOURCES"
+            echo
+            node -p "$MARKER_SCRIPT"
+          } > release-notes.md
+          cat release-notes.md
+
       - name: Publish release
         if: needs.preflight.outputs.dry_run != 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.preflight.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: Vekrel v${{ needs.preflight.outputs.version }}
+          name: ${{ needs.preflight.outputs.name }}
+          body_path: ${{ needs.preflight.outputs.channel == 'nightly' && 'release-notes.md' || '' }}
           generate_release_notes: true
           prerelease: ${{ needs.preflight.outputs.is_prerelease }}
-          make_latest: ${{ needs.preflight.outputs.is_prerelease == 'false' }}
+          make_latest: ${{ needs.preflight.outputs.make_latest }}
           files: |
             release-assets/*.dmg
             release-assets/*.zip

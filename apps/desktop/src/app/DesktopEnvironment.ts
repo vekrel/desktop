@@ -228,7 +228,11 @@ const make = Effect.fn("desktop.environment.make")(function* (
     branding,
     displayName,
     appUserModelId: Option.getOrElse(config.appUserModelIdOverride, () =>
-      isDevelopment ? "dev.vekrel.desktop.dev" : "dev.vekrel.desktop",
+      isDevelopment
+        ? "dev.vekrel.desktop.dev"
+        : isNightlyDesktopVersion(input.appVersion)
+          ? "dev.vekrel.desktop.nightly"
+          : "dev.vekrel.desktop",
     ),
     linuxDesktopEntryName: resolveLinuxDesktopEntryName(isDevelopment),
     linuxWmClass: isDevelopment ? "vekrel-dev" : "vekrel",

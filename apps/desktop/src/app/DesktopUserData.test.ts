@@ -40,3 +40,23 @@ it.effect.each(["vekrel", "Vekrel (Alpha)"])(
       );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
+
+it.effect("gives nightly builds their own profile beside stable", () =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const nightly = yield* resolveUserDataPath({
+      appDataDirectory: "/appdata",
+      isDevelopment: false,
+      platform: "darwin",
+      appVersion: "0.1.3-nightly.20261028.4",
+    });
+    assert.equal(nightly, path.join("/appdata", "vekrel-nightly"));
+    const stable = yield* resolveUserDataPath({
+      appDataDirectory: "/appdata",
+      isDevelopment: false,
+      platform: "darwin",
+      appVersion: "0.1.2",
+    });
+    assert.equal(stable, path.join("/appdata", "vekrel-v2"));
+  }).pipe(Effect.provide(NodeServices.layer)),
+);
