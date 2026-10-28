@@ -54,12 +54,13 @@ jobs:
           DISPATCH_DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            raw="${DISPATCH_VERSION:-$(node -p 'require("./apps/desktop/package.json").version')}"
-            dry_run="${DISPATCH_DRY_RUN}"
-          else
+          # Only a tag push publishes; anything else is a dry run unless asked.
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             raw="${GITHUB_REF_NAME}"
             dry_run=false
+          else
+            raw="${DISPATCH_VERSION:-$(node -p 'require("./apps/desktop/package.json").version')}"
+            dry_run="${DISPATCH_DRY_RUN:-true}"
           fi
 
           version="${raw#v}"
