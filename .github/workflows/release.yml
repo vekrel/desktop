@@ -198,22 +198,32 @@ jobs:
             echo "make_latest=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # The platform-independent JS (server bundle, web client, Electron main) is
-  # built exactly once here and handed to every platform job as `js-bundle`.
-  build_bundle:
-    name: Build JS bundle
+  # Nightly only, and the only job that resolves dependencies unfrozen: it
+  # pulls the subtrees from the source mains and updates the lockfile without
+  # installing or running lifecycle scripts, with no secrets in reach. Build and
+  # signing jobs unpack its tarball and install with the frozen lockfile.
+  refresh_sources:
+    name: Refresh nightly sources
     needs: [preflight]
+    if: needs.preflight.outputs.channel == 'nightly'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           # subtree pull needs the earlier squash commits.
-          fetch-depth: ${{ needs.preflight.outputs.channel == 'nightly' && '0' || '1' }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Refresh subtrees from source mains (nightly)
-        if: needs.preflight.outputs.channel == 'nightly'
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: false
+          run-install: false
+
+      - name: Refresh subtrees from source mains
         env:
           SOURCES: ${{ needs.preflight.outputs.sources }}
         run: >-
@@ -221,6 +231,51 @@ jobs:
           "$(jq -r .engine <<<"$SOURCES")"
           "$(jq -r .web <<<"$SOURCES")"
           "$(jq -r .shared <<<"$SOURCES")"
+
+      - name: Update lockfile
+        run: vp install --lockfile-only --no-frozen-lockfile --ignore-scripts
+
+      - name: Pack refreshed sources
+        run: |
+          git status --short pnpm-lock.yaml
+          tar -czf "$RUNNER_TEMP/nightly-sources.tar.gz" --exclude=node_modules apps/server apps/web packages pnpm-lock.yaml
+
+      - name: Upload refreshed sources
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-sources
+          path: ${{ runner.temp }}/nightly-sources.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  # The platform-independent JS (server bundle, web client, Electron main) is
+  # built exactly once here and handed to every platform job as `js-bundle`.
+  build_bundle:
+    name: Build JS bundle
+    needs: [preflight, refresh_sources]
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.refresh_sources.result != 'failure' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Replaces the subtrees and lockfile with the refresh_sources output.
+      - name: Download refreshed sources (nightly)
+        if: needs.preflight.outputs.channel == 'nightly'
+        uses: actions/download-artifact@v8
+        with:
+          name: nightly-sources
+          path: ${{ runner.temp }}/nightly-sources
+
+      - name: Apply refreshed sources (nightly)
+        if: needs.preflight.outputs.channel == 'nightly'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf apps/server apps/web packages
+          tar -xzf "$RUNNER_TEMP/nightly-sources/nightly-sources.tar.gz"
+          git status --short | tail -5
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1
@@ -230,7 +285,7 @@ jobs:
           run-install: false
 
       - name: Install bundle dependencies
-        run: vp install --filter=vekrel-engine... --filter=@vekrel/web... --filter=@vekrel/desktop... --filter=@vekrel/scripts... ${{ needs.preflight.outputs.channel == 'nightly' && '--no-frozen-lockfile' || '' }}
+        run: vp install --filter=vekrel-engine... --filter=@vekrel/web... --filter=@vekrel/desktop... --filter=@vekrel/scripts...
 
       - name: Align package versions to release version
         run: node scripts/update-release-package-versions.ts "${{ needs.preflight.outputs.version }}"
@@ -266,7 +321,8 @@ jobs:
   # release-desktop.yml when needed.
   desktop:
     name: Desktop ${{ matrix.label }}
-    needs: [preflight, build_bundle]
+    needs: [preflight, refresh_sources, build_bundle]
+    if: ${{ !cancelled() && needs.build_bundle.result == 'success' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
     strategy:
@@ -310,19 +366,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          # subtree pull needs the earlier squash commits.
-          fetch-depth: ${{ needs.preflight.outputs.channel == 'nightly' && '0' || '1' }}
 
-      - name: Refresh subtrees from source mains (nightly)
+      # Replaces the subtrees and lockfile with the refresh_sources output.
+      - name: Download refreshed sources (nightly)
         if: needs.preflight.outputs.channel == 'nightly'
-        env:
-          SOURCES: ${{ needs.preflight.outputs.sources }}
-        run: >-
-          .github/scripts/refresh-subtrees.sh
-          "$(jq -r .engine <<<"$SOURCES")"
-          "$(jq -r .web <<<"$SOURCES")"
-          "$(jq -r .shared <<<"$SOURCES")"
+        uses: actions/download-artifact@v8
+        with:
+          name: nightly-sources
+          path: ${{ runner.temp }}/nightly-sources
+
+      - name: Apply refreshed sources (nightly)
+        if: needs.preflight.outputs.channel == 'nightly'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf apps/server apps/web packages
+          tar -xzf "$RUNNER_TEMP/nightly-sources/nightly-sources.tar.gz"
+          git status --short | tail -5
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1
@@ -332,7 +392,7 @@ jobs:
           run-install: false
 
       - name: Install desktop dependencies
-        run: vp install --filter=@vekrel/desktop... --filter=vekrel-engine... --filter=@vekrel/scripts... ${{ needs.preflight.outputs.channel == 'nightly' && '--no-frozen-lockfile' || '' }}
+        run: vp install --filter=@vekrel/desktop... --filter=vekrel-engine... --filter=@vekrel/scripts...
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -476,6 +536,7 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: [preflight, desktop]
+    if: ${{ !cancelled() && needs.desktop.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
