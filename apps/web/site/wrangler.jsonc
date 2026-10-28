@@ -1,0 +1,11 @@
+// Static site for vekrel.com (download, legal pages). Workers static assets, no script.
+// Deploy: `pnpm dlx wrangler@4 deploy -c apps/web/site/wrangler.jsonc`.
+{
+  "name": "vekrel-site",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./public", "not_found_handling": "404-page" },
+  "routes": [
+    { "pattern": "vekrel.com", "custom_domain": true },
+    { "pattern": "www.vekrel.com", "custom_domain": true },
+  ],
+}
