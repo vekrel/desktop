@@ -2864,7 +2864,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       icon: "icons",
       category: "Development",
       synopsis: "Desktop GUI for coding agents",
-      maintainer: "T3 Tools <hello@t3.codes>",
+      maintainer: "Vekrel <info@vekrel.com>",
       protocols: [
         {
           name: "Vekrel",
@@ -3815,9 +3815,9 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
     packageManager: rootPackageJson.packageManager,
     description:
       "Vekrel is an open-source desktop app for coding agents. Work with your existing agent subscriptions, review code changes, and run commands in your projects. Connect from desktop, web, or mobile to continue working remotely.",
-    license: "MIT",
-    homepage: "https://t3.codes",
-    author: "T3 Tools",
+    license: "AGPL-3.0-only",
+    homepage: "https://vekrel.com",
+    author: "Vekrel <info@vekrel.com>",
     main: "apps/desktop/dist-electron/boot.cjs",
     build: yield* createBuildConfig(
       options.platform,
